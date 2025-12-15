@@ -39,8 +39,14 @@ jobs:
           mv web/firmware/CalculusArmFirmware.ino.hex web/firmware/latest.hex
           rm -f web/firmware/*.elf
 
+      - name: Generate Version Tag
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "{\"revision\": \"$SHORT_SHA\", \"timestamp\": \"$TIMESTAMP\"}" > web/firmware/version.json
+
       - name: Commit HEX Artifact
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 Auto-Build: Firmware HEX [skip ci]"
-          file_pattern: "web/firmware/latest.hex"
+          commit_message: "🤖 Auto-Build: Firmware & Version Tag [skip ci]"
+          file_pattern: "web/firmware/*"

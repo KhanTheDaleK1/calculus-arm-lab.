@@ -306,7 +306,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
 // --- FLASHING (browser-based) ---
 async function handleFlashClick() {
     if (!port) { alert("Connect to the Arduino first."); return; }
-
+    
     const btn = document.getElementById('btn-flash');
     const original = btn.textContent;
     btn.disabled = true;
@@ -332,6 +332,18 @@ async function handleFlashClick() {
         // Re-open raw for flashing
         await port.open({ baudRate: 115200 });
 
+        // Fetch version metadata (optional)
+        let versionText = "Unknown";
+        try {
+            const vResp = await fetch('firmware/version.json?v=' + Date.now());
+            if (vResp.ok) {
+                const vData = await vResp.json();
+                versionText = vData.revision || versionText;
+            }
+        } catch (e) {
+            console.warn("Version fetch failed", e);
+        }
+
         btn.textContent = "⬇️ Downloading HEX...";
         const resp = await fetch('firmware/latest.hex?v=' + Date.now());
         if (!resp.ok) throw new Error("Firmware not found (build may still be running).");
@@ -346,7 +358,7 @@ async function handleFlashClick() {
             btn.textContent = `🔥 Writing ${pct}%`;
         });
 
-        alert("✅ Firmware flashed successfully. Reconnecting...");
+        alert(`✅ Firmware flashed successfully.\nRevision: ${versionText}\nReconnecting...`);
     } catch (err) {
         console.error(err);
         alert("❌ Flash failed: " + err.message + "\nTry pressing RESET as you click Flash.");
