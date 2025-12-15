@@ -31,9 +31,10 @@ void setup() {
   Serial.begin(115200); 
   
   // 2. Attach Servos
-  baseServo.attach(PIN_BASE);
-  shoulderServo.attach(PIN_SHOULDER);
-  elbowServo.attach(PIN_ELBOW);
+  // Use wider pulse widths so SG90 servos can sweep closer to the full 0–180 range.
+  baseServo.attach(PIN_BASE, 500, 2400);
+  shoulderServo.attach(PIN_SHOULDER, 500, 2400);
+  elbowServo.attach(PIN_ELBOW, 500, 2400);
 
   // 3. Move to Home Position
   updateServos();

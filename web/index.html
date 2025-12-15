@@ -31,20 +31,20 @@
             
             <!-- LEFT: Controls & Kinematics -->
             <section class="panel control-panel">
-                <h2>1. Vector Control (Inverse Kinematics)</h2>
+                <h2>1. Joint Control (Direct)</h2>
                 <div class="slider-group">
-                    <label>Target X (cm) <span id="val-x">0</span></label>
-                    <input type="range" id="slider-x" min="-20" max="20" step="0.5" value="0">
+                    <label>Base (X axis) Angle <span id="val-x">90</span>°</label>
+                    <input type="range" id="slider-x" min="0" max="180" step="1" value="90">
                     
-                    <label>Target Y (cm) <span id="val-y">15</span></label>
-                    <input type="range" id="slider-y" min="5" max="30" step="0.5" value="15">
+                    <label>Shoulder (Y axis) Angle <span id="val-y">90</span>°</label>
+                    <input type="range" id="slider-y" min="0" max="180" step="1" value="90">
                     
-                    <label>Target Z (Height cm) <span id="val-z">5</span></label>
-                    <input type="range" id="slider-z" min="0" max="20" step="0.5" value="5">
+                    <label>Elbow (Z axis) Angle <span id="val-z">90</span>°</label>
+                    <input type="range" id="slider-z" min="0" max="180" step="1" value="90">
                 </div>
                 
                 <div class="servo-feedback">
-                    <h3>Servo Angles ( calculated )</h3>
+                    <h3>Servo Angles (direct)</h3>
                     <div class="readout">Base (θ₁): <span id="out-base">90°</span></div>
                     <div class="readout">Shoulder (θ₂): <span id="out-shoulder">90°</span></div>
                     <div class="readout">Elbow (θ₃): <span id="out-elbow">90°</span></div>

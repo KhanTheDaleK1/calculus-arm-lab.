@@ -1,15 +1,9 @@
 // js/app.js
 
-// --- CONFIGURATION ---
-const ARM_GEOMETRY = {
-    L1: 8.0, // Shoulder to Elbow (cm)
-    L2: 8.0  // Elbow to Wrist (cm)
-};
-
 // --- STATE ---
 let state = {
-    target: { x: 0, y: 15, z: 5 }, // Cartesian Targets
-    angles: { base: 90, shoulder: 90, elbow: 90 }, // Servo Angles
+    target: { x: 90, y: 90, z: 90 }, // direct joint angles
+    angles: { base: 90, shoulder: 90, elbow: 90 },
     telemetry: { dist: 0 },
     history: {
         x: [], y: [], time: []
@@ -23,6 +17,8 @@ let port;
 let writer;
 let keepReading = false;
 let knownPorts = [];
+
+const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
 // 1. Initialize: Check for available ports on load
 async function initSerial() {
@@ -179,94 +175,37 @@ async function sendCommand(b, s, e) {
     }
 }
 
-// --- INVERSE KINEMATICS ---
-function calculateIK(x, y, z) {
-    // 1. Base Angle (Atan2 of Y/X)
-    // Note: MeArm 90 is center. 0 is Right, 180 is Left.
-    // X=0 -> 90. X>0 -> <90. X<0 -> >90.
-    let thetaBase = Math.atan2(x, y) * (180 / Math.PI);
-    let baseAngle = 90 + thetaBase; // Adjust mapping as needed
-
-    // 2. Planar Distance (Distance from base pivot to target on ground)
-    let r_planar = Math.sqrt(x*x + y*y);
-    
-    // 3. Wrist Coordinate (in Shoulder-Elbow Plane)
-    // R (horizontal) = r_planar
-    // Z (vertical) = z
-    let R = r_planar;
-    let Z = z;
-    
-    let L1 = ARM_GEOMETRY.L1;
-    let L2 = ARM_GEOMETRY.L2;
-    
-    // Distance from Shoulder pivot to Wrist
-    let hypotenuse = Math.sqrt(R*R + Z*Z);
-    
-    // Clamp reach
-    if (hypotenuse > (L1 + L2)) hypotenuse = L1 + L2;
-    
-    // Law of Cosines for Elbow (Inner Angle)
-    // c^2 = a^2 + b^2 - 2ab cos(C)
-    // hyp^2 = L1^2 + L2^2 - 2*L1*L2*cos(elbow_inner)
-    let cos_angle_elbow = (L1*L1 + L2*L2 - hypotenuse*hypotenuse) / (2 * L1 * L2);
-    // Clamp domain for acos
-    if (cos_angle_elbow > 1.0) cos_angle_elbow = 1.0;
-    if (cos_angle_elbow < -1.0) cos_angle_elbow = -1.0;
-    
-    let angle_elbow_rad = Math.acos(cos_angle_elbow);
-    // Convert to servo angle (MeArm Geometry dependent)
-    // Usually 90 is 90 degrees.
-    let elbowAngle = 180 - (angle_elbow_rad * (180/Math.PI)); 
-
-    // Shoulder Calculation
-    // Angle of the hypotenuse
-    let angle_hyp = Math.atan2(Z, R);
-    
-    // Angle from hypotenuse to L1 (Law of Cosines again)
-    // L2^2 = L1^2 + hyp^2 - 2*L1*hyp*cos(alpha)
-    let cos_angle_alpha = (L1*L1 + hypotenuse*hypotenuse - L2*L2) / (2 * L1 * hypotenuse);
-    if (cos_angle_alpha > 1.0) cos_angle_alpha = 1.0;
-    let angle_alpha = Math.acos(cos_angle_alpha);
-    
-    let shoulder_rad = angle_hyp + angle_alpha;
-    let shoulderAngle = shoulder_rad * (180/Math.PI);
-
-    return {
-        base: baseAngle,
-        shoulder: shoulderAngle,
-        elbow: elbowAngle
-    };
-}
-
-// --- UI UPDATES ---
+// --- DIRECT CONTROL ---
 function update() {
-    // 1. Get Targets
-    let x = parseFloat(document.getElementById('slider-x').value);
-    let y = parseFloat(document.getElementById('slider-y').value);
-    let z = parseFloat(document.getElementById('slider-z').value);
+    // 1. Get direct joint targets
+    let x = parseFloat(document.getElementById('slider-x').value); // base
+    let y = parseFloat(document.getElementById('slider-y').value); // shoulder
+    let z = parseFloat(document.getElementById('slider-z').value); // elbow
     
     // Update labels
     document.getElementById('val-x').textContent = x;
     document.getElementById('val-y').textContent = y;
     document.getElementById('val-z').textContent = z;
 
-    // 2. Calculate IK
-    let angles = calculateIK(x, y, z);
-    
-    // 3. Update Text
-    document.getElementById('out-base').textContent = Math.round(angles.base) + "°";
-    document.getElementById('out-shoulder').textContent = Math.round(angles.shoulder) + "°";
-    document.getElementById('out-elbow').textContent = Math.round(angles.elbow) + "°";
+    // Clamp and set state
+    state.angles.base = clamp(x, 0, 180);
+    state.angles.shoulder = clamp(y, 0, 180);
+    state.angles.elbow = clamp(z, 0, 180);
 
-    // 4. Send to Arduino (Throttled)
-    sendCommand(angles.base, angles.shoulder, angles.elbow);
+    // Update Text
+    document.getElementById('out-base').textContent = Math.round(state.angles.base) + "°";
+    document.getElementById('out-shoulder').textContent = Math.round(state.angles.shoulder) + "°";
+    document.getElementById('out-elbow').textContent = Math.round(state.angles.elbow) + "°";
+
+    // Send to Arduino
+    sendCommand(state.angles.base, state.angles.shoulder, state.angles.elbow);
     
-    // 5. Math Updates
-    let r = Math.sqrt(x*x + y*y).toFixed(2);
+    // Math Updates (use base/shoulder as x/y for plotting function demonstration)
+    let r = Math.sqrt(state.angles.base**2 + state.angles.shoulder**2).toFixed(2);
     document.getElementById('math-r').textContent = r;
     
-    // 6. Plotting
-    updatePlot(x, y);
+    // Plotting (base on x-axis, shoulder on y-axis)
+    updatePlot(state.angles.base, state.angles.shoulder);
 }
 
 // --- PLOTTING ---
@@ -274,22 +213,39 @@ function initPlot() {
     let trace1 = {
         x: [],
         y: [],
-        mode: 'lines+markers',
+        mode: 'lines',
         type: 'scatter',
-        name: 'Trajectory',
-        line: { color: '#00ff9d' }
+        name: 'f(x) path',
+        line: { color: '#00ff9d', width: 3, shape: 'spline' }
     };
 
     let layout = {
-        title: 'Top-Down Trajectory (X vs Y)',
+        title: 'Function Graph: y = f(x)',
         paper_bgcolor: '#1e1e1e',
         plot_bgcolor: '#121212',
-        font: { color: '#e0e0e0' },
-        xaxis: { range: [-20, 20], title: 'X Axis (cm)' },
-        yaxis: { range: [0, 30], title: 'Y Axis (cm)' }
+        font: { color: '#e0e0e0', family: 'monospace' },
+        xaxis: { 
+            range: [0, 180], 
+            title: 'Base Angle (deg)',
+            zeroline: true,
+            zerolinecolor: '#666',
+            gridcolor: '#333',
+            dtick: 30
+        },
+        yaxis: { 
+            range: [0, 180], 
+            title: 'Shoulder Angle (deg)',
+            scaleanchor: "x",
+            scaleratio: 1,
+            zeroline: true,
+            zerolinecolor: '#666',
+            gridcolor: '#333',
+            dtick: 30
+        },
+        margin: { l: 50, r: 20, t: 40, b: 40 }
     };
 
-    Plotly.newPlot('plot-container', [trace1], layout);
+    Plotly.newPlot('plot-container', [trace1], layout, { responsive: true });
 }
 
 function updatePlot(x, y) {
@@ -331,11 +287,11 @@ document.getElementById('btn-record').addEventListener('click', () => {
     state.recording = !state.recording;
     let btn = document.getElementById('btn-record');
     if (state.recording) {
-        btn.textContent = "⏹ Stop Recording";
+        btn.textContent = "⏹ Stop Trace";
         btn.style.backgroundColor = "#ff4757";
         state.startTime = Date.now();
     } else {
-        btn.textContent = "🔴 Record Trace";
+        btn.textContent = "🔴 Record Function";
         btn.style.backgroundColor = "#333";
     }
 });
@@ -345,14 +301,15 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     state.history.y = [];
     state.history.time = [];
     Plotly.newPlot('plot-container', [{
-        x: [], y: [], mode: 'lines+markers', type: 'scatter', line: { color: '#00ff9d' }
+        x: [], y: [], mode: 'lines', type: 'scatter', line: { color: '#00ff9d', width: 3, shape: 'spline' }
     }], {
         paper_bgcolor: '#1e1e1e',
         plot_bgcolor: '#121212',
-        font: { color: '#e0e0e0' },
-        xaxis: { range: [-20, 20], title: 'X' },
-        yaxis: { range: [0, 30], title: 'Y' }
-    });
+        font: { color: '#e0e0e0', family: 'monospace' },
+        xaxis: { range: [0, 180], title: 'Base Angle (deg)', zeroline: true, zerolinecolor: '#666', gridcolor: '#333', dtick: 30 },
+        yaxis: { range: [0, 180], title: 'Shoulder Angle (deg)', scaleanchor: "x", scaleratio: 1, zeroline: true, zerolinecolor: '#666', gridcolor: '#333', dtick: 30 },
+        margin: { l: 50, r: 20, t: 40, b: 40 }
+    }, { responsive: true });
 });
 
 // Initialize
