@@ -1,13 +1,20 @@
 /**
- * CalculusArm v4.2 - Tangent Visualizer
+ * CalculusArm v4.3 - Golden Master
  */
 
 function log(msg) {
     const box = document.getElementById('log-output');
-    if(!box) return;
     const time = new Date().toLocaleTimeString();
     box.innerHTML += `<div>[${time}] ${msg}</div>`;
     box.scrollTop = box.scrollHeight;
+}
+
+// --- TOGGLE LOG ---
+function toggleLog() {
+    const panel = document.getElementById('sys-log-panel');
+    const icon = document.getElementById('log-icon');
+    panel.classList.toggle('collapsed');
+    icon.textContent = panel.classList.contains('collapsed') ? "▲" : "▼";
 }
 
 // --- STATE ---
@@ -50,7 +57,7 @@ function computeFK() {
 function updateUI() {
     if (port && writer) {
         const cmd = `S:${state.theta1},${state.theta2},${state.theta3}\n`;
-        writer.write(cmd).catch(err => console.log(err));
+        writer.write(cmd).catch(err => log("Serial Error: " + err));
     }
 
     document.getElementById('out-x').textContent = state.x.toFixed(2);
@@ -78,12 +85,11 @@ function update() {
     updateUI();
 }
 
-// --- MATH ENGINE ---
+// --- MATH ---
 function updateMath(x, y, z) {
     const now = performance.now() / 1000;
     state.liveBuffer.push({ t: now, x, y, z });
     
-    // Window: 1.0s
     while (state.liveBuffer.length > 0 && (now - state.liveBuffer[0].t > 1.0)) {
         state.liveBuffer.shift();
     }
@@ -91,7 +97,7 @@ function updateMath(x, y, z) {
     const buf = state.liveBuffer;
     if (buf.length < 2) return;
 
-    // Velocity (Last 2 points)
+    // Velocity
     const last = buf[buf.length-1];
     const prev = buf[buf.length-2];
     const dt = last.t - prev.t;
@@ -108,11 +114,10 @@ function updateMath(x, y, z) {
         const speed = Math.sqrt(vx*vx + vy*vy + vz*vz);
         document.getElementById('math-speed').textContent = speed.toFixed(2);
         
-        // Pass velocity to plotter for Tangent drawing
         if (state.recording) updateTangents(vx, vy, vz);
     }
 
-    // Regression (Display Only)
+    // Regression
     const t0 = buf[0].t;
     const times = buf.map(p => p.t - t0);
     const mx = calculateRegression(times, buf.map(p => p.x));
@@ -145,14 +150,12 @@ function calculateRegression(times, values) {
 
 // --- PLOTTING ---
 function initPlot() {
-    log("Initializing Plot...");
-    // Main Traces (0, 1, 2)
     const common = { mode: 'lines', type: 'scatter', line: { width: 2 } };
     const traceX = { ...common, x: [], y: [], name: 'x(t)', line: { color: '#ff4757' } };
     const traceY = { ...common, x: [], y: [], name: 'y(t)', line: { color: '#2ed573' } };
     const traceZ = { ...common, x: [], y: [], name: 'z(t)', line: { color: '#1e90ff' } };
 
-    // Tangent Traces (3, 4, 5) - Dashed "Ghost" Lines
+    // Tangents (Dashed)
     const tanStyle = { mode: 'lines', type: 'scatter', showlegend: false, line: { width: 1, dash: 'dot' } };
     const tanX = { ...tanStyle, x: [], y: [], line: { ...tanStyle.line, color: '#ff4757' }, opacity: 0.7 };
     const tanY = { ...tanStyle, x: [], y: [], line: { ...tanStyle.line, color: '#2ed573' }, opacity: 0.7 };
@@ -168,12 +171,14 @@ function initPlot() {
         yaxis: { title: 'Pos (cm)', gridcolor:'#333' }
     };
     
-    Plotly.newPlot('plot-container', [traceX, traceY, traceZ, tanX, tanY, tanZ], layout, {responsive: true});
+    try {
+        Plotly.newPlot('plot-container', [traceX, traceY, traceZ, tanX, tanY, tanZ], layout, {responsive: true});
+        log("Plot Initialized.");
+    } catch(e) { log("Plot Error: " + e.message); }
 }
 
 function updatePlot(x, y, z) {
     if (!state.recording) return;
-    
     const t = (Date.now() - state.startTime) / 1000;
     
     state.history.x.push(x);
@@ -181,7 +186,6 @@ function updatePlot(x, y, z) {
     state.history.z.push(z);
     state.history.time.push(t);
 
-    // Update Main Lines (Traces 0-2)
     Plotly.extendTraces('plot-container', {
         x: [[t], [t], [t]],
         y: [[x], [y], [z]]
@@ -189,36 +193,22 @@ function updatePlot(x, y, z) {
 }
 
 function updateTangents(vx, vy, vz) {
-    if (!state.recording) return;
-    
-    // We assume current t is the last point in history
-    if (state.history.time.length === 0) return;
-    
+    if (!state.recording || state.history.time.length === 0) return;
     const t = state.history.time[state.history.time.length-1];
     const x = state.history.x[state.history.x.length-1];
     const y = state.history.y[state.history.y.length-1];
     const z = state.history.z[state.history.z.length-1];
 
-    // Calculate Tangent Segment (Current -> +1 sec into future)
-    // Formula: pos_future = pos_current + velocity * delta_t
-    const dt_proj = 1.0; 
-    
-    const x_end = x + vx * dt_proj;
-    const y_end = y + vy * dt_proj;
-    const z_end = z + vz * dt_proj;
-    const t_end = t + dt_proj;
-
-    // Update Tangent Traces (indices 3, 4, 5) efficiently using restyle
-    // We draw a line from (t, x) to (t_end, x_end)
+    const dt = 1.0; 
     Plotly.restyle('plot-container', {
-        x: [[t, t_end], [t, t_end], [t, t_end]],
-        y: [[x, x_end], [y, y_end], [z, z_end]]
+        x: [[t, t+dt], [t, t+dt], [t, t+dt]],
+        y: [[x, x+vx*dt], [y, y+vy*dt], [z, z+vz*dt]]
     }, [3, 4, 5]);
 }
 
-// --- SERIAL (Standard) ---
+// --- SERIAL ---
 async function initSerial() {
-    if (!navigator.serial) return;
+    if (!navigator.serial) { log("Web Serial not supported."); return; }
     navigator.serial.addEventListener('connect', refreshPorts);
     navigator.serial.addEventListener('disconnect', refreshPorts);
     await refreshPorts();
@@ -241,10 +231,14 @@ async function refreshPorts() {
 async function handleConnect() {
     const sel = document.getElementById('serial-port-list');
     if (port) { location.reload(); return; }
+    
     try {
         if (sel.value === 'prompt') port = await navigator.serial.requestPort();
         else port = (await navigator.serial.getPorts())[parseInt(sel.value)];
+        
         await port.open({ baudRate: 115200 });
+        log("Port Opened.");
+        
         const enc = new TextEncoderStream();
         writableStreamClosed = enc.readable.pipeTo(port.writable);
         writer = enc.writable.getWriter();
@@ -275,6 +269,7 @@ async function handleFlash() {
     log("Flashing...");
     const btn = document.getElementById('btn-flash');
     btn.disabled = true;
+    
     try {
         keepReading = false;
         if(serialReader) await serialReader.cancel().catch(e=>{});
@@ -289,16 +284,16 @@ async function handleFlash() {
         
         let rev = "Unknown";
         try {
-            const r = await fetch('firmware/version.json?v='+Date.now());
-            if(r.ok) rev = (await r.json()).revision;
+            const vRes = await fetch('firmware/version.json?v='+Date.now());
+            if(vRes.ok) rev = (await vRes.json()).revision;
         } catch(e){}
         
         const flasher = new STK500(port, { debug: false });
         await flasher.reset();
         await flasher.flashHex(hex, (p) => btn.textContent = `🔥 ${p}%`);
         
-        alert(`✅ Flashed Rev: ${rev}`);
-    } catch(e) { log("Flash Err: " + e); alert(e.message); } 
+        alert(`✅ Success! Rev: ${rev}`);
+    } catch(e) { log("Flash Error: " + e.message); alert(e.message); } 
     finally { location.reload(); }
 }
 
@@ -322,16 +317,17 @@ window.addEventListener('load', () => {
             btn.textContent = "⏹ Stop";
             btn.style.backgroundColor = "#ff4757";
             state.startTime = Date.now();
-            state.history = { x: [], y: [], z: [], time: [] };
-            initPlot(); 
+            log("Recording Started");
         } else {
             btn.textContent = "🔴 Record";
             btn.style.backgroundColor = "#333";
+            log("Recording Stopped");
         }
     });
     
     document.getElementById('btn-clear').addEventListener('click', () => {
         state.history = { x: [], y: [], z: [], time: [] };
         initPlot();
+        log("Graph Cleared");
     });
 });
