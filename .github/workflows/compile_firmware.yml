@@ -23,10 +23,13 @@ jobs:
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v1
+        with:
+          version: 1.0.4
 
       - name: Init Arduino CLI config
         run: |
           arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls https://downloads.arduino.cc/packages/package_index.json
           arduino-cli core update-index
 
       - name: Install AVR core
