@@ -267,6 +267,8 @@ function updatePlot(x, y, z) {
         x: [[t], [t], [t]],
         y: [[x], [y], [z]]
     }, [0, 1, 2]);
+
+    updateFunctionDisplay();
 }
 
 // --- EVENT LISTENERS ---
@@ -376,3 +378,45 @@ async function handleFlashClick() {
 // Initialize
 initPlot();
 update(); // Initial calculation
+
+// --- LIVE MATH MODELING ---
+function calculateRegression(times, values) {
+    const n = times.length;
+    if (n < 2) return { m: 0, b: 0 };
+
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (let i = 0; i < n; i++) {
+        sumX += times[i];
+        sumY += values[i];
+        sumXY += times[i] * values[i];
+        sumXX += times[i] * times[i];
+    }
+    const denom = (n * sumXX - sumX * sumX);
+    if (denom === 0) return { m: 0, b: 0 };
+
+    const m = (n * sumXY - sumX * sumY) / denom;
+    const b = (sumY - m * sumX) / n;
+    return { m, b };
+}
+
+function updateFunctionDisplay() {
+    const sliceSize = 30; // last ~1s assuming ~30Hz updates
+    const len = state.history.time.length;
+    if (len < 2) return;
+
+    const startIdx = Math.max(0, len - sliceSize);
+    const times = state.history.time.slice(startIdx);
+    const xs = state.history.x.slice(startIdx);
+    const ys = state.history.y.slice(startIdx);
+    const zs = state.history.z.slice(startIdx);
+
+    const modelX = calculateRegression(times, xs);
+    const modelY = calculateRegression(times, ys);
+    const modelZ = calculateRegression(times, zs);
+
+    const fmtLine = (m, b) => `${m.toFixed(2)}t ${b >= 0 ? "+ " : "- "}${Math.abs(b).toFixed(2)}`;
+
+    document.getElementById('func-x').textContent = `x(t) ≈ ${fmtLine(modelX.m, modelX.b)}`;
+    document.getElementById('func-y').textContent = `y(t) ≈ ${fmtLine(modelY.m, modelY.b)}`;
+    document.getElementById('func-z').textContent = `z(t) ≈ ${fmtLine(modelZ.m, modelZ.b)}`;
+}
