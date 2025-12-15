@@ -16,7 +16,7 @@ function toggleLog() {
     const panel = document.getElementById('sys-log-panel');
     const icon = document.getElementById('log-icon');
     panel.classList.toggle('collapsed');
-    icon.textContent = panel.classList.contains('collapsed') ? "▲" : "▼";
+    icon.textContent = panel.classList.contains("collapsed") ? "🐨" : "▼";
 }
 
 // --- STATE ---

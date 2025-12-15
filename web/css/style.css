@@ -14,6 +14,16 @@ body { margin: 0; padding: 0; background: var(--bg-color); color: var(--text-mai
 
 /* HEADER */
 header { background: #000; border-bottom: 1px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+
+/* MOM ICON STYLE */
+.header-left { display: flex; align-items: center; gap: 15px; }
+.mom-icon { 
+    height: 45px; width: 45px; 
+    border-radius: 50%; 
+    border: 2px solid var(--accent); 
+    object-fit: cover;
+}
+
 h1 { margin: 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; }
 .highlight { color: var(--accent); }
 
@@ -32,7 +42,7 @@ select { background: #333; color: #fff; border: 1px solid #555; padding: 5px; bo
 /* LAYOUT */
 .grid-layout { display: grid; grid-template-columns: 280px 1fr 300px; gap: 10px; padding: 10px; flex-grow: 1; overflow: hidden; }
 .panel { background: var(--panel-bg); border: 1px solid #333; padding: 15px; overflow-y: auto; border-radius: 4px; }
-h2 { margin-top: 0; font-size: 1rem; color: #888; border-bottom: 1px solid #444; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+h2 { margin-top: 0; font-size: 1rem; color: #888; border-bottom: 1px solid #444; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; }
 
 /* SLIDERS */
 .slider-group { margin-bottom: 15px; }

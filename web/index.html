@@ -3,18 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CalculusArm Lab v5.0</title>
-    <link rel="stylesheet" href="css/style.css?v=1765836199">
+    <title>CalculusArm Lab 🐨</title>
+    <link rel="icon" href="assets/icon.jpg">
+    <link rel="stylesheet" href="css/style.css?v=1765837035">
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script src="js/stk500.js?v=1765836199"></script>
-    <script src="js/jokes.js?v=1765836199"></script>
+    <script src="js/stk500.js?v=1765837035"></script>
+    <script src="js/jokes.js?v=1765837035"></script>
 </head>
 <body>
     <div class="app-container">
         <header>
-            <h1>CalculusArm <span class="highlight">Dynamics Lab</span></h1>
+            <div class="header-left">
+                <img src="assets/icon.jpg" class="mom-icon" alt="Mom" onerror="this.style.display='none'">
+                <h1>CalculusArm <span class="highlight">Dynamics Lab</span> 🐨</h1>
+            </div>
             <div class="connection-status">
                 <select id="serial-port-list" class="port-dropdown"><option value="prompt">🔌 Add New Device...</option></select>
                 <button id="btn-open-port" class="btn primary">Connect</button>
@@ -25,7 +29,7 @@
 
         <main class="grid-layout">
             <section class="panel control-panel">
-                <h2>1. Configuration Space ($\mathcal{C}$)</h2>
+                <h2>1. Configuration ($\mathcal{C}$) <span>🐨</span></h2>
                 <p style="font-size: 0.8rem; color: #888;">Joint Vector $\mathbf{q} = [\theta_1, \theta_2, \theta_3]^T$</p>
                 
                 <div class="slider-group">
@@ -41,14 +45,14 @@
                     <input type="range" id="slider-theta3" min="0" max="180" value="90">
                 </div>
                 
-                <div class="help-box">
-                    <p><strong>Note:</strong> Servos use Degrees. Calculus uses Radians.</p>
-                    <a href="https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all" target="_blank">Download Drivers (Laptop)</a>
+                <div class="help-box" style="margin-top:20px; font-size: 0.8rem; color: #888;">
+                    <p><strong>Note:</strong> Servo hardware operates in Degrees. Calculus uses Radians.</p>
+                    <a href="https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all" target="_blank" style="color:#d05ce3;">Download Drivers (Laptop)</a>
                 </div>
             </section>
 
             <section class="panel vis-panel">
-                <h2>2. Task Space ($\mathbb{R}^3$)</h2>
+                <h2>2. Task Space ($\mathbb{R}^3$) <span>🐨</span></h2>
                 <div id="plot-container" style="width:100%; height:400px; background:#121212;"></div>
                 <div class="plot-controls">
                     <button id="btn-record" class="btn action">🔴 Record Motion</button>
@@ -56,13 +60,13 @@
                 </div>
 
                 <div id="math-joke-container">
-                    <span id="math-joke-header">[Math Joke of the Session]</span>
+                    <span id="math-joke-header">[Math Joke of the Session 🐨]</span><br>
                     <span id="math-joke-text">Loading humor...</span>
                 </div>
             </section>
 
             <section class="panel math-panel">
-                <h2>3. Kinematics Analysis</h2>
+                <h2>3. Analysis <span>🐨</span></h2>
                 <div class="math-module">
                     <h3>Forward Kinematics (\mathbf{q})$</h3>
                     <p>Position Vector $\mathbf{x} = \langle x, y, z \rangle$</p>
@@ -99,12 +103,12 @@
         <section id="sys-log-panel" class="system-log">
             <div class="log-header" onclick="toggleLog()">
                 <span>System Log</span>
-                <span id="log-icon">▼</span>
+                <span id="log-icon">🐨</span>
             </div>
             <div id="log-output">System Ready.</div>
         </section>
     </div>
     
-    <script src="js/app.js?v=1765836199"></script>
+    <script src="js/app.js?v=1765837035"></script>
 </body>
 </html>
