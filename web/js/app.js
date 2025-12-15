@@ -1,9 +1,10 @@
 /**
- * CalculusArm v4.1 - Mathematical Rigor Update
+ * CalculusArm v4.2 - Always-On Math Engine
  */
 
 function log(msg) {
     const box = document.getElementById('log-output');
+    if(!box) return;
     const time = new Date().toLocaleTimeString();
     box.innerHTML += `<div>[${time}] ${msg}</div>`;
     box.scrollTop = box.scrollHeight;
@@ -21,7 +22,10 @@ let state = {
     x: 0, y: 0, z: 0,
     recording: false,
     startTime: 0,
-    history: { x: [], y: [], z: [], time: [] }
+    // Long-term history for Plotting/CSV (only while recording)
+    history: { x: [], y: [], z: [], time: [] },
+    // Short-term rolling buffer for Live Math (always active)
+    liveBuffer: [] 
 };
 
 const L1 = 80; 
@@ -30,19 +34,17 @@ const D2R = Math.PI / 180;
 
 // --- KINEMATICS ---
 function computeFK() {
-    // 1. Convert to Radians (The Language of Calculus)
     const t1 = state.theta1 * D2R;
     const t2 = state.theta2 * D2R;
     const t3 = (state.theta3 - 90) * D2R; 
 
-    // 2. Geometric Projection f(q)
     const r = (L1 * Math.cos(t2)) + (L2 * Math.cos(t2 + t3));
     const z = (L1 * Math.sin(t2)) + (L2 * Math.sin(t2 + t3));
     
     const x = r * Math.cos(t1);
     const y = r * Math.sin(t1);
 
-    state.x = x / 10; // mm -> cm
+    state.x = x / 10; 
     state.y = y / 10;
     state.z = z / 10;
 }
@@ -50,29 +52,30 @@ function computeFK() {
 function updateUI() {
     if (port && writer) {
         const cmd = `S:${state.theta1},${state.theta2},${state.theta3}\n`;
-        writer.write(cmd).catch(err => log("Write Error: " + err));
+        writer.write(cmd).catch(err => console.log(err));
     }
 
-    // Task Space Output
     document.getElementById('out-x').textContent = state.x.toFixed(2);
     document.getElementById('out-y').textContent = state.y.toFixed(2);
     document.getElementById('out-z').textContent = state.z.toFixed(2);
 
+    // 1. Update Always-On Math
+    updateMath(state.x, state.y, state.z);
+
+    // 2. Update Plot (Only if Recording)
     updatePlot(state.x, state.y, state.z);
 }
 
 function update() {
-    // Read Inputs
     state.theta1 = parseInt(document.getElementById('slider-theta1').value);
     state.theta2 = parseInt(document.getElementById('slider-theta2').value);
     state.theta3 = parseInt(document.getElementById('slider-theta3').value);
 
-    // Display Degrees AND Radians
+    // Dual Unit Display
     const showDegRad = (idDeg, idRad, val) => {
         document.getElementById(idDeg).textContent = val + "°";
         document.getElementById(idRad).textContent = (val * D2R).toFixed(2) + "rad";
     };
-
     showDegRad('val-theta1-deg', 'val-theta1-rad', state.theta1);
     showDegRad('val-theta2-deg', 'val-theta2-rad', state.theta2);
     showDegRad('val-theta3-deg', 'val-theta3-rad', state.theta3);
@@ -81,45 +84,77 @@ function update() {
     updateUI();
 }
 
-// --- MATH ---
+// --- MATH ENGINE (Always On) ---
+function updateMath(x, y, z) {
+    const now = performance.now() / 1000; // High-precision seconds
+    
+    // Add to rolling buffer
+    state.liveBuffer.push({ t: now, x, y, z });
+    
+    // Keep last 1.5 seconds of data (approx 45 frames @ 30fps)
+    while (state.liveBuffer.length > 0 && (now - state.liveBuffer[0].t > 1.5)) {
+        state.liveBuffer.shift();
+    }
+
+    const buf = state.liveBuffer;
+    if (buf.length < 2) return;
+
+    // 1. Instantaneous Velocity (Last 2 points)
+    const last = buf[buf.length-1];
+    const prev = buf[buf.length-2];
+    const dt = last.t - prev.t;
+    
+    if (dt > 0.001) {
+        const vx = (last.x - prev.x) / dt;
+        const vy = (last.y - prev.y) / dt;
+        const vz = (last.z - prev.z) / dt;
+        
+        document.getElementById('vel-x').textContent = vx.toFixed(2);
+        document.getElementById('vel-y').textContent = vy.toFixed(2);
+        document.getElementById('vel-z').textContent = vz.toFixed(2);
+        
+        const speed = Math.sqrt(vx*vx + vy*vy + vz*vz);
+        document.getElementById('math-speed').textContent = speed.toFixed(2);
+    }
+
+    // 2. Regression (Least Squares on full buffer)
+    // Normalize time so t=0 is the start of the window (easier to read)
+    const t0 = buf[0].t;
+    const times = buf.map(p => p.t - t0);
+    const xs = buf.map(p => p.x);
+    const ys = buf.map(p => p.y);
+    const zs = buf.map(p => p.z);
+
+    const mx = calculateRegression(times, xs);
+    const my = calculateRegression(times, ys);
+    const mz = calculateRegression(times, zs);
+
+    const fmt = (m, b) => {
+        // If not moving much, clamp slope to 0 to avoid noise
+        if (Math.abs(m) < 0.05) m = 0;
+        return `${m.toFixed(2)}t ${b >= 0 ? "+" : "-"} ${Math.abs(b).toFixed(2)}`;
+    };
+
+    document.getElementById('func-x').textContent = `x(t) ≈ ${fmt(mx.m, mx.b)}`;
+    document.getElementById('func-y').textContent = `y(t) ≈ ${fmt(my.m, my.b)}`;
+    document.getElementById('func-z').textContent = `z(t) ≈ ${fmt(mz.m, mz.b)}`;
+}
+
 function calculateRegression(times, values) {
     const n = times.length;
-    if (n < 2) return { m: 0, b: 0 };
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     for (let i = 0; i < n; i++) {
         sumX += times[i]; sumY += values[i];
         sumXY += times[i] * values[i]; sumXX += times[i] * times[i];
     }
     const denom = (n * sumXX - sumX * sumX);
-    if (denom === 0) return { m: 0, b: 0 };
+    if (Math.abs(denom) < 0.0001) return { m: 0, b: values[0] || 0 }; // Vertical line protection
     const m = (n * sumXY - sumX * sumY) / denom;
     const b = (sumY - m * sumX) / n;
     return { m, b };
 }
 
-function updateRegressionDisplay() {
-    const slice = 30;
-    const len = state.history.time.length;
-    if (len < 2) return;
-    const start = Math.max(0, len - slice);
-    
-    const times = state.history.time.slice(start);
-    const xs = state.history.x.slice(start);
-    const ys = state.history.y.slice(start);
-    const zs = state.history.z.slice(start);
-
-    const mx = calculateRegression(times, xs);
-    const my = calculateRegression(times, ys);
-    const mz = calculateRegression(times, zs);
-
-    const fmt = (m, b) => `${m.toFixed(2)}t ${b >= 0 ? "+" : "-"} ${Math.abs(b).toFixed(2)}`;
-    
-    document.getElementById('func-x').textContent = `x(t) ≈ ${fmt(mx.m, mx.b)}`;
-    document.getElementById('func-y').textContent = `y(t) ≈ ${fmt(my.m, my.b)}`;
-    document.getElementById('func-z').textContent = `z(t) ≈ ${fmt(mz.m, mz.b)}`;
-}
-
-// --- PLOTTING ---
+// --- PLOTTING (Only when Recording) ---
 function initPlot() {
     log("Initializing Plot...");
     const common = { mode: 'lines', type: 'scatter', line: { width: 2 } };
@@ -144,33 +179,8 @@ function initPlot() {
 
 function updatePlot(x, y, z) {
     if (!state.recording) return;
-    const t = (Date.now() - state.startTime) / 1000;
     
-    // DIFFERENTIATION (Velocity Vector)
-    if (state.history.x.length > 0) {
-        const last = state.history.x.length - 1;
-        const dt = t - state.history.time[last];
-        
-        if (dt > 0.05) { // Avoid noise from super-fast updates
-            const dx = x - state.history.x[last];
-            const dy = y - state.history.y[last];
-            const dz = z - state.history.z[last];
-            
-            const vx = dx / dt;
-            const vy = dy / dt;
-            const vz = dz / dt;
-            
-            // Vector Components
-            document.getElementById('vel-x').textContent = vx.toFixed(2);
-            document.getElementById('vel-y').textContent = vy.toFixed(2);
-            document.getElementById('vel-z').textContent = vz.toFixed(2);
-            
-            // Speed (Euclidean Norm)
-            const speed = Math.sqrt(vx*vx + vy*vy + vz*vz);
-            document.getElementById('math-speed').textContent = speed.toFixed(2);
-        }
-    }
-
+    const t = (Date.now() - state.startTime) / 1000;
     state.history.x.push(x);
     state.history.y.push(y);
     state.history.z.push(z);
@@ -180,13 +190,11 @@ function updatePlot(x, y, z) {
         x: [[t], [t], [t]],
         y: [[x], [y], [z]]
     }, [0, 1, 2]);
-    
-    updateRegressionDisplay();
 }
 
-// --- SERIAL & FLASHING (Preserved) ---
+// --- SERIAL ---
 async function initSerial() {
-    if (!navigator.serial) { log("Web Serial not supported."); return; }
+    if (!navigator.serial) return;
     navigator.serial.addEventListener('connect', refreshPorts);
     navigator.serial.addEventListener('disconnect', refreshPorts);
     await refreshPorts();
@@ -214,7 +222,7 @@ async function handleConnect() {
         else port = (await navigator.serial.getPorts())[parseInt(sel.value)];
         
         await port.open({ baudRate: 115200 });
-        log("Port Opened.");
+        log("Port Connected.");
         const enc = new TextEncoderStream();
         writableStreamClosed = enc.readable.pipeTo(port.writable);
         writer = enc.writable.getWriter();
@@ -224,7 +232,7 @@ async function handleConnect() {
         document.getElementById('status-indicator').className = "status connected";
         document.getElementById('btn-open-port').textContent = "Disconnect";
         sel.disabled = true;
-    } catch(e) { log("Connect Error: " + e); alert(e); }
+    } catch(e) { log("Conn Error: " + e); alert(e); }
 }
 
 async function readLoop() {
@@ -234,18 +242,17 @@ async function readLoop() {
     serialReader = dec.readable.getReader();
     try {
         while(keepReading) {
-            const { value, done } = await serialReader.read();
+            const { done } = await serialReader.read();
             if(done) break;
         }
-    } catch(e) { } finally { serialReader.releaseLock(); }
+    } catch(e){} finally { serialReader.releaseLock(); }
 }
 
 async function handleFlash() {
     if(!port) { alert("Connect first"); return; }
-    log("Starting Flash...");
+    log("Flashing...");
     const btn = document.getElementById('btn-flash');
     btn.disabled = true;
-    
     try {
         keepReading = false;
         if(serialReader) await serialReader.cancel().catch(e=>{});
@@ -255,33 +262,29 @@ async function handleFlash() {
         
         await port.open({ baudRate: 115200 });
         const res = await fetch('firmware/latest.hex?v='+Date.now());
-        if(!res.ok) throw new Error("Hex not found");
+        if(!res.ok) throw new Error("No Hex");
         const hex = await res.text();
         
         let rev = "Unknown";
         try {
-            const vRes = await fetch('firmware/version.json?v='+Date.now());
-            if(vRes.ok) rev = (await vRes.json()).revision;
+            const r = await fetch('firmware/version.json?v='+Date.now());
+            if(r.ok) rev = (await r.json()).revision;
         } catch(e){}
         
         const flasher = new STK500(port, { debug: false });
         await flasher.reset();
         await flasher.flashHex(hex, (p) => btn.textContent = `🔥 ${p}%`);
         
-        alert(`✅ Success! Rev: ${rev}`);
-    } catch(e) {
-        log("Flash Error: " + e.message);
-        alert("Error: " + e.message);
-    } finally {
-        location.reload();
-    }
+        alert(`✅ Flashed Rev: ${rev}`);
+    } catch(e) { log("Flash Err: " + e); alert(e.message); } 
+    finally { location.reload(); }
 }
 
-// --- BOOTSTRAP ---
+// --- BOOT ---
 window.addEventListener('load', () => {
     initPlot();
     initSerial();
-    update(); // Initial FK
+    update(); // Init FK & Math
     
     ['theta1','theta2','theta3'].forEach(id => {
         document.getElementById('slider-'+id).addEventListener('input', update);
@@ -297,6 +300,9 @@ window.addEventListener('load', () => {
             btn.textContent = "⏹ Stop";
             btn.style.backgroundColor = "#ff4757";
             state.startTime = Date.now();
+            // Clear history on new record
+            state.history = { x: [], y: [], z: [], time: [] };
+            initPlot(); 
         } else {
             btn.textContent = "🔴 Record";
             btn.style.backgroundColor = "#333";
@@ -306,8 +312,5 @@ window.addEventListener('load', () => {
     document.getElementById('btn-clear').addEventListener('click', () => {
         state.history = { x: [], y: [], z: [], time: [] };
         initPlot();
-        document.getElementById('func-x').textContent = "x(t) ≈ --";
-        document.getElementById('func-y').textContent = "y(t) ≈ --";
-        document.getElementById('func-z').textContent = "z(t) ≈ --";
     });
 });
