@@ -1,5 +1,5 @@
 /**
- * CalculusArm v4.2 - Always-On Math Engine
+ * CalculusArm v4.2 - Tangent Visualizer
  */
 
 function log(msg) {
@@ -22,10 +22,8 @@ let state = {
     x: 0, y: 0, z: 0,
     recording: false,
     startTime: 0,
-    // Long-term history for Plotting/CSV (only while recording)
-    history: { x: [], y: [], z: [], time: [] },
-    // Short-term rolling buffer for Live Math (always active)
-    liveBuffer: [] 
+    liveBuffer: [],
+    history: { x: [], y: [], z: [], time: [] }
 };
 
 const L1 = 80; 
@@ -59,10 +57,7 @@ function updateUI() {
     document.getElementById('out-y').textContent = state.y.toFixed(2);
     document.getElementById('out-z').textContent = state.z.toFixed(2);
 
-    // 1. Update Always-On Math
     updateMath(state.x, state.y, state.z);
-
-    // 2. Update Plot (Only if Recording)
     updatePlot(state.x, state.y, state.z);
 }
 
@@ -71,7 +66,6 @@ function update() {
     state.theta2 = parseInt(document.getElementById('slider-theta2').value);
     state.theta3 = parseInt(document.getElementById('slider-theta3').value);
 
-    // Dual Unit Display
     const showDegRad = (idDeg, idRad, val) => {
         document.getElementById(idDeg).textContent = val + "°";
         document.getElementById(idRad).textContent = (val * D2R).toFixed(2) + "rad";
@@ -84,22 +78,20 @@ function update() {
     updateUI();
 }
 
-// --- MATH ENGINE (Always On) ---
+// --- MATH ENGINE ---
 function updateMath(x, y, z) {
-    const now = performance.now() / 1000; // High-precision seconds
-    
-    // Add to rolling buffer
+    const now = performance.now() / 1000;
     state.liveBuffer.push({ t: now, x, y, z });
     
-    // Keep last 1.5 seconds of data (approx 45 frames @ 30fps)
-    while (state.liveBuffer.length > 0 && (now - state.liveBuffer[0].t > 1.5)) {
+    // Window: 1.0s
+    while (state.liveBuffer.length > 0 && (now - state.liveBuffer[0].t > 1.0)) {
         state.liveBuffer.shift();
     }
 
     const buf = state.liveBuffer;
     if (buf.length < 2) return;
 
-    // 1. Instantaneous Velocity (Last 2 points)
+    // Velocity (Last 2 points)
     const last = buf[buf.length-1];
     const prev = buf[buf.length-2];
     const dt = last.t - prev.t;
@@ -115,22 +107,19 @@ function updateMath(x, y, z) {
         
         const speed = Math.sqrt(vx*vx + vy*vy + vz*vz);
         document.getElementById('math-speed').textContent = speed.toFixed(2);
+        
+        // Pass velocity to plotter for Tangent drawing
+        if (state.recording) updateTangents(vx, vy, vz);
     }
 
-    // 2. Regression (Least Squares on full buffer)
-    // Normalize time so t=0 is the start of the window (easier to read)
+    // Regression (Display Only)
     const t0 = buf[0].t;
     const times = buf.map(p => p.t - t0);
-    const xs = buf.map(p => p.x);
-    const ys = buf.map(p => p.y);
-    const zs = buf.map(p => p.z);
-
-    const mx = calculateRegression(times, xs);
-    const my = calculateRegression(times, ys);
-    const mz = calculateRegression(times, zs);
+    const mx = calculateRegression(times, buf.map(p => p.x));
+    const my = calculateRegression(times, buf.map(p => p.y));
+    const mz = calculateRegression(times, buf.map(p => p.z));
 
     const fmt = (m, b) => {
-        // If not moving much, clamp slope to 0 to avoid noise
         if (Math.abs(m) < 0.05) m = 0;
         return `${m.toFixed(2)}t ${b >= 0 ? "+" : "-"} ${Math.abs(b).toFixed(2)}`;
     };
@@ -148,22 +137,29 @@ function calculateRegression(times, values) {
         sumXY += times[i] * values[i]; sumXX += times[i] * times[i];
     }
     const denom = (n * sumXX - sumX * sumX);
-    if (Math.abs(denom) < 0.0001) return { m: 0, b: values[0] || 0 }; // Vertical line protection
+    if (Math.abs(denom) < 0.0001) return { m: 0, b: values[0] || 0 };
     const m = (n * sumXY - sumX * sumY) / denom;
     const b = (sumY - m * sumX) / n;
     return { m, b };
 }
 
-// --- PLOTTING (Only when Recording) ---
+// --- PLOTTING ---
 function initPlot() {
     log("Initializing Plot...");
+    // Main Traces (0, 1, 2)
     const common = { mode: 'lines', type: 'scatter', line: { width: 2 } };
     const traceX = { ...common, x: [], y: [], name: 'x(t)', line: { color: '#ff4757' } };
     const traceY = { ...common, x: [], y: [], name: 'y(t)', line: { color: '#2ed573' } };
     const traceZ = { ...common, x: [], y: [], name: 'z(t)', line: { color: '#1e90ff' } };
 
+    // Tangent Traces (3, 4, 5) - Dashed "Ghost" Lines
+    const tanStyle = { mode: 'lines', type: 'scatter', showlegend: false, line: { width: 1, dash: 'dot' } };
+    const tanX = { ...tanStyle, x: [], y: [], line: { ...tanStyle.line, color: '#ff4757' }, opacity: 0.7 };
+    const tanY = { ...tanStyle, x: [], y: [], line: { ...tanStyle.line, color: '#2ed573' }, opacity: 0.7 };
+    const tanZ = { ...tanStyle, x: [], y: [], line: { ...tanStyle.line, color: '#1e90ff' }, opacity: 0.7 };
+
     const layout = {
-        title: 'Task Space Trajectory (x,y,z vs Time)',
+        title: 'Task Space (x,y,z vs Time)',
         paper_bgcolor: '#1e1e1e', plot_bgcolor: '#121212',
         font: { color: '#e0e0e0', family: 'monospace' },
         margin: { l: 40, r: 10, t: 40, b: 30 },
@@ -172,27 +168,55 @@ function initPlot() {
         yaxis: { title: 'Pos (cm)', gridcolor:'#333' }
     };
     
-    try {
-        Plotly.newPlot('plot-container', [traceX, traceY, traceZ], layout, {responsive: true});
-    } catch(e) { log("Plot Error: " + e); }
+    Plotly.newPlot('plot-container', [traceX, traceY, traceZ, tanX, tanY, tanZ], layout, {responsive: true});
 }
 
 function updatePlot(x, y, z) {
     if (!state.recording) return;
     
     const t = (Date.now() - state.startTime) / 1000;
+    
     state.history.x.push(x);
     state.history.y.push(y);
     state.history.z.push(z);
     state.history.time.push(t);
 
+    // Update Main Lines (Traces 0-2)
     Plotly.extendTraces('plot-container', {
         x: [[t], [t], [t]],
         y: [[x], [y], [z]]
     }, [0, 1, 2]);
 }
 
-// --- SERIAL ---
+function updateTangents(vx, vy, vz) {
+    if (!state.recording) return;
+    
+    // We assume current t is the last point in history
+    if (state.history.time.length === 0) return;
+    
+    const t = state.history.time[state.history.time.length-1];
+    const x = state.history.x[state.history.x.length-1];
+    const y = state.history.y[state.history.y.length-1];
+    const z = state.history.z[state.history.z.length-1];
+
+    // Calculate Tangent Segment (Current -> +1 sec into future)
+    // Formula: pos_future = pos_current + velocity * delta_t
+    const dt_proj = 1.0; 
+    
+    const x_end = x + vx * dt_proj;
+    const y_end = y + vy * dt_proj;
+    const z_end = z + vz * dt_proj;
+    const t_end = t + dt_proj;
+
+    // Update Tangent Traces (indices 3, 4, 5) efficiently using restyle
+    // We draw a line from (t, x) to (t_end, x_end)
+    Plotly.restyle('plot-container', {
+        x: [[t, t_end], [t, t_end], [t, t_end]],
+        y: [[x, x_end], [y, y_end], [z, z_end]]
+    }, [3, 4, 5]);
+}
+
+// --- SERIAL (Standard) ---
 async function initSerial() {
     if (!navigator.serial) return;
     navigator.serial.addEventListener('connect', refreshPorts);
@@ -220,9 +244,7 @@ async function handleConnect() {
     try {
         if (sel.value === 'prompt') port = await navigator.serial.requestPort();
         else port = (await navigator.serial.getPorts())[parseInt(sel.value)];
-        
         await port.open({ baudRate: 115200 });
-        log("Port Connected.");
         const enc = new TextEncoderStream();
         writableStreamClosed = enc.readable.pipeTo(port.writable);
         writer = enc.writable.getWriter();
@@ -232,7 +254,7 @@ async function handleConnect() {
         document.getElementById('status-indicator').className = "status connected";
         document.getElementById('btn-open-port').textContent = "Disconnect";
         sel.disabled = true;
-    } catch(e) { log("Conn Error: " + e); alert(e); }
+    } catch(e) { log("Connect Error: " + e); alert(e); }
 }
 
 async function readLoop() {
@@ -284,7 +306,7 @@ async function handleFlash() {
 window.addEventListener('load', () => {
     initPlot();
     initSerial();
-    update(); // Init FK & Math
+    update();
     
     ['theta1','theta2','theta3'].forEach(id => {
         document.getElementById('slider-'+id).addEventListener('input', update);
@@ -300,7 +322,6 @@ window.addEventListener('load', () => {
             btn.textContent = "⏹ Stop";
             btn.style.backgroundColor = "#ff4757";
             state.startTime = Date.now();
-            // Clear history on new record
             state.history = { x: [], y: [], z: [], time: [] };
             initPlot(); 
         } else {
