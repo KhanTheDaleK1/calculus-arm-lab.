@@ -10,13 +10,12 @@ on:
 permissions:
   contents: write
 
+env:
+  ARDUINO_DIRECTORIES_USER: /tmp/arduino-sketchbook
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ARDUINO_DIRECTORIES_DATA: /tmp/arduino-data
-      ARDUINO_DIRECTORIES_DOWNLOADS: /tmp/arduino-downloads
-      ARDUINO_DIRECTORIES_USER: /tmp/arduino-sketchbook
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,25 +23,23 @@ jobs:
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v1
         with:
-          version: 1.0.4
+          version: "0.34.2"
 
-      - name: Init Arduino CLI config
+      - name: Init Config & Install Core
         run: |
           arduino-cli config init --overwrite
           arduino-cli config set board_manager.additional_urls https://downloads.arduino.cc/packages/package_index.json
           arduino-cli core update-index
+          arduino-cli core install arduino:avr
 
-      - name: Install AVR core
-        run: arduino-cli core install arduino:avr
-
-      - name: Compile firmware
+      - name: Compile Firmware
         run: |
           mkdir -p web/firmware
           arduino-cli compile --fqbn arduino:avr:uno --output-dir web/firmware arduino/CalculusArmFirmware
-          mv web/firmware/CalculusArmFirmware.ino.hex web/firmware/latest.hex
-          rm -f web/firmware/CalculusArmFirmware.ino.elf
+          mv web/firmware/CalculusArmFirmware.ino.hex web/firmware/latest.hex || true
+          rm -f web/firmware/*.elf
 
-      - name: Commit HEX artifact
+      - name: Commit HEX Artifact
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "🤖 Auto-Build: Firmware HEX [skip ci]"
