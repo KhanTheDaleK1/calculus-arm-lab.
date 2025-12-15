@@ -121,6 +121,16 @@ input[type=range] {
 .btn.action { background-color: #333; color: #fff; border: 1px solid #555; }
 .btn:hover { opacity: 0.9; }
 
+.port-dropdown {
+    padding: 0.5rem;
+    border-radius: 4px;
+    background: #333;
+    color: #fff;
+    border: 1px solid #555;
+    margin-right: 0.5rem;
+    font-family: inherit;
+}
+
 .status.disconnected { color: #888; margin-left: 1rem; }
 .status.connected { color: var(--accent-primary); margin-left: 1rem; }
 

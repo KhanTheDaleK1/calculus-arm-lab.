@@ -22,10 +22,77 @@ let state = {
 let port;
 let writer;
 let keepReading = false;
+let knownPorts = [];
 
-async function connectSerial() {
+// 1. Initialize: Check for available ports on load
+async function initSerial() {
+    if (!navigator.serial) {
+        alert("Web Serial API not supported. Please use Chrome or Edge.");
+        return;
+    }
+
+    // Listen for devices being plugged in/out
+    navigator.serial.addEventListener('connect', refreshPorts);
+    navigator.serial.addEventListener('disconnect', refreshPorts);
+
+    await refreshPorts();
+}
+
+// 2. Refresh the Dropdown List
+async function refreshPorts() {
     try {
-        port = await navigator.serial.requestPort();
+        knownPorts = await navigator.serial.getPorts();
+        const selector = document.getElementById('serial-port-list');
+        
+        // Save current selection if possible
+        const currentVal = selector.value;
+        
+        // Clear (except first option)
+        selector.innerHTML = '<option value="prompt">🔌 Add New Device...</option>';
+        
+        knownPorts.forEach((p, index) => {
+            const { usbProductId, usbVendorId } = p.getInfo();
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `Arduino / Device (ID: ${usbVendorId || '?'})`;
+            selector.appendChild(option);
+        });
+
+        // Restore selection or default to first known device
+        if (knownPorts.length > 0) {
+            selector.value = 0; // Default to first device
+        }
+    } catch (e) {
+        console.error("Error listing ports:", e);
+    }
+}
+
+// 3. Connect Button Logic
+async function handleConnectClick() {
+    const selector = document.getElementById('serial-port-list');
+    
+    if (selector.value === "prompt") {
+        // A. Request NEW Port (Opens Browser Picker)
+        try {
+            port = await navigator.serial.requestPort();
+            await openSelectedPort(port);
+            await refreshPorts(); // Update list after permission granted
+        } catch (err) {
+            console.warn("User cancelled selection or error:", err);
+        }
+    } else {
+        // B. Open EXISTING Port from List
+        const index = parseInt(selector.value);
+        if (knownPorts[index]) {
+            await openSelectedPort(knownPorts[index]);
+        }
+    }
+}
+
+// 4. Open and Start Reading
+async function openSelectedPort(selectedPort) {
+    try {
+        port = selectedPort;
         await port.open({ baudRate: 115200 });
         
         // Setup Writer
@@ -36,21 +103,32 @@ async function connectSerial() {
         // Setup Reader
         readLoop();
         
+        // UI Update
         document.getElementById('status-indicator').textContent = "Connected";
         document.getElementById('status-indicator').className = "status connected";
-        console.log("Serial Connected");
+        document.getElementById('btn-open-port').textContent = "Disconnect";
+        document.getElementById('btn-open-port').onclick = handleDisconnect; // Swap handler
+        document.getElementById('serial-port-list').disabled = true;
         
+        console.log("Serial Connected");
     } catch (err) {
-        console.error("Serial Connection Failed:", err);
-        alert("Could not connect to Serial Device.");
+        console.error("Connection Failed:", err);
+        alert("Failed to open port. It might be in use by another app.");
     }
 }
 
+async function handleDisconnect() {
+    // Simple page reload to clear state cleanly (easiest for Serial API)
+    location.reload(); 
+}
+
+// ... readLoop() and handleSerialData() remain the same ...
 async function readLoop() {
     keepReading = true;
     const textDecoder = new TextDecoderStream();
     const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
     const reader = textDecoder.readable.getReader();
+
 
     try {
         while (true) {
@@ -242,7 +320,8 @@ function updatePlot(x, y) {
 }
 
 // --- EVENT LISTENERS ---
-document.getElementById('btn-connect-arm').addEventListener('click', connectSerial);
+document.getElementById('btn-open-port').addEventListener('click', handleConnectClick);
+window.addEventListener('load', initSerial);
 
 ['slider-x', 'slider-y', 'slider-z'].forEach(id => {
     document.getElementById(id).addEventListener('input', update);
