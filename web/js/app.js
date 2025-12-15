@@ -17,6 +17,9 @@ let port;
 let writer;
 let keepReading = false;
 let knownPorts = [];
+let serialReader = null;
+let writableStreamClosed = null;
+let readableStreamClosed = null;
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
@@ -93,7 +96,7 @@ async function openSelectedPort(selectedPort) {
         
         // Setup Writer
         const textEncoder = new TextEncoderStream();
-        const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+        writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
         writer = textEncoder.writable.getWriter();
         
         // Setup Reader
@@ -122,20 +125,20 @@ async function handleDisconnect() {
 async function readLoop() {
     keepReading = true;
     const textDecoder = new TextDecoderStream();
-    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-    const reader = textDecoder.readable.getReader();
+    readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+    serialReader = textDecoder.readable.getReader();
 
 
     try {
-        while (true) {
-            const { value, done } = await reader.read();
+        while (keepReading) {
+            const { value, done } = await serialReader.read();
             if (done) break;
             if (value) handleSerialData(value);
         }
     } catch (error) {
         console.error(error);
     } finally {
-        reader.releaseLock();
+        serialReader.releaseLock();
     }
 }
 
@@ -277,7 +280,12 @@ function updatePlot(x, y) {
 
 // --- EVENT LISTENERS ---
 document.getElementById('btn-open-port').addEventListener('click', handleConnectClick);
-window.addEventListener('load', initSerial);
+document.getElementById('btn-flash').addEventListener('click', handleFlashClick);
+window.addEventListener('load', () => {
+    initSerial();
+    initPlot();
+    update();
+});
 
 ['slider-x', 'slider-y', 'slider-z'].forEach(id => {
     document.getElementById(id).addEventListener('input', update);
@@ -311,6 +319,61 @@ document.getElementById('btn-clear').addEventListener('click', () => {
         margin: { l: 50, r: 20, t: 40, b: 40 }
     }, { responsive: true });
 });
+
+// --- FLASHING (browser-based) ---
+async function handleFlashClick() {
+    if (!port) { alert("Connect to the Arduino first."); return; }
+
+    const btn = document.getElementById('btn-flash');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "⏳ Preparing...";
+
+    try {
+        // Stop existing readers/writers
+        keepReading = false;
+        if (serialReader) {
+            try { await serialReader.cancel(); } catch (_) {}
+        }
+        if (writer) {
+            try { writer.releaseLock(); } catch (_) {}
+        }
+        if (readableStreamClosed) {
+            try { await readableStreamClosed.catch(() => {}); } catch (_) {}
+        }
+        if (writableStreamClosed) {
+            try { await writableStreamClosed.catch(() => {}); } catch (_) {}
+        }
+        try { await port.close(); } catch (_) {}
+
+        // Re-open raw for flashing
+        await port.open({ baudRate: 115200 });
+
+        btn.textContent = "⬇️ Downloading HEX...";
+        const resp = await fetch('firmware/latest.hex?v=' + Date.now());
+        if (!resp.ok) throw new Error("Firmware not found (build may still be running).");
+        const hex = await resp.text();
+
+        btn.textContent = "🔄 Resetting...";
+        const flasher = new STK500(port, { debug: false });
+        await flasher.reset();
+
+        btn.textContent = "🔥 Writing 0%";
+        await flasher.flashHex(hex, (pct) => {
+            btn.textContent = `🔥 Writing ${pct}%`;
+        });
+
+        alert("✅ Firmware flashed successfully. Reconnecting...");
+    } catch (err) {
+        console.error(err);
+        alert("❌ Flash failed: " + err.message + "\nTry pressing RESET as you click Flash.");
+    } finally {
+        try { await port.close(); } catch (_) {}
+        btn.disabled = false;
+        btn.textContent = original;
+        location.reload();
+    }
+}
 
 // Initialize
 initPlot();

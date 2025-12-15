@@ -10,6 +10,7 @@
     <!-- MathJax for rendering equations -->
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="js/stk500.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -21,6 +22,7 @@
                     <option value="prompt">🔌 Add New Device...</option>
                 </select>
                 <button id="btn-open-port" class="btn primary">Connect</button>
+                <button id="btn-flash" class="btn action">⚡ Flash Firmware</button>
                 <button id="btn-connect-ti" class="btn secondary">🧮 Connect TI-84</button>
                 <span id="status-indicator" class="status disconnected">Disconnected</span>
             </div>
@@ -93,8 +95,8 @@
 
                 <div class="math-module">
                     <h3>Flash Firmware (Arduino Uno)</h3>
-                    <p>Use <code>arduino-cli</code> to flash the included firmware (latest build bundled on this page).</p>
-                    <p><a class="btn action" href="firmware/CalculusArmFirmware.hex" download>⬇️ Download Firmware HEX</a></p>
+                    <p>Click <strong>⚡ Flash Firmware</strong> (top bar) after connecting, or use <code>arduino-cli</code> manually.</p>
+                    <p><a class="btn action" href="firmware/latest.hex" download>⬇️ Download Latest HEX</a></p>
                     <p><strong>macOS / Linux:</strong></p>
 <pre style="background:#111;border:1px solid #333;padding:0.5rem;border-radius:4px;overflow:auto;">arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:uno arduino/CalculusArmFirmware</pre>
                     <p><strong>Windows:</strong></p>

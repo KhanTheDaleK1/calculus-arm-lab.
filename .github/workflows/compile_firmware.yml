@@ -1,0 +1,37 @@
+name: Compile & Publish Firmware
+
+on:
+  push:
+    paths:
+      - 'arduino/**'
+      - '.github/workflows/compile_firmware.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+
+      - name: Install AVR core
+        run: arduino-cli core install arduino:avr
+
+      - name: Compile firmware
+        run: |
+          mkdir -p web/firmware
+          arduino-cli compile --fqbn arduino:avr:uno --output-dir web/firmware arduino/CalculusArmFirmware
+          mv web/firmware/CalculusArmFirmware.ino.hex web/firmware/latest.hex
+          rm -f web/firmware/CalculusArmFirmware.ino.elf
+
+      - name: Commit HEX artifact
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 Auto-Build: Firmware HEX [skip ci]"
+          file_pattern: "web/firmware/latest.hex"
