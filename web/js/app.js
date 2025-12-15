@@ -6,7 +6,7 @@ let state = {
     angles: { base: 90, shoulder: 90, elbow: 90 },
     telemetry: { dist: 0 },
     history: {
-        x: [], y: [], time: []
+        x: [], y: [], z: [], time: []
     },
     recording: false,
     startTime: 0
@@ -208,50 +208,40 @@ function update() {
     document.getElementById('math-r').textContent = r;
     
     // Plotting (base on x-axis, shoulder on y-axis)
-    updatePlot(state.angles.base, state.angles.shoulder);
+    updatePlot(state.angles.base, state.angles.shoulder, state.angles.elbow);
 }
 
 // --- PLOTTING ---
 function initPlot() {
-    let trace1 = {
-        x: [],
-        y: [],
-        mode: 'lines',
-        type: 'scatter',
-        name: 'f(x) path',
-        line: { color: '#00ff9d', width: 3, shape: 'spline' }
-    };
+    const baseTrace = { x: [], y: [], mode: 'lines', type: 'scatter', name: 'Base (X)', line: { color: '#ff4757', width: 2 } };
+    const shoulderTrace = { x: [], y: [], mode: 'lines', type: 'scatter', name: 'Shoulder (Y)', line: { color: '#2ed573', width: 2 } };
+    const elbowTrace = { x: [], y: [], mode: 'lines', type: 'scatter', name: 'Elbow (Z)', line: { color: '#1e90ff', width: 2 } };
 
-    let layout = {
-        title: 'Function Graph: y = f(x)',
+    const layout = {
+        title: 'Joint Angles vs Time',
         paper_bgcolor: '#1e1e1e',
         plot_bgcolor: '#121212',
         font: { color: '#e0e0e0', family: 'monospace' },
-        xaxis: { 
-            range: [0, 180], 
-            title: 'Base Angle (deg)',
-            zeroline: true,
-            zerolinecolor: '#666',
+        xaxis: {
+            title: 'Time (s)',
             gridcolor: '#333',
+            zerolinecolor: '#666'
+        },
+        yaxis: {
+            title: 'Angle (deg)',
+            range: [0, 180],
+            gridcolor: '#333',
+            zerolinecolor: '#666',
             dtick: 30
         },
-        yaxis: { 
-            range: [0, 180], 
-            title: 'Shoulder Angle (deg)',
-            scaleanchor: "x",
-            scaleratio: 1,
-            zeroline: true,
-            zerolinecolor: '#666',
-            gridcolor: '#333',
-            dtick: 30
-        },
+        legend: { orientation: 'h', y: 1.1 },
         margin: { l: 50, r: 20, t: 40, b: 40 }
     };
 
-    Plotly.newPlot('plot-container', [trace1], layout, { responsive: true });
+    Plotly.newPlot('plot-container', [baseTrace, shoulderTrace, elbowTrace], layout, { responsive: true });
 }
 
-function updatePlot(x, y) {
+function updatePlot(x, y, z) {
     if (!state.recording) return;
 
     // Add point to history
@@ -270,12 +260,13 @@ function updatePlot(x, y) {
     
     state.history.x.push(x);
     state.history.y.push(y);
+    state.history.z.push(z);
     state.history.time.push(t);
 
     Plotly.extendTraces('plot-container', {
-        x: [[x]],
-        y: [[y]]
-    }, [0]);
+        x: [[t], [t], [t]],
+        y: [[x], [y], [z]]
+    }, [0, 1, 2]);
 }
 
 // --- EVENT LISTENERS ---
@@ -307,17 +298,9 @@ document.getElementById('btn-record').addEventListener('click', () => {
 document.getElementById('btn-clear').addEventListener('click', () => {
     state.history.x = [];
     state.history.y = [];
+    state.history.z = [];
     state.history.time = [];
-    Plotly.newPlot('plot-container', [{
-        x: [], y: [], mode: 'lines', type: 'scatter', line: { color: '#00ff9d', width: 3, shape: 'spline' }
-    }], {
-        paper_bgcolor: '#1e1e1e',
-        plot_bgcolor: '#121212',
-        font: { color: '#e0e0e0', family: 'monospace' },
-        xaxis: { range: [0, 180], title: 'Base Angle (deg)', zeroline: true, zerolinecolor: '#666', gridcolor: '#333', dtick: 30 },
-        yaxis: { range: [0, 180], title: 'Shoulder Angle (deg)', scaleanchor: "x", scaleratio: 1, zeroline: true, zerolinecolor: '#666', gridcolor: '#333', dtick: 30 },
-        margin: { l: 50, r: 20, t: 40, b: 40 }
-    }, { responsive: true });
+    initPlot(); // redraw empty traces
 });
 
 // --- FLASHING (browser-based) ---
