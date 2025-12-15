@@ -381,3 +381,30 @@ function loadMathJoke() {
 
 // Hook into load event
 window.addEventListener('load', loadMathJoke);
+
+// --- ROBUST JOKE LOADER (Fix for "Loading humor..." hang) ---
+let jokeRetries = 0;
+
+function robustLoadJoke() {
+    const el = document.getElementById('math-joke-text');
+    if (!el) return;
+
+    // Check if library is loaded
+    if (window.mathJokes && window.mathJokes.length > 0) {
+        const joke = window.mathJokes[Math.floor(Math.random() * window.mathJokes.length)];
+        el.textContent = `"${joke}"`;
+        el.style.color = "#d05ce3"; // Accent color
+    } else {
+        // Retry logic
+        if (jokeRetries < 10) {
+            jokeRetries++;
+            setTimeout(robustLoadJoke, 200); // Wait 200ms
+        } else {
+            // Fallback if library fails completely
+            el.textContent = "\"Calculus: The only subject where you can reach your limit and still function.\"";
+        }
+    }
+}
+
+// Call immediately on load
+window.addEventListener('load', robustLoadJoke);
