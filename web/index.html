@@ -3,117 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CalculusArm Dynamics Lab</title>
-    <link rel="stylesheet" href="css/style.css">
-    <!-- Plotly.js for Scientific Graphing -->
+    <title>CalculusArm Lab v4.0</title>
+    <link rel="stylesheet" href="css/style.css?v=1765825158">
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
-    <!-- MathJax for rendering equations -->
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script src="js/stk500.js"></script>
+    <script src="js/stk500.js?v=1765825158"></script>
 </head>
 <body>
     <div class="app-container">
-        <!-- Header -->
         <header>
             <h1>CalculusArm <span class="highlight">Dynamics Lab</span></h1>
             <div class="connection-status">
-                <select id="serial-port-list" class="port-dropdown">
-                    <option value="prompt">🔌 Add New Device...</option>
-                </select>
+                <select id="serial-port-list" class="port-dropdown"><option value="prompt">🔌 Add New Device...</option></select>
                 <button id="btn-open-port" class="btn primary">Connect</button>
                 <button id="btn-flash" class="btn action">⚡ Flash Firmware</button>
-                <button id="btn-connect-ti" class="btn secondary">🧮 Connect TI-84</button>
                 <span id="status-indicator" class="status disconnected">Disconnected</span>
             </div>
         </header>
 
-        <!-- Main Workspace -->
         <main class="grid-layout">
-            
-            <!-- LEFT: Controls & Kinematics -->
             <section class="panel control-panel">
-                <h2>1. Configuration Space (θ)</h2>
-                <p class="subdued">Control joint angles; FK computes x,y,z.</p>
+                <h2>1. Configuration Space ($\theta$)</h2>
                 <div class="slider-group">
-                    <label>Base (θ₁) <span id="val-base">90°</span></label>
-                    <input type="range" id="slider-base" min="0" max="180" step="1" value="90">
-                    
-                    <label>Shoulder (θ₂) <span id="val-shoulder">90°</span></label>
-                    <input type="range" id="slider-shoulder" min="0" max="180" step="1" value="90">
-                    
-                    <label>Elbow (θ₃) <span id="val-elbow">90°</span></label>
-                    <input type="range" id="slider-elbow" min="0" max="180" step="1" value="90">
+                    <label>Base ($\theta_1$) <span id="val-theta1">90°</span></label>
+                    <input type="range" id="slider-theta1" min="0" max="180" value="90">
+                </div>
+                <div class="slider-group">
+                    <label>Shoulder ($\theta_2$) <span id="val-theta2">90°</span></label>
+                    <input type="range" id="slider-theta2" min="0" max="180" value="90">
+                </div>
+                <div class="slider-group">
+                    <label>Elbow ($\theta_3$) <span id="val-theta3">90°</span></label>
+                    <input type="range" id="slider-theta3" min="0" max="180" value="90">
                 </div>
                 
-                <div class="servo-feedback">
-                    <h3>Forward Kinematics (computed)</h3>
-                    <div class="readout">x: <span id="out-x">0.00</span> cm</div>
-                    <div class="readout">y: <span id="out-y">0.00</span> cm</div>
-                    <div class="readout">z: <span id="out-z">0.00</span> cm</div>
-                </div>
-
-                <div class="sensor-readout">
-                    <h3>Sonar Telemetry</h3>
-                    <div class="big-number"><span id="sonar-dist">--</span> cm</div>
+                <div class="help-box" style="margin-top:20px; font-size: 0.8rem; color: #888;">
+                    <p><strong>Laptop not connecting?</strong></p>
+                    <p>You likely need drivers for the Arduino clone (CH340).</p>
+                    <a href="https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all" target="_blank" style="color:#00ff9d;">Download CH340 Drivers</a>
                 </div>
             </section>
 
-            <!-- CENTER: Dynamics Plot -->
             <section class="panel vis-panel">
-                <h2>2. Task Space Trajectory (x,y,z vs t)</h2>
-                <div id="plot-container" style="width:100%; height:400px;"></div>
+                <h2>2. Task Space (, y, z$)</h2>
+                <div id="plot-container" style="width:100%; height:400px; background:#121212;"></div>
                 <div class="plot-controls">
-                    <button id="btn-record" class="btn action">🔴 Record Trajectory</button>
+                    <button id="btn-record" class="btn action">🔴 Record</button>
                     <button id="btn-clear" class="btn action">🗑️ Clear</button>
-                    <button id="btn-export" class="btn action">💾 Export CSV</button>
                 </div>
             </section>
 
-            <!-- RIGHT: Educational Math Context -->
             <section class="panel math-panel">
-                <h2>3. Kinematics Analysis</h2>
+                <h2>3. Analysis</h2>
                 <div class="math-module">
                     <h3>Forward Kinematics</h3>
-                    <p>$\mathbf{x} = f(\mathbf{q})$ computed from θ₁, θ₂, θ₃.</p>
-                    <p>Speed ‖v‖: <span id="math-vel">0.00</span> cm/s</p>
-                </div>
-
-                <div class="math-module">
-                    <h3>Local Linear Approx.</h3>
-                    <p>Regression over recent motion (~1s):</p>
-                    <div style="font-family: monospace; font-size: 0.9rem; line-height: 1.4;">
-                        <div id="func-x" style="color: #ff4757;">x(t) ≈ --</div>
-                        <div id="func-y" style="color: #2ed573;">y(t) ≈ --</div>
-                        <div id="func-z" style="color: #1e90ff;">z(t) ≈ --</div>
+                    <div class="readout-grid">
+                        <div>x: <span id="out-x">0.00</span></div>
+                        <div>y: <span id="out-y">0.00</span></div>
+                        <div>z: <span id="out-z">0.00</span></div>
                     </div>
                 </div>
-                
-                <div class="ti-module hidden" id="ti-panel">
-                    <h3>TI-84 Data Bridge</h3>
-                    <p>Import lists L1 (Time) and L2 (Position) from your calculator to replay motion.</p>
-                    <input type="file" id="ti-file-input" accept=".8xl,.csv">
-                </div>
-
                 <div class="math-module">
-                    <h3>Flash Firmware (Arduino Uno)</h3>
-                    <p>Click <strong>⚡ Flash Firmware</strong> (top bar) after connecting, or use <code>arduino-cli</code> manually.</p>
-                    <p><a class="btn action" href="firmware/latest.hex" download>⬇️ Download Latest HEX</a></p>
-                    <p><strong>macOS / Linux:</strong></p>
-<pre style="background:#111;border:1px solid #333;padding:0.5rem;border-radius:4px;overflow:auto;">arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:uno arduino/CalculusArmFirmware</pre>
-                    <p><strong>Windows:</strong></p>
-<pre style="background:#111;border:1px solid #333;padding:0.5rem;border-radius:4px;overflow:auto;">arduino-cli upload -p COM3 --fqbn arduino:avr:uno arduino/CalculusArmFirmware</pre>
-                    <p>Tip: install arduino-cli from <a href="https://arduino.github.io/arduino-cli/installation/" target="_blank">arduino-cli/installation</a>, then adjust the port name if needed (check Device Manager or <code>ls /dev/ttyACM*</code>).</p>
+                    <h3>Velocity ($\|\mathbf{v}\|$)</h3>
+                    <div id="math-vel" class="big-number">0.00</div>
+                </div>
+                <div class="math-module">
+                    <h3>Regression Model</h3>
+                    <div id="func-x" style="color:#ff4757;">x(t) ≈ --</div>
+                    <div id="func-y" style="color:#2ed573;">y(t) ≈ --</div>
+                    <div id="func-z" style="color:#1e90ff;">z(t) ≈ --</div>
                 </div>
             </section>
-
         </main>
-        
-        <footer>
-            <p>CalculusArm Lab v1.1 | Forward Kinematics Active | <a href="https://github.com/KhanTheDaleK1/calculus-arm-lab" target="_blank">GitHub</a></p>
-        </footer>
-    </div>
 
-    <script src="js/app.js"></script>
+        <section class="system-log" style="background:#000; color:#0f0; font-family:monospace; padding:10px; height:100px; overflow-y:scroll; border-top:1px solid #333;">
+            <div id="log-output">System Ready. Waiting for connection...</div>
+        </section>
+    </div>
+    
+    <script src="js/app.js?v=1765825158"></script>
 </body>
 </html>
