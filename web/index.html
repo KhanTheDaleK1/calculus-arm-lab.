@@ -33,23 +33,24 @@
             
             <!-- LEFT: Controls & Kinematics -->
             <section class="panel control-panel">
-                <h2>1. Joint Control (Direct)</h2>
+                <h2>1. Configuration Space (θ)</h2>
+                <p class="subdued">Control joint angles; FK computes x,y,z.</p>
                 <div class="slider-group">
-                    <label>Base (X axis) Angle <span id="val-x">90</span>°</label>
-                    <input type="range" id="slider-x" min="0" max="180" step="1" value="90">
+                    <label>Base (θ₁) <span id="val-base">90°</span></label>
+                    <input type="range" id="slider-base" min="0" max="180" step="1" value="90">
                     
-                    <label>Shoulder (Y axis) Angle <span id="val-y">90</span>°</label>
-                    <input type="range" id="slider-y" min="0" max="180" step="1" value="90">
+                    <label>Shoulder (θ₂) <span id="val-shoulder">90°</span></label>
+                    <input type="range" id="slider-shoulder" min="0" max="180" step="1" value="90">
                     
-                    <label>Elbow (Z axis) Angle <span id="val-z">90</span>°</label>
-                    <input type="range" id="slider-z" min="0" max="180" step="1" value="90">
+                    <label>Elbow (θ₃) <span id="val-elbow">90°</span></label>
+                    <input type="range" id="slider-elbow" min="0" max="180" step="1" value="90">
                 </div>
                 
                 <div class="servo-feedback">
-                    <h3>Servo Angles (direct)</h3>
-                    <div class="readout">Base (θ₁): <span id="out-base">90°</span></div>
-                    <div class="readout">Shoulder (θ₂): <span id="out-shoulder">90°</span></div>
-                    <div class="readout">Elbow (θ₃): <span id="out-elbow">90°</span></div>
+                    <h3>Forward Kinematics (computed)</h3>
+                    <div class="readout">x: <span id="out-x">0.00</span> cm</div>
+                    <div class="readout">y: <span id="out-y">0.00</span> cm</div>
+                    <div class="readout">z: <span id="out-z">0.00</span> cm</div>
                 </div>
 
                 <div class="sensor-readout">
@@ -60,10 +61,10 @@
 
             <!-- CENTER: Dynamics Plot -->
             <section class="panel vis-panel">
-                <h2>2. Dynamics Visualization (XY Trajectory)</h2>
+                <h2>2. Task Space Trajectory (x,y,z vs t)</h2>
                 <div id="plot-container" style="width:100%; height:400px;"></div>
                 <div class="plot-controls">
-                    <button id="btn-record" class="btn action">🔴 Record Trace</button>
+                    <button id="btn-record" class="btn action">🔴 Record Trajectory</button>
                     <button id="btn-clear" class="btn action">🗑️ Clear</button>
                     <button id="btn-export" class="btn action">💾 Export CSV</button>
                 </div>
@@ -71,30 +72,21 @@
 
             <!-- RIGHT: Educational Math Context -->
             <section class="panel math-panel">
-                <h2>3. The Calculus of Motion</h2>
+                <h2>3. Kinematics Analysis</h2>
                 <div class="math-module">
-                    <h3>Instantaneous Velocity</h3>
-                    <p>The derivative of position with respect to time:</p>
-                    <p>$$ v(t) = \frac{dx}{dt} $$</p>
-                    <p>Current Velocity X: <span id="math-vel-x">0</span> cm/s</p>
+                    <h3>Forward Kinematics</h3>
+                    <p>$\mathbf{x} = f(\mathbf{q})$ computed from θ₁, θ₂, θ₃.</p>
+                    <p>Speed ‖v‖: <span id="math-vel">0.00</span> cm/s</p>
                 </div>
 
                 <div class="math-module">
-                    <h3>Live Function Model (last ~1s)</h3>
-                    <p>Linear regression of recent motion:</p>
+                    <h3>Local Linear Approx.</h3>
+                    <p>Regression over recent motion (~1s):</p>
                     <div style="font-family: monospace; font-size: 0.9rem; line-height: 1.4;">
                         <div id="func-x" style="color: #ff4757;">x(t) ≈ --</div>
                         <div id="func-y" style="color: #2ed573;">y(t) ≈ --</div>
                         <div id="func-z" style="color: #1e90ff;">z(t) ≈ --</div>
                     </div>
-                </div>
-
-                <div class="math-module">
-                    <h3>Polar Coordinates</h3>
-                    <p>Mapping the arm's reach:</p>
-                    <p>$$ r = \sqrt{x^2 + y^2} $$</p>
-                    <p>$$ \theta = \arctan(\frac{y}{x}) $$</p>
-                    <p>Radius (r): <span id="math-r">0</span> cm</p>
                 </div>
                 
                 <div class="ti-module hidden" id="ti-panel">
@@ -118,7 +110,7 @@
         </main>
         
         <footer>
-            <p>CalculusArm Lab v1.0 | <a href="https://github.com/KhanTheDaleK1/calculus-arm-lab" target="_blank">GitHub Repository</a></p>
+            <p>CalculusArm Lab v1.1 | Forward Kinematics Active | <a href="https://github.com/KhanTheDaleK1/calculus-arm-lab" target="_blank">GitHub</a></p>
         </footer>
     </div>
 

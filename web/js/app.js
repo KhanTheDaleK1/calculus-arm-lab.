@@ -1,263 +1,120 @@
-// js/app.js
+/**
+ * CalculusArm Dynamics Lab - Core Logic (FK-first, v3.0)
+ * - Configuration space (theta1/2/3) -> Task space (x,y,z) via forward kinematics
+ * - Time-series plotting of Cartesian position
+ * - Live linear regression (local linear approximation)
+ * - Web Serial control + browser flasher with version display
+ */
 
 // --- STATE ---
+let port, writer;
+let keepReading = false;
+let serialReader = null;
+let readableStreamClosed = null;
+let writableStreamClosed = null;
+
 let state = {
-    target: { x: 90, y: 90, z: 90 }, // direct joint angles
-    angles: { base: 90, shoulder: 90, elbow: 90 },
-    telemetry: { dist: 0 },
-    history: {
-        x: [], y: [], z: [], time: []
-    },
+    theta1: 90, // base (deg)
+    theta2: 90, // shoulder (deg)
+    theta3: 90, // elbow (deg)
+    x: 0, y: 0, z: 0, // computed task-space (cm)
     recording: false,
-    startTime: 0
+    startTime: 0,
+    history: { x: [], y: [], z: [], time: [] }
 };
 
-// --- SERIAL CONNECTION ---
-let port;
-let writer;
-let keepReading = false;
-let knownPorts = [];
-let serialReader = null;
-let writableStreamClosed = null;
-let readableStreamClosed = null;
+// Arm geometry (mm)
+const L1 = 80; // upper link
+const L2 = 80; // forearm link
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
-// 1. Initialize: Check for available ports on load
-async function initSerial() {
-    if (!navigator.serial) {
-        alert("Web Serial API not supported. Please use Chrome or Edge.");
-        return;
+// --- FORWARD KINEMATICS ---
+function computeFK() {
+    const t1 = state.theta1 * Math.PI / 180;
+    const t2 = state.theta2 * Math.PI / 180;
+    const t3 = state.theta3 * Math.PI / 180;
+
+    // Simple planar model: shoulder elevation t2, elbow relative to shoulder
+    const r_planar = L1 * Math.cos(t2) + L2 * Math.cos(t2 + t3 - Math.PI / 2);
+    const z_mm = L1 * Math.sin(t2) + L2 * Math.sin(t2 + t3 - Math.PI / 2);
+
+    const x_mm = r_planar * Math.cos(t1);
+    const y_mm = r_planar * Math.sin(t1);
+
+    state.x = x_mm / 10;
+    state.y = y_mm / 10;
+    state.z = z_mm / 10;
+}
+
+function updateUI() {
+    // send to serial if connected
+    if (port && writer) {
+        writer.write(`S:${state.theta1},${state.theta2},${state.theta3}\n`);
     }
 
-    // Listen for devices being plugged in/out
-    navigator.serial.addEventListener('connect', refreshPorts);
-    navigator.serial.addEventListener('disconnect', refreshPorts);
+    // task-space readout
+    document.getElementById('out-x').textContent = state.x.toFixed(2);
+    document.getElementById('out-y').textContent = state.y.toFixed(2);
+    document.getElementById('out-z').textContent = state.z.toFixed(2);
 
-    await refreshPorts();
+    updatePlot(state.x, state.y, state.z);
 }
 
-// 2. Refresh the Dropdown List
-async function refreshPorts() {
-    try {
-        knownPorts = await navigator.serial.getPorts();
-        const selector = document.getElementById('serial-port-list');
-        
-        // Save current selection if possible
-        const currentVal = selector.value;
-        
-        // Clear (except first option)
-        selector.innerHTML = '<option value="prompt">🔌 Add New Device...</option>';
-        
-        knownPorts.forEach((p, index) => {
-            const { usbProductId, usbVendorId } = p.getInfo();
-            const option = document.createElement('option');
-            option.value = index;
-            option.textContent = `Arduino / Device (ID: ${usbVendorId || '?'})`;
-            selector.appendChild(option);
-        });
-
-        // Restore selection or default to first known device
-        if (knownPorts.length > 0) {
-            selector.value = 0; // Default to first device
-        }
-    } catch (e) {
-        console.error("Error listing ports:", e);
-    }
-}
-
-// 3. Connect Button Logic
-async function handleConnectClick() {
-    const selector = document.getElementById('serial-port-list');
-    
-    if (selector.value === "prompt") {
-        // A. Request NEW Port (Opens Browser Picker)
-        try {
-            port = await navigator.serial.requestPort();
-            await openSelectedPort(port);
-            await refreshPorts(); // Update list after permission granted
-        } catch (err) {
-            console.warn("User cancelled selection or error:", err);
-        }
-    } else {
-        // B. Open EXISTING Port from List
-        const index = parseInt(selector.value);
-        if (knownPorts[index]) {
-            await openSelectedPort(knownPorts[index]);
-        }
-    }
-}
-
-// 4. Open and Start Reading
-async function openSelectedPort(selectedPort) {
-    try {
-        port = selectedPort;
-        await port.open({ baudRate: 115200 });
-        
-        // Setup Writer
-        const textEncoder = new TextEncoderStream();
-        writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
-        writer = textEncoder.writable.getWriter();
-        
-        // Setup Reader
-        readLoop();
-        
-        // UI Update
-        document.getElementById('status-indicator').textContent = "Connected";
-        document.getElementById('status-indicator').className = "status connected";
-        document.getElementById('btn-open-port').textContent = "Disconnect";
-        document.getElementById('btn-open-port').onclick = handleDisconnect; // Swap handler
-        document.getElementById('serial-port-list').disabled = true;
-        
-        console.log("Serial Connected");
-    } catch (err) {
-        console.error("Connection Failed:", err);
-        alert("Failed to open port. It might be in use by another app.");
-    }
-}
-
-async function handleDisconnect() {
-    // Simple page reload to clear state cleanly (easiest for Serial API)
-    location.reload(); 
-}
-
-// ... readLoop() and handleSerialData() remain the same ...
-async function readLoop() {
-    keepReading = true;
-    const textDecoder = new TextDecoderStream();
-    readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-    serialReader = textDecoder.readable.getReader();
-
-
-    try {
-        while (keepReading) {
-            const { value, done } = await serialReader.read();
-            if (done) break;
-            if (value) handleSerialData(value);
-        }
-    } catch (error) {
-        console.error(error);
-    } finally {
-        serialReader.releaseLock();
-    }
-}
-
-// Buffer for fragmented serial data
-let serialBuffer = "";
-
-function handleSerialData(chunk) {
-    serialBuffer += chunk;
-    let lines = serialBuffer.split('\n');
-    
-    // Process all complete lines
-    while (lines.length > 1) {
-        let line = lines.shift().trim();
-        if (line.startsWith("DATA:")) {
-            parseTelemetry(line.substring(5));
-        }
-    }
-    serialBuffer = lines[0]; // Keep incomplete line
-}
-
-function parseTelemetry(dataStr) {
-    // Expected: Base,Shoulder,Elbow,Distance
-    let parts = dataStr.split(',');
-    if (parts.length >= 4) {
-        let dist = parseFloat(parts[3]);
-        if (dist > 0) {
-            state.telemetry.dist = dist;
-            document.getElementById('sonar-dist').textContent = dist.toFixed(1);
-        }
-    }
-}
-
-async function sendCommand(b, s, e) {
-    if (writer) {
-        const cmd = `S:${Math.round(b)},${Math.round(s)},${Math.round(e)}\n`;
-        await writer.write(cmd);
-    }
-}
-
-// --- DIRECT CONTROL ---
 function update() {
-    // 1. Get direct joint targets
-    let x = parseFloat(document.getElementById('slider-x').value); // base
-    let y = parseFloat(document.getElementById('slider-y').value); // shoulder
-    let z = parseFloat(document.getElementById('slider-z').value); // elbow
-    
-    // Update labels
-    document.getElementById('val-x').textContent = x;
-    document.getElementById('val-y').textContent = y;
-    document.getElementById('val-z').textContent = z;
+    state.theta1 = parseInt(document.getElementById('slider-base').value, 10);
+    state.theta2 = parseInt(document.getElementById('slider-shoulder').value, 10);
+    state.theta3 = parseInt(document.getElementById('slider-elbow').value, 10);
 
-    // Clamp and set state
-    state.angles.base = clamp(x, 0, 180);
-    state.angles.shoulder = clamp(y, 0, 180);
-    state.angles.elbow = clamp(z, 0, 180);
+    document.getElementById('val-base').textContent = `${state.theta1}°`;
+    document.getElementById('val-shoulder').textContent = `${state.theta2}°`;
+    document.getElementById('val-elbow').textContent = `${state.theta3}°`;
 
-    // Update Text
-    document.getElementById('out-base').textContent = Math.round(state.angles.base) + "°";
-    document.getElementById('out-shoulder').textContent = Math.round(state.angles.shoulder) + "°";
-    document.getElementById('out-elbow').textContent = Math.round(state.angles.elbow) + "°";
-
-    // Send to Arduino
-    sendCommand(state.angles.base, state.angles.shoulder, state.angles.elbow);
-    
-    // Math Updates (use base/shoulder as x/y for plotting function demonstration)
-    let r = Math.sqrt(state.angles.base**2 + state.angles.shoulder**2).toFixed(2);
-    document.getElementById('math-r').textContent = r;
-    
-    // Plotting (base on x-axis, shoulder on y-axis)
-    updatePlot(state.angles.base, state.angles.shoulder, state.angles.elbow);
+    // FK
+    computeFK();
+    updateUI();
 }
 
 // --- PLOTTING ---
 function initPlot() {
-    const baseTrace = { x: [], y: [], mode: 'lines', type: 'scatter', name: 'Base (X)', line: { color: '#ff4757', width: 2 } };
-    const shoulderTrace = { x: [], y: [], mode: 'lines', type: 'scatter', name: 'Shoulder (Y)', line: { color: '#2ed573', width: 2 } };
-    const elbowTrace = { x: [], y: [], mode: 'lines', type: 'scatter', name: 'Elbow (Z)', line: { color: '#1e90ff', width: 2 } };
+    const common = { mode: 'lines', type: 'scatter', line: { width: 2 } };
+    const traceX = { ...common, x: [], y: [], name: 'x(t)', line: { color: '#ff4757' } };
+    const traceY = { ...common, x: [], y: [], name: 'y(t)', line: { color: '#2ed573' } };
+    const traceZ = { ...common, x: [], y: [], name: 'z(t)', line: { color: '#1e90ff' } };
 
     const layout = {
-        title: 'Joint Angles vs Time',
+        title: 'Task Space Trajectory (Cartesian)',
         paper_bgcolor: '#1e1e1e',
         plot_bgcolor: '#121212',
         font: { color: '#e0e0e0', family: 'monospace' },
-        xaxis: {
-            title: 'Time (s)',
-            gridcolor: '#333',
-            zerolinecolor: '#666'
-        },
-        yaxis: {
-            title: 'Angle (deg)',
-            range: [0, 180],
-            gridcolor: '#333',
-            zerolinecolor: '#666',
-            dtick: 30
-        },
-        legend: { orientation: 'h', y: 1.1 },
-        margin: { l: 50, r: 20, t: 40, b: 40 }
+        xaxis: { title: 'Time (s)', gridcolor: '#333', zerolinecolor: '#666' },
+        yaxis: { title: 'Position (cm)', gridcolor: '#333', zerolinecolor: '#666' },
+        margin: { l: 50, r: 20, t: 40, b: 40 },
+        legend: { orientation: 'h', y: 1.1 }
     };
-
-    Plotly.newPlot('plot-container', [baseTrace, shoulderTrace, elbowTrace], layout, { responsive: true });
+    Plotly.newPlot('plot-container', [traceX, traceY, traceZ], layout, { responsive: true });
 }
 
 function updatePlot(x, y, z) {
     if (!state.recording) return;
 
-    // Add point to history
-    let t = (Date.now() - state.startTime) / 1000;
-    
-    // Calculate Velocity (dx/dt) roughly
-    if (state.history.x.length > 0) {
-        let lastX = state.history.x[state.history.x.length-1];
-        let lastT = state.history.time[state.history.time.length-1];
-        let dt = t - lastT;
-        if (dt > 0) {
-            let vx = (x - lastX) / dt;
-            document.getElementById('math-vel-x').textContent = vx.toFixed(2);
+    const t = (Date.now() - state.startTime) / 1000;
+
+    // speed magnitude
+    if (state.history.time.length > 0) {
+        const lastIdx = state.history.time.length - 1;
+        const dt = t - state.history.time[lastIdx];
+        if (dt > 0.05) {
+            const dx = x - state.history.x[lastIdx];
+            const dy = y - state.history.y[lastIdx];
+            const dz = z - state.history.z[lastIdx];
+            const speed = Math.sqrt((dx*dx + dy*dy + dz*dz) / (dt*dt));
+            const velEl = document.getElementById('math-vel');
+            if (velEl) velEl.textContent = speed.toFixed(2);
         }
     }
-    
+
     state.history.x.push(x);
     state.history.y.push(y);
     state.history.z.push(z);
@@ -271,125 +128,10 @@ function updatePlot(x, y, z) {
     updateFunctionDisplay();
 }
 
-// --- EVENT LISTENERS ---
-document.getElementById('btn-open-port').addEventListener('click', handleConnectClick);
-document.getElementById('btn-flash').addEventListener('click', handleFlashClick);
-window.addEventListener('load', () => {
-    initSerial();
-    initPlot();
-    update();
-});
-
-['slider-x', 'slider-y', 'slider-z'].forEach(id => {
-    document.getElementById(id).addEventListener('input', update);
-});
-
-document.getElementById('btn-record').addEventListener('click', () => {
-    state.recording = !state.recording;
-    let btn = document.getElementById('btn-record');
-    if (state.recording) {
-        btn.textContent = "⏹ Stop Trace";
-        btn.style.backgroundColor = "#ff4757";
-        state.startTime = Date.now();
-    } else {
-        btn.textContent = "🔴 Record Function";
-        btn.style.backgroundColor = "#333";
-    }
-});
-
-document.getElementById('btn-clear').addEventListener('click', () => {
-    state.history.x = [];
-    state.history.y = [];
-    state.history.z = [];
-    state.history.time = [];
-    initPlot(); // redraw empty traces
-    const fx = document.getElementById('func-x');
-    const fy = document.getElementById('func-y');
-    const fz = document.getElementById('func-z');
-    if (fx) fx.textContent = "x(t) ≈ --";
-    if (fy) fy.textContent = "y(t) ≈ --";
-    if (fz) fz.textContent = "z(t) ≈ --";
-});
-
-// --- FLASHING (browser-based) ---
-async function handleFlashClick() {
-    if (!port) { alert("Connect to the Arduino first."); return; }
-    
-    const btn = document.getElementById('btn-flash');
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "⏳ Preparing...";
-
-    try {
-        // Force existing readers/writers to release the port
-        keepReading = false;
-        if (serialReader) {
-            try { await serialReader.cancel(); } catch (_) {}
-        }
-        if (writer) {
-            try { await writer.close(); } catch (_) {}
-            try { writer.releaseLock(); } catch (_) {}
-        }
-        if (readableStreamClosed) {
-            try { await readableStreamClosed.catch(() => {}); } catch (_) {}
-        }
-        if (writableStreamClosed) {
-            try { await writableStreamClosed.catch(() => {}); } catch (_) {}
-        }
-        // small pause to allow streams to unwind
-        await new Promise(r => setTimeout(r, 200));
-        try { await port.close(); } catch (_) {}
-
-        // Re-open raw for flashing
-        await port.open({ baudRate: 115200 });
-
-        // Fetch version metadata (optional)
-        let versionText = "Unknown";
-        try {
-            const vResp = await fetch('firmware/version.json?v=' + Date.now());
-            if (vResp.ok) {
-                const vData = await vResp.json();
-                versionText = vData.revision || versionText;
-            }
-        } catch (e) {
-            console.warn("Version fetch failed", e);
-        }
-
-        btn.textContent = "⬇️ Downloading HEX...";
-        const resp = await fetch('firmware/latest.hex?v=' + Date.now());
-        if (!resp.ok) throw new Error("Firmware not found (build may still be running).");
-        const hex = await resp.text();
-
-        btn.textContent = "🔄 Resetting...";
-        const flasher = new STK500(port, { debug: false });
-        await flasher.reset();
-
-        btn.textContent = "🔥 Writing 0%";
-        await flasher.flashHex(hex, (pct) => {
-            btn.textContent = `🔥 Writing ${pct}%`;
-        });
-
-        alert(`✅ Firmware flashed successfully.\nRevision: ${versionText}\nReconnecting...`);
-    } catch (err) {
-        console.error(err);
-        alert("❌ Flash failed: " + err.message + "\nTry pressing RESET as you click Flash.");
-    } finally {
-        try { await port.close(); } catch (_) {}
-        btn.disabled = false;
-        btn.textContent = original;
-        location.reload();
-    }
-}
-
-// Initialize
-initPlot();
-update(); // Initial calculation
-
-// --- LIVE MATH MODELING ---
+// --- REGRESSION ---
 function calculateRegression(times, values) {
     const n = times.length;
     if (n < 2) return { m: 0, b: 0 };
-
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     for (let i = 0; i < n; i++) {
         sumX += times[i];
@@ -399,14 +141,13 @@ function calculateRegression(times, values) {
     }
     const denom = (n * sumXX - sumX * sumX);
     if (denom === 0) return { m: 0, b: 0 };
-
     const m = (n * sumXY - sumX * sumY) / denom;
     const b = (sumY - m * sumX) / n;
     return { m, b };
 }
 
 function updateFunctionDisplay() {
-    const sliceSize = 30; // last ~1s assuming ~30Hz updates
+    const sliceSize = 30;
     const len = state.history.time.length;
     if (len < 2) return;
 
@@ -429,3 +170,167 @@ function updateFunctionDisplay() {
     if (fy) fy.textContent = `y(t) ≈ ${fmtLine(modelY.m, modelY.b)}`;
     if (fz) fz.textContent = `z(t) ≈ ${fmtLine(modelZ.m, modelZ.b)}`;
 }
+
+// --- SERIAL ---
+async function initSerial() {
+    if (!navigator.serial) {
+        alert("Web Serial API not supported. Use Chrome/Edge.");
+        return;
+    }
+    navigator.serial.addEventListener('connect', refreshPorts);
+    navigator.serial.addEventListener('disconnect', refreshPorts);
+    await refreshPorts();
+}
+
+let knownPorts = [];
+async function refreshPorts() {
+    try {
+        knownPorts = await navigator.serial.getPorts();
+        const selector = document.getElementById('serial-port-list');
+        selector.innerHTML = '<option value="prompt">🔌 Add New Device...</option>';
+        knownPorts.forEach((p, index) => {
+            const { usbProductId, usbVendorId } = p.getInfo();
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `Device ${index+1} (VID:${usbVendorId || "?"})`;
+            selector.appendChild(option);
+        });
+        if (knownPorts.length > 0) selector.value = 0;
+    } catch (e) {
+        console.error("Error listing ports:", e);
+    }
+}
+
+async function handleConnectClick() {
+    const selector = document.getElementById('serial-port-list');
+    if (port) { await handleDisconnect(); return; }
+    try {
+        if (selector.value === "prompt") {
+            port = await navigator.serial.requestPort();
+        } else {
+            port = knownPorts[parseInt(selector.value, 10)];
+        }
+        await port.open({ baudRate: 115200 });
+
+        const textEncoder = new TextEncoderStream();
+        writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+        writer = textEncoder.writable.getWriter();
+
+        readLoop();
+
+        document.getElementById('status-indicator').textContent = "Connected";
+        document.getElementById('status-indicator').className = "status connected";
+        const btn = document.getElementById('btn-open-port');
+        btn.textContent = "Disconnect";
+        btn.onclick = handleDisconnect;
+        selector.disabled = true;
+    } catch (err) {
+        console.error(err);
+        alert("Failed to open port. It might be busy.");
+    }
+}
+
+async function handleDisconnect() {
+    location.reload();
+}
+
+async function readLoop() {
+    keepReading = true;
+    const textDecoder = new TextDecoderStream();
+    readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+    serialReader = textDecoder.readable.getReader();
+    try {
+        while (keepReading) {
+            const { value, done } = await serialReader.read();
+            if (done) break;
+            // Telemetry parsing could go here
+        }
+    } catch (error) {
+        console.error(error);
+    } finally {
+        serialReader.releaseLock();
+    }
+}
+
+// --- FLASHING ---
+async function handleFlashClick() {
+    if (!port) { alert("Connect to the Arduino first."); return; }
+    const btn = document.getElementById('btn-flash');
+    btn.disabled = true;
+    btn.textContent = "⏳ Preparing...";
+    try {
+        keepReading = false;
+        if (serialReader) { try { await serialReader.cancel(); } catch(_){} }
+        if (writer) { try { await writer.close(); writer.releaseLock(); } catch(_){} }
+        await delay(200);
+        try { await port.close(); } catch(_){}
+
+        await port.open({ baudRate: 115200 });
+
+        let versionText = "Unknown";
+        try {
+            const vResp = await fetch('firmware/version.json?v=' + Date.now());
+            if (vResp.ok) versionText = (await vResp.json()).revision;
+        } catch(e){}
+
+        btn.textContent = "⬇️ Downloading...";
+        const resp = await fetch('firmware/latest.hex?v=' + Date.now());
+        if (!resp.ok) throw new Error("Firmware not found.");
+        const hex = await resp.text();
+
+        btn.textContent = "🔄 Resetting...";
+        const flasher = new STK500(port, { debug: false });
+        await flasher.reset();
+
+        btn.textContent = "🔥 Writing...";
+        await flasher.flashHex(hex, (pct) => { btn.textContent = `🔥 Writing ${pct}%`; });
+
+        alert(`✅ Success!\nRevision: ${versionText}`);
+    } catch (err) {
+        alert(`❌ Flash failed: ${err.message}`);
+    } finally {
+        location.reload();
+    }
+}
+
+// --- INIT ---
+window.addEventListener('load', () => {
+    initSerial();
+    initPlot();
+    update();
+});
+
+['slider-base', 'slider-shoulder', 'slider-elbow'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', update);
+});
+document.getElementById('btn-open-port').addEventListener('click', handleConnectClick);
+const flashBtn = document.getElementById('btn-flash');
+if (flashBtn) flashBtn.addEventListener('click', handleFlashClick);
+
+document.getElementById('btn-record').addEventListener('click', () => {
+    state.recording = !state.recording;
+    const btn = document.getElementById('btn-record');
+    if (state.recording) {
+        btn.textContent = "⏹ Stop Recording";
+        btn.style.backgroundColor = "#ff4757";
+        state.startTime = Date.now();
+        state.history = { x: [], y: [], z: [], time: [] };
+    } else {
+        btn.textContent = "🔴 Record Trajectory";
+        btn.style.backgroundColor = "#333";
+    }
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+    state.history = { x: [], y: [], z: [], time: [] };
+    initPlot();
+    const fx = document.getElementById('func-x');
+    const fy = document.getElementById('func-y');
+    const fz = document.getElementById('func-z');
+    if (fx) fx.textContent = "x(t) ≈ --";
+    if (fy) fy.textContent = "y(t) ≈ --";
+    if (fz) fz.textContent = "z(t) ≈ --";
+    const velEl = document.getElementById('math-vel');
+    if (velEl) velEl.textContent = "0.00";
+});
