@@ -313,12 +313,13 @@ async function handleFlashClick() {
     btn.textContent = "⏳ Preparing...";
 
     try {
-        // Stop existing readers/writers
+        // Force existing readers/writers to release the port
         keepReading = false;
         if (serialReader) {
             try { await serialReader.cancel(); } catch (_) {}
         }
         if (writer) {
+            try { await writer.close(); } catch (_) {}
             try { writer.releaseLock(); } catch (_) {}
         }
         if (readableStreamClosed) {
@@ -327,6 +328,8 @@ async function handleFlashClick() {
         if (writableStreamClosed) {
             try { await writableStreamClosed.catch(() => {}); } catch (_) {}
         }
+        // small pause to allow streams to unwind
+        await new Promise(r => setTimeout(r, 200));
         try { await port.close(); } catch (_) {}
 
         // Re-open raw for flashing
