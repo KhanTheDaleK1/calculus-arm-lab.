@@ -13,12 +13,21 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ARDUINO_DIRECTORIES_DATA: /tmp/arduino-data
+      ARDUINO_DIRECTORIES_DOWNLOADS: /tmp/arduino-downloads
+      ARDUINO_DIRECTORIES_USER: /tmp/arduino-sketchbook
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v1
+
+      - name: Init Arduino CLI config
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli core update-index
 
       - name: Install AVR core
         run: arduino-cli core install arduino:avr
