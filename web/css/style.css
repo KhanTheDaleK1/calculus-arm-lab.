@@ -1,34 +1,53 @@
-:root { --bg-color: #0d0d0d; --panel-bg: #1e1e1e; --text-main: #e0e0e0; --accent: #00ff9d; --accent-dim: #005500; }
+:root { 
+    --bg-color: #0d0d0d; 
+    --panel-bg: #1e1e1e; 
+    --text-main: #e0e0e0; 
+    /* NEW PURPLE THEME */
+    --accent: #d05ce3;       /* Bright Orchid */
+    --accent-dim: #4a0072;   /* Deep Violet */
+}
+
 body { margin: 0; padding: 0; background: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
 .app-container { display: flex; flex-direction: column; height: 100%; }
+
+/* HEADER */
 header { background: #000; border-bottom: 1px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
 h1 { margin: 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; }
 .highlight { color: var(--accent); }
+
+/* CONTROLS */
 .connection-status { display: flex; gap: 10px; align-items: center; }
 select { background: #333; color: #fff; border: 1px solid #555; padding: 5px; border-radius: 4px; }
 .btn { padding: 5px 15px; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; transition: background 0.2s; }
 .btn:hover { opacity: 0.9; }
-.btn.primary { background: var(--accent); color: #000; }
+.btn.primary { background: var(--accent); color: #fff; } /* White text on purple looks better */
 .btn.action { background: #333; color: #fff; border: 1px solid #555; }
 .btn.secondary { background: #444; color: #ccc; }
 .status { font-size: 0.8rem; font-family: monospace; }
 .status.connected { color: var(--accent); }
 .status.disconnected { color: #ff4757; }
+
+/* LAYOUT */
 .grid-layout { display: grid; grid-template-columns: 280px 1fr 300px; gap: 10px; padding: 10px; flex-grow: 1; overflow: hidden; }
 .panel { background: var(--panel-bg); border: 1px solid #333; padding: 15px; overflow-y: auto; border-radius: 4px; }
 h2 { margin-top: 0; font-size: 1rem; color: #888; border-bottom: 1px solid #444; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* SLIDERS */
 .slider-group { margin-bottom: 15px; }
 .slider-group label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 5px; }
 .val-display { font-family: monospace; font-size: 0.9rem; }
-input[type=range] { width: 100%; cursor: pointer; }
+input[type=range] { width: 100%; cursor: pointer; accent-color: var(--accent); } /* Native purple slider */
+
 .help-box { margin-top:20px; font-size: 0.75rem; color: #666; border-top: 1px dashed #444; padding-top:10px; }
 .plot-controls { display: flex; gap: 10px; margin-top: 10px; justify-content: center; }
+
+/* MATH */
 .math-module { background: #111; padding: 10px; margin-bottom: 10px; border-left: 3px solid #333; border-radius: 0 4px 4px 0; }
 .math-module h3 { margin: 0 0 5px 0; font-size: 0.9rem; color: #aaa; text-transform: uppercase; }
 .readout-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; text-align: center; font-size: 0.9rem; font-family: monospace; }
 .big-number { font-size: 1.8rem; color: #fff; font-weight: bold; text-align: center; margin: 5px 0; font-family: monospace; }
 
-/* DRAWER STYLES */
+/* DRAWER */
 .system-log { 
     background: #000; border-top: 1px solid var(--accent-dim); 
     display: flex; flex-direction: column; 
@@ -37,7 +56,7 @@ input[type=range] { width: 100%; cursor: pointer; }
 }
 .system-log.collapsed { height: 30px; }
 .log-header { 
-    background: #111; color: #888; 
+    background: #111; color: #aaa; 
     padding: 5px 15px; font-size: 0.75rem; font-family: monospace; 
     cursor: pointer; display: flex; justify-content: space-between; align-items: center;
     border-bottom: 1px solid #222; 
