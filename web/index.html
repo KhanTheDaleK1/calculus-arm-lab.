@@ -90,6 +90,16 @@
                     <p>Import lists L1 (Time) and L2 (Position) from your calculator to replay motion.</p>
                     <input type="file" id="ti-file-input" accept=".8xl,.csv">
                 </div>
+
+                <div class="math-module">
+                    <h3>Flash Firmware (Arduino Uno)</h3>
+                    <p>Use <code>arduino-cli</code> to flash the included firmware:</p>
+                    <p><strong>macOS / Linux:</strong></p>
+<pre style="background:#111;border:1px solid #333;padding:0.5rem;border-radius:4px;overflow:auto;">arduino-cli upload -p /dev/ttyACM0 --fqbn arduino:avr:uno arduino/CalculusArmFirmware</pre>
+                    <p><strong>Windows:</strong></p>
+<pre style="background:#111;border:1px solid #333;padding:0.5rem;border-radius:4px;overflow:auto;">arduino-cli upload -p COM3 --fqbn arduino:avr:uno arduino/CalculusArmFirmware</pre>
+                    <p>Tip: install arduino-cli from <a href="https://arduino.github.io/arduino-cli/installation/" target="_blank">arduino-cli/installation</a>, then adjust the port name if needed (check Device Manager or <code>ls /dev/ttyACM*</code>).</p>
+                </div>
             </section>
 
         </main>
