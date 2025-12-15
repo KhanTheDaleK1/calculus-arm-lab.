@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CalculusArm Lab v4.5</title>
-    <link rel="stylesheet" href="css/style.css?v=1765835715">
+    <title>CalculusArm Lab v5.0</title>
+    <link rel="stylesheet" href="css/style.css?v=1765836199">
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script src="js/stk500.js?v=1765835715"></script>
-    <script src="js/jokes.js?v=1765835715"></script>
+    <script src="js/stk500.js?v=1765836199"></script>
+    <script src="js/jokes.js?v=1765836199"></script>
 </head>
 <body>
     <div class="app-container">
@@ -41,9 +41,9 @@
                     <input type="range" id="slider-theta3" min="0" max="180" value="90">
                 </div>
                 
-                <div class="help-box" style="margin-top:20px; font-size: 0.8rem; color: #888;">
-                    <p><strong>Note:</strong> Servo hardware operates in Degrees. Calculus uses Radians.</p>
-                    <a href="https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all" target="_blank" style="color:#d05ce3;">Download Drivers (Laptop)</a>
+                <div class="help-box">
+                    <p><strong>Note:</strong> Servos use Degrees. Calculus uses Radians.</p>
+                    <a href="https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all" target="_blank">Download Drivers (Laptop)</a>
                 </div>
             </section>
 
@@ -55,8 +55,8 @@
                     <button id="btn-clear" class="btn action">🗑️ Clear Graph</button>
                 </div>
 
-                <div id="math-joke-container" style="margin-top: 30px; padding: 15px; border-top: 1px dashed #333; text-align: center; font-style: italic; color: #888;">
-                    <span style="color: var(--accent); font-weight: bold; font-style: normal;">[Math Joke of the Session]</span><br>
+                <div id="math-joke-container">
+                    <span id="math-joke-header">[Math Joke of the Session]</span>
                     <span id="math-joke-text">Loading humor...</span>
                 </div>
             </section>
@@ -64,7 +64,7 @@
             <section class="panel math-panel">
                 <h2>3. Kinematics Analysis</h2>
                 <div class="math-module">
-                    <h3>Forward Kinematics $f(\mathbf{q})$</h3>
+                    <h3>Forward Kinematics (\mathbf{q})$</h3>
                     <p>Position Vector $\mathbf{x} = \langle x, y, z \rangle$</p>
                     <div class="readout-grid">
                         <div>x: <span id="out-x" style="color:#ff4757;">0.00</span></div>
@@ -76,9 +76,9 @@
                     <h3>Velocity Vector $\mathbf{v}$</h3>
                     <p>$\mathbf{v} = \langle v_x, v_y, v_z \rangle$</p>
                     <div class="readout-grid" style="color:#aaa;">
-                        <div>$v_x$: <span id="vel-x">0.00</span></div>
-                        <div>$v_y$: <span id="vel-y">0.00</span></div>
-                        <div>$v_z$: <span id="vel-z">0.00</span></div>
+                        <div>$: <span id="vel-x">0.00</span></div>
+                        <div>$: <span id="vel-y">0.00</span></div>
+                        <div>$: <span id="vel-z">0.00</span></div>
                     </div>
                     <hr style="border:0; border-top:1px dashed #444; margin:8px 0;">
                     <p>Speed $\|\mathbf{v}\|$:</p>
@@ -105,6 +105,6 @@
         </section>
     </div>
     
-    <script src="js/app.js?v=1765835715"></script>
+    <script src="js/app.js?v=1765836199"></script>
 </body>
 </html>

@@ -1,15 +1,17 @@
 /**
- * CalculusArm v4.3 - Golden Master
+ * CalculusArm v5.0 - Platinum Edition
+ * Consolidated Logic: Kinematics, Plotting, Serial, Flashing, Jokes
  */
 
+// --- UTILS ---
 function log(msg) {
     const box = document.getElementById('log-output');
+    if(!box) return;
     const time = new Date().toLocaleTimeString();
     box.innerHTML += `<div>[${time}] ${msg}</div>`;
     box.scrollTop = box.scrollHeight;
 }
 
-// --- TOGGLE LOG ---
 function toggleLog() {
     const panel = document.getElementById('sys-log-panel');
     const icon = document.getElementById('log-icon');
@@ -57,7 +59,7 @@ function computeFK() {
 function updateUI() {
     if (port && writer) {
         const cmd = `S:${state.theta1},${state.theta2},${state.theta3}\n`;
-        writer.write(cmd).catch(err => log("Serial Error: " + err));
+        writer.write(cmd).catch(err => log("Serial Error: "+err));
     }
 
     document.getElementById('out-x').textContent = state.x.toFixed(2);
@@ -89,7 +91,6 @@ function update() {
 function updateMath(x, y, z) {
     const now = performance.now() / 1000;
     state.liveBuffer.push({ t: now, x, y, z });
-    
     while (state.liveBuffer.length > 0 && (now - state.liveBuffer[0].t > 1.0)) {
         state.liveBuffer.shift();
     }
@@ -150,12 +151,12 @@ function calculateRegression(times, values) {
 
 // --- PLOTTING ---
 function initPlot() {
+    log("Initializing Plot...");
     const common = { mode: 'lines', type: 'scatter', line: { width: 2 } };
     const traceX = { ...common, x: [], y: [], name: 'x(t)', line: { color: '#ff4757' } };
     const traceY = { ...common, x: [], y: [], name: 'y(t)', line: { color: '#2ed573' } };
     const traceZ = { ...common, x: [], y: [], name: 'z(t)', line: { color: '#1e90ff' } };
 
-    // Tangents (Dashed)
     const tanStyle = { mode: 'lines', type: 'scatter', showlegend: false, line: { width: 1, dash: 'dot' } };
     const tanX = { ...tanStyle, x: [], y: [], line: { ...tanStyle.line, color: '#ff4757' }, opacity: 0.7 };
     const tanY = { ...tanStyle, x: [], y: [], line: { ...tanStyle.line, color: '#2ed573' }, opacity: 0.7 };
@@ -173,8 +174,8 @@ function initPlot() {
     
     try {
         Plotly.newPlot('plot-container', [traceX, traceY, traceZ, tanX, tanY, tanZ], layout, {responsive: true});
-        log("Plot Initialized.");
-    } catch(e) { log("Plot Error: " + e.message); }
+        log("Plot Ready.");
+    } catch(e) { log("Plot Crash: " + e.message); }
 }
 
 function updatePlot(x, y, z) {
@@ -215,30 +216,30 @@ async function initSerial() {
 }
 
 async function refreshPorts() {
-    const ports = await navigator.serial.getPorts();
-    const sel = document.getElementById('serial-port-list');
-    sel.innerHTML = '<option value="prompt">🔌 Add New Device...</option>';
-    ports.forEach((p, i) => {
-        const info = p.getInfo();
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = `Device ${i+1} (VID:${info.usbVendorId||'?'})`;
-        sel.appendChild(opt);
-    });
-    if(ports.length > 0) sel.value = 0;
+    try {
+        const ports = await navigator.serial.getPorts();
+        const sel = document.getElementById('serial-port-list');
+        sel.innerHTML = '<option value="prompt">🔌 Add New Device...</option>';
+        ports.forEach((p, i) => {
+            const info = p.getInfo();
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = `Device ${i+1} (VID:${info.usbVendorId||'?'})`;
+            sel.appendChild(opt);
+        });
+        if(ports.length > 0) sel.value = 0;
+    } catch(e) { log("Port listing error: "+e); }
 }
 
 async function handleConnect() {
     const sel = document.getElementById('serial-port-list');
     if (port) { location.reload(); return; }
-    
     try {
         if (sel.value === 'prompt') port = await navigator.serial.requestPort();
         else port = (await navigator.serial.getPorts())[parseInt(sel.value)];
         
         await port.open({ baudRate: 115200 });
         log("Port Opened.");
-        
         const enc = new TextEncoderStream();
         writableStreamClosed = enc.readable.pipeTo(port.writable);
         writer = enc.writable.getWriter();
@@ -258,7 +259,7 @@ async function readLoop() {
     serialReader = dec.readable.getReader();
     try {
         while(keepReading) {
-            const { done } = await serialReader.read();
+            const { value, done } = await serialReader.read();
             if(done) break;
         }
     } catch(e){} finally { serialReader.releaseLock(); }
@@ -266,10 +267,9 @@ async function readLoop() {
 
 async function handleFlash() {
     if(!port) { alert("Connect first"); return; }
-    log("Flashing...");
+    log("Starting Flash...");
     const btn = document.getElementById('btn-flash');
     btn.disabled = true;
-    
     try {
         keepReading = false;
         if(serialReader) await serialReader.cancel().catch(e=>{});
@@ -284,8 +284,8 @@ async function handleFlash() {
         
         let rev = "Unknown";
         try {
-            const vRes = await fetch('firmware/version.json?v='+Date.now());
-            if(vRes.ok) rev = (await vRes.json()).revision;
+            const r = await fetch('firmware/version.json?v='+Date.now());
+            if(r.ok) rev = (await r.json()).revision;
         } catch(e){}
         
         const flasher = new STK500(port, { debug: false });
@@ -297,11 +297,26 @@ async function handleFlash() {
     finally { location.reload(); }
 }
 
+// --- JOKE LOADER (Robust) ---
+function loadJoke() {
+    const el = document.getElementById('math-joke-text');
+    if(!el) return;
+    if(window.mathJokes && window.mathJokes.length > 0) {
+        const joke = window.mathJokes[Math.floor(Math.random() * window.mathJokes.length)];
+        el.textContent = `"${joke}"`;
+        el.style.color = "#d05ce3";
+    } else {
+        setTimeout(loadJoke, 200); // Retry
+    }
+}
+
 // --- BOOT ---
 window.addEventListener('load', () => {
+    log("System Boot...");
     initPlot();
     initSerial();
     update();
+    loadJoke();
     
     ['theta1','theta2','theta3'].forEach(id => {
         document.getElementById('slider-'+id).addEventListener('input', update);
@@ -317,94 +332,16 @@ window.addEventListener('load', () => {
             btn.textContent = "⏹ Stop";
             btn.style.backgroundColor = "#ff4757";
             state.startTime = Date.now();
-            log("Recording Started");
+            state.history = { x: [], y: [], z: [], time: [] };
+            initPlot(); 
         } else {
             btn.textContent = "🔴 Record";
             btn.style.backgroundColor = "#333";
-            log("Recording Stopped");
         }
     });
     
     document.getElementById('btn-clear').addEventListener('click', () => {
         state.history = { x: [], y: [], z: [], time: [] };
         initPlot();
-        log("Graph Cleared");
     });
 });
-
-// --- HUMOR MODULE ---
-const mathJokes = [
-    "Parallel lines have so much in common. It’s a shame they’ll never meet.",
-    "Calculus: The only subject where you can reach your limit and still function.",
-    "I’ll do algebra, I’ll do trig, I’ll even do statistics. But graphing is where I draw the line.",
-    "Why was the equal sign so humble? Because he knew he wasn't less than or greater than anyone else.",
-    "Why do teenagers travel in groups of 3? Because they can't even.",
-    "What is the contour integral around Western Europe? Zero, because all the Poles are in Eastern Europe.",
-    "Why did the student get upset when his teacher called him average? It was a mean thing to say.",
-    "The problem with math puns is that calculus jokes are all derivative, trigonometry jokes are too graphic, and algebra jokes are usually formulaic.",
-    "A biologist, a physicist, and a mathematician were sitting in a street café watching the house across the street. Two people went in. Later, three came out. The mathematician said: 'If one person goes back in, the house will be empty again.'",
-    "There are 10 types of people in this world. Those who understand binary, and those who don't."
-];
-
-function loadMathJoke() {
-    const el = document.getElementById('math-joke-text');
-    if(el) {
-        const joke = mathJokes[Math.floor(Math.random() * mathJokes.length)];
-        el.textContent = `"${joke}"`;
-    }
-}
-
-// Hook into load event
-window.addEventListener('load', loadMathJoke);
-
-// --- HUMOR MODULE ---
-const mathJokes = [
-    "Parallel lines have so much in common. It’s a shame they’ll never meet.",
-    "Calculus: The only subject where you can reach your limit and still function.",
-    "I’ll do algebra, I’ll do trig, I’ll even do statistics. But graphing is where I draw the line.",
-    "Why was the equal sign so humble? Because he knew he wasn't less than or greater than anyone else.",
-    "Why do teenagers travel in groups of 3? Because they can't even.",
-    "What is the contour integral around Western Europe? Zero, because all the Poles are in Eastern Europe.",
-    "Why did the student get upset when his teacher called him average? It was a mean thing to say.",
-    "The problem with math puns is that calculus jokes are all derivative, trigonometry jokes are too graphic, and algebra jokes are usually formulaic.",
-    "A biologist, a physicist, and a mathematician were sitting in a street café watching the house across the street. Two people went in. Later, three came out. The mathematician said: 'If one person goes back in, the house will be empty again.'",
-    "There are 10 types of people in this world. Those who understand binary, and those who don't."
-];
-
-function loadMathJoke() {
-    const el = document.getElementById('math-joke-text');
-    if(el) {
-        const joke = mathJokes[Math.floor(Math.random() * mathJokes.length)];
-        el.textContent = `"${joke}"`;
-    }
-}
-
-// Hook into load event
-window.addEventListener('load', loadMathJoke);
-
-// --- ROBUST JOKE LOADER (Fix for "Loading humor..." hang) ---
-let jokeRetries = 0;
-
-function robustLoadJoke() {
-    const el = document.getElementById('math-joke-text');
-    if (!el) return;
-
-    // Check if library is loaded
-    if (window.mathJokes && window.mathJokes.length > 0) {
-        const joke = window.mathJokes[Math.floor(Math.random() * window.mathJokes.length)];
-        el.textContent = `"${joke}"`;
-        el.style.color = "#d05ce3"; // Accent color
-    } else {
-        // Retry logic
-        if (jokeRetries < 10) {
-            jokeRetries++;
-            setTimeout(robustLoadJoke, 200); // Wait 200ms
-        } else {
-            // Fallback if library fails completely
-            el.textContent = "\"Calculus: The only subject where you can reach your limit and still function.\"";
-        }
-    }
-}
-
-// Call immediately on load
-window.addEventListener('load', robustLoadJoke);
