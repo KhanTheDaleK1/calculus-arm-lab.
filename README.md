@@ -44,11 +44,12 @@ To analyze data on your calculator:
 3.  Use TI-Connect CE software to send the CSV (List L1/L2) to your calculator.
 4.  Plot `L1` vs `L2` on your TI-84 using `Stat Plot`.
 
-## 🛠 Tech Stack
+## 🛠 Tech Stack & Current Revision
 *   **Frontend:** HTML5, CSS3 (Neon/Dark Mode)
 *   **Logic:** Vanilla JavaScript (ES6+)
 *   **Math/Graphing:** Plotly.js, MathJax
 *   **Comms:** Web Serial API
+*   **Firmware Pipeline:** Arduino CLI via GitHub Actions; emits `web/firmware/latest.hex` and `web/firmware/version.json` (commit hash + timestamp). Browser-based flasher uses Web Serial + STK500v1 and surfaces the flashed revision to the user.
 
 ## 📜 License
 MIT License. Created for STEM Education.
