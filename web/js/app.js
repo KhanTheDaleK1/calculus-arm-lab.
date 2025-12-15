@@ -28,13 +28,26 @@ const L1 = 80; // upper link
 const L2 = 80; // forearm link
 
 const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+const D2R = Math.PI / 180;
+function getEl(id) {
+    let el = document.getElementById(id);
+    if (el) return el;
+    // Fallbacks for legacy cached IDs
+    if (id === 'slider-base') return document.getElementById('slider-x');
+    if (id === 'slider-shoulder') return document.getElementById('slider-y');
+    if (id === 'slider-elbow') return document.getElementById('slider-z');
+    if (id === 'val-base') return document.getElementById('val-x');
+    if (id === 'val-shoulder') return document.getElementById('val-y');
+    if (id === 'val-elbow') return document.getElementById('val-z');
+    return null;
+}
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
 // --- FORWARD KINEMATICS ---
 function computeFK() {
-    const t1 = state.theta1 * Math.PI / 180;
-    const t2 = state.theta2 * Math.PI / 180;
-    const t3 = state.theta3 * Math.PI / 180;
+    const t1 = state.theta1 * D2R;
+    const t2 = state.theta2 * D2R;
+    const t3 = state.theta3 * D2R;
 
     // Simple planar model: shoulder elevation t2, elbow relative to shoulder
     const r_planar = L1 * Math.cos(t2) + L2 * Math.cos(t2 + t3 - Math.PI / 2);
@@ -63,13 +76,19 @@ function updateUI() {
 }
 
 function update() {
-    state.theta1 = parseInt(document.getElementById('slider-base').value, 10);
-    state.theta2 = parseInt(document.getElementById('slider-shoulder').value, 10);
-    state.theta3 = parseInt(document.getElementById('slider-elbow').value, 10);
+    const s1 = getEl('slider-base');
+    const s2 = getEl('slider-shoulder');
+    const s3 = getEl('slider-elbow');
+    if (s1) state.theta1 = parseInt(s1.value, 10);
+    if (s2) state.theta2 = parseInt(s2.value, 10);
+    if (s3) state.theta3 = parseInt(s3.value, 10);
 
-    document.getElementById('val-base').textContent = `${state.theta1}°`;
-    document.getElementById('val-shoulder').textContent = `${state.theta2}°`;
-    document.getElementById('val-elbow').textContent = `${state.theta3}°`;
+    const v1 = getEl('val-base');
+    const v2 = getEl('val-shoulder');
+    const v3 = getEl('val-elbow');
+    if (v1) v1.textContent = `${state.theta1}°`;
+    if (v2) v2.textContent = `${state.theta2}°`;
+    if (v3) v3.textContent = `${state.theta3}°`;
 
     // FK
     computeFK();
@@ -301,7 +320,7 @@ window.addEventListener('load', () => {
 });
 
 ['slider-base', 'slider-shoulder', 'slider-elbow'].forEach(id => {
-    const el = document.getElementById(id);
+    const el = getEl(id);
     if (el) el.addEventListener('input', update);
 });
 document.getElementById('btn-open-port').addEventListener('click', handleConnectClick);
