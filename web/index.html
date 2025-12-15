@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CalculusArm Lab v4.3</title>
-    <link rel="stylesheet" href="css/style.css?v=1765835094">
+    <title>CalculusArm Lab v4.4</title>
+    <link rel="stylesheet" href="css/style.css?v=1765835413">
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script src="js/stk500.js?v=1765835094"></script>
+    <script src="js/stk500.js?v=1765835413"></script>
+    <script src="js/jokes.js?v=1765835413"></script>
 </head>
 <body>
     <div class="app-container">
@@ -26,6 +27,7 @@
             <section class="panel control-panel">
                 <h2>1. Configuration Space ($\mathcal{C}$)</h2>
                 <p style="font-size: 0.8rem; color: #888;">Joint Vector $\mathbf{q} = [\theta_1, \theta_2, \theta_3]^T$</p>
+                
                 <div class="slider-group">
                     <label>Base ($\theta_1$) <span class="val-display"><span id="val-theta1-deg">90°</span> / <span id="val-theta1-rad" style="color:#d05ce3;">1.57rad</span></span></label>
                     <input type="range" id="slider-theta1" min="0" max="180" value="90">
@@ -38,8 +40,10 @@
                     <label>Elbow ($\theta_3$) <span class="val-display"><span id="val-theta3-deg">90°</span> / <span id="val-theta3-rad" style="color:#d05ce3;">1.57rad</span></span></label>
                     <input type="range" id="slider-theta3" min="0" max="180" value="90">
                 </div>
-                <div class="help-box">
-                    <p><strong>Note:</strong> Servos use Degrees.<br>Calculus uses Radians.</p>
+                
+                <div class="help-box" style="margin-top:20px; font-size: 0.8rem; color: #888;">
+                    <p><strong>Note:</strong> Servo hardware operates in Degrees. Calculus uses Radians.</p>
+                    <a href="https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all" target="_blank" style="color:#d05ce3;">Download Drivers (Laptop)</a>
                 </div>
             </section>
 
@@ -50,10 +54,7 @@
                     <button id="btn-record" class="btn action">🔴 Record Motion</button>
                     <button id="btn-clear" class="btn action">🗑️ Clear Graph</button>
                 </div>
-                <div id="math-joke-container" style="margin-top: 30px; padding: 15px; border-top: 1px dashed #333; text-align: center; font-style: italic; color: #888;">
-                    <span style="color: var(--accent); font-weight: bold; font-style: normal;">[Math Joke of the Session]</span><br>
-                    <span id="math-joke-text">Loading humor...</span>
-                </div>
+
                 <div id="math-joke-container" style="margin-top: 30px; padding: 15px; border-top: 1px dashed #333; text-align: center; font-style: italic; color: #888;">
                     <span style="color: var(--accent); font-weight: bold; font-style: normal;">[Math Joke of the Session]</span><br>
                     <span id="math-joke-text">Loading humor...</span>
@@ -100,9 +101,10 @@
                 <span>System Log</span>
                 <span id="log-icon">▼</span>
             </div>
-            <div id="log-output">System Ready. Forward Kinematics Engine Online.</div>
+            <div id="log-output">System Ready.</div>
         </section>
     </div>
-    <script src="js/app.js?v=1765835094"></script>
+    
+    <script src="js/app.js?v=1765835413"></script>
 </body>
 </html>
