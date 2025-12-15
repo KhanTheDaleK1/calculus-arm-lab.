@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CalculusArm Lab v4.3</title>
-    <link rel="stylesheet" href="css/style.css?v=1765827737">
+    <link rel="stylesheet" href="css/style.css?v=1765834845">
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script src="js/stk500.js?v=1765827737"></script>
+    <script src="js/stk500.js?v=1765834845"></script>
 </head>
 <body>
     <div class="app-container">
@@ -49,6 +49,10 @@
                 <div class="plot-controls">
                     <button id="btn-record" class="btn action">🔴 Record Motion</button>
                     <button id="btn-clear" class="btn action">🗑️ Clear Graph</button>
+                </div>
+                <div id="math-joke-container" style="margin-top: 30px; padding: 15px; border-top: 1px dashed #333; text-align: center; font-style: italic; color: #888;">
+                    <span style="color: var(--accent); font-weight: bold; font-style: normal;">[Math Joke of the Session]</span><br>
+                    <span id="math-joke-text">Loading humor...</span>
                 </div>
             </section>
 
@@ -95,6 +99,6 @@
             <div id="log-output">System Ready. Forward Kinematics Engine Online.</div>
         </section>
     </div>
-    <script src="js/app.js?v=1765827737"></script>
+    <script src="js/app.js?v=1765834845"></script>
 </body>
 </html>
