@@ -17,7 +17,10 @@
         <header>
             <h1>CalculusArm <span class="highlight">Dynamics Lab</span></h1>
             <div class="connection-status">
-                <button id="btn-connect-arm" class="btn primary">🔌 Connect Arm (Serial)</button>
+                <select id="serial-port-list" class="port-dropdown">
+                    <option value="prompt">🔌 Add New Device...</option>
+                </select>
+                <button id="btn-open-port" class="btn primary">Connect</button>
                 <button id="btn-connect-ti" class="btn secondary">🧮 Connect TI-84</button>
                 <span id="status-indicator" class="status disconnected">Disconnected</span>
             </div>
@@ -92,7 +95,7 @@
         </main>
         
         <footer>
-            <p>CalculusArm Lab v1.0 | <a href="https://github.com/evan/calculus-arm-lab" target="_blank">GitHub Repository</a></p>
+            <p>CalculusArm Lab v1.0 | <a href="https://github.com/KhanTheDaleK1/calculus-arm-lab." target="_blank">GitHub Repository</a></p>
         </footer>
     </div>
 

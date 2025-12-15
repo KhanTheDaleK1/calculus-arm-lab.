@@ -12,6 +12,11 @@ This project turns a 3-Axis Robotic Arm (MeArm) into a tangible laboratory for u
 *   **TI-84 Integration:** Import motion data CSVs from your graphing calculator to replay trajectories.
 *   **Hardware Loop:** High-speed Serial communication with Arduino.
 
+## 🌐 Live Hosting (GitHub Pages)
+The repo includes a GitHub Pages workflow (`.github/workflows/deploy-pages.yml`) that publishes the static site from `web/` on every push to `main`.
+
+**Custom domain:** `web/CNAME` sets the domain to `kim.beechem.site`. In Cloudflare, point a CNAME for `kim` to `khanthedalek1.github.io`, then enable GitHub Pages in repo settings and set the custom domain to `kim.beechem.site`.
+
 ## 🚀 Getting Started
 
 ### 1. Hardware Setup
@@ -24,7 +29,7 @@ This project turns a 3-Axis Robotic Arm (MeArm) into a tangible laboratory for u
 2.  Upload to your Arduino.
 
 ### 3. Launch Interface
-1.  Open `web/index.html` in a Modern Browser (Chrome/Edge required for Serial API).
+1.  Open `web/index.html` locally in Chrome/Edge (or visit the GitHub Pages URL after it’s enabled).
 2.  Click **🔌 Connect Arm**.
 3.  Select your Arduino Port.
 
