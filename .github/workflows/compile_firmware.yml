@@ -10,9 +10,6 @@ on:
 permissions:
   contents: write
 
-env:
-  ARDUINO_DIRECTORIES_USER: /tmp/arduino-sketchbook
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,18 +22,21 @@ jobs:
         with:
           version: "0.34.2"
 
-      - name: Init Config & Install Core
+      - name: Install Core & Libraries
         run: |
           arduino-cli config init --overwrite
-          arduino-cli config set board_manager.additional_urls https://downloads.arduino.cc/packages/package_index.json
           arduino-cli core update-index
           arduino-cli core install arduino:avr
+          arduino-cli lib install Servo
+
+      - name: Verify Directory Structure (Debug)
+        run: ls -R arduino
 
       - name: Compile Firmware
         run: |
           mkdir -p web/firmware
           arduino-cli compile --fqbn arduino:avr:uno --output-dir web/firmware arduino/CalculusArmFirmware
-          mv web/firmware/CalculusArmFirmware.ino.hex web/firmware/latest.hex || true
+          mv web/firmware/CalculusArmFirmware.ino.hex web/firmware/latest.hex
           rm -f web/firmware/*.elf
 
       - name: Commit HEX Artifact
