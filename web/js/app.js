@@ -303,6 +303,12 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     state.history.z = [];
     state.history.time = [];
     initPlot(); // redraw empty traces
+    const fx = document.getElementById('func-x');
+    const fy = document.getElementById('func-y');
+    const fz = document.getElementById('func-z');
+    if (fx) fx.textContent = "x(t) ≈ --";
+    if (fy) fy.textContent = "y(t) ≈ --";
+    if (fz) fz.textContent = "z(t) ≈ --";
 });
 
 // --- FLASHING (browser-based) ---
@@ -416,7 +422,10 @@ function updateFunctionDisplay() {
 
     const fmtLine = (m, b) => `${m.toFixed(2)}t ${b >= 0 ? "+ " : "- "}${Math.abs(b).toFixed(2)}`;
 
-    document.getElementById('func-x').textContent = `x(t) ≈ ${fmtLine(modelX.m, modelX.b)}`;
-    document.getElementById('func-y').textContent = `y(t) ≈ ${fmtLine(modelY.m, modelY.b)}`;
-    document.getElementById('func-z').textContent = `z(t) ≈ ${fmtLine(modelZ.m, modelZ.b)}`;
+    const fx = document.getElementById('func-x');
+    const fy = document.getElementById('func-y');
+    const fz = document.getElementById('func-z');
+    if (fx) fx.textContent = `x(t) ≈ ${fmtLine(modelX.m, modelX.b)}`;
+    if (fy) fy.textContent = `y(t) ≈ ${fmtLine(modelY.m, modelY.b)}`;
+    if (fz) fz.textContent = `z(t) ≈ ${fmtLine(modelZ.m, modelZ.b)}`;
 }
