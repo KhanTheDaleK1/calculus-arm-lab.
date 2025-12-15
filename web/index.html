@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CalculusArm Dynamics Lab</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Plotly.js for Scientific Graphing -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <!-- MathJax for rendering equations -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <h1>CalculusArm <span class="highlight">Dynamics Lab</span></h1>
+            <div class="connection-status">
+                <button id="btn-connect-arm" class="btn primary">🔌 Connect Arm (Serial)</button>
+                <button id="btn-connect-ti" class="btn secondary">🧮 Connect TI-84</button>
+                <span id="status-indicator" class="status disconnected">Disconnected</span>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="grid-layout">
+            
+            <!-- LEFT: Controls & Kinematics -->
+            <section class="panel control-panel">
+                <h2>1. Vector Control (Inverse Kinematics)</h2>
+                <div class="slider-group">
+                    <label>Target X (cm) <span id="val-x">0</span></label>
+                    <input type="range" id="slider-x" min="-20" max="20" step="0.5" value="0">
+                    
+                    <label>Target Y (cm) <span id="val-y">15</span></label>
+                    <input type="range" id="slider-y" min="5" max="30" step="0.5" value="15">
+                    
+                    <label>Target Z (Height cm) <span id="val-z">5</span></label>
+                    <input type="range" id="slider-z" min="0" max="20" step="0.5" value="5">
+                </div>
+                
+                <div class="servo-feedback">
+                    <h3>Servo Angles ( calculated )</h3>
+                    <div class="readout">Base (θ₁): <span id="out-base">90°</span></div>
+                    <div class="readout">Shoulder (θ₂): <span id="out-shoulder">90°</span></div>
+                    <div class="readout">Elbow (θ₃): <span id="out-elbow">90°</span></div>
+                </div>
+
+                <div class="sensor-readout">
+                    <h3>Sonar Telemetry</h3>
+                    <div class="big-number"><span id="sonar-dist">--</span> cm</div>
+                </div>
+            </section>
+
+            <!-- CENTER: Dynamics Plot -->
+            <section class="panel vis-panel">
+                <h2>2. Dynamics Visualization (XY Trajectory)</h2>
+                <div id="plot-container" style="width:100%; height:400px;"></div>
+                <div class="plot-controls">
+                    <button id="btn-record" class="btn action">🔴 Record Trace</button>
+                    <button id="btn-clear" class="btn action">🗑️ Clear</button>
+                    <button id="btn-export" class="btn action">💾 Export CSV</button>
+                </div>
+            </section>
+
+            <!-- RIGHT: Educational Math Context -->
+            <section class="panel math-panel">
+                <h2>3. The Calculus of Motion</h2>
+                <div class="math-module">
+                    <h3>Instantaneous Velocity</h3>
+                    <p>The derivative of position with respect to time:</p>
+                    <p>$$ v(t) = \frac{dx}{dt} $$</p>
+                    <p>Current Velocity X: <span id="math-vel-x">0</span> cm/s</p>
+                </div>
+
+                <div class="math-module">
+                    <h3>Polar Coordinates</h3>
+                    <p>Mapping the arm's reach:</p>
+                    <p>$$ r = \sqrt{x^2 + y^2} $$</p>
+                    <p>$$ \theta = \arctan(\frac{y}{x}) $$</p>
+                    <p>Radius (r): <span id="math-r">0</span> cm</p>
+                </div>
+                
+                <div class="ti-module hidden" id="ti-panel">
+                    <h3>TI-84 Data Bridge</h3>
+                    <p>Import lists L1 (Time) and L2 (Position) from your calculator to replay motion.</p>
+                    <input type="file" id="ti-file-input" accept=".8xl,.csv">
+                </div>
+            </section>
+
+        </main>
+        
+        <footer>
+            <p>CalculusArm Lab v1.0 | <a href="https://github.com/evan/calculus-arm-lab" target="_blank">GitHub Repository</a></p>
+        </footer>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
