@@ -6,7 +6,8 @@ class LabController {
         this.currentLab = -1;
         this.dataBuffer = [];
         this.serialBuffer = "";
-        this.smoothingWindowSize = 5; // For a basic moving average smoothing
+        this.smoothingWindowSize = 5; // Moving average for display
+        this.filterState = { window: [], max: 11, lastValid: null, lastTime: null }; // Median/MAD + EMA filter for radar
         
         // SOP Content
         this.sopData = {
@@ -109,10 +110,12 @@ class LabController {
             const parts = data.split(',');
             if (parts.length >= 2) {
                 const t = parseFloat(parts[0]);
-                const y = parseFloat(parts[1]);
+                const yRaw = parseFloat(parts[1]);
                 
                 // Filter out obviously bad parses (e.g. if t is NaN or y is NaN)
-                if (!isNaN(t) && !isNaN(y)) {
+                if (!isNaN(t) && !isNaN(yRaw)) {
+                    const y = (this.currentLab === 4) ? this.filterRadarSample(yRaw, t) : yRaw;
+                    if (y === null) return;
                     this.dataBuffer.push({t, y});
                     this.updateGraph();
                     this.updateText();
@@ -136,6 +139,8 @@ class LabController {
     setLab(id) {
         this.currentLab = id;
         this.dataBuffer = [];
+        this.filterState = { window: [], max: 11, lastValid: null, lastTime: null };
+        this.smoothingWindowSize = (id === 4) ? 9 : 5;
         
         const titleEl = document.getElementById('lab-title');
         const runBtn = document.getElementById('btn-run');
@@ -262,6 +267,52 @@ class LabController {
         });
         document.getElementById('data-output').value = txt;
     }
+
+    // --- FILTERING (Radar Trap) ---
+
+    filterRadarSample(y, t) {
+        // Drop clearly invalid echoes (no echo / far wall)
+        if (y <= 2 || y >= 380) return this.filterState.lastValid;
+
+        const w = this.filterState.window;
+        w.push(y);
+        if (w.length > this.filterState.max) w.shift();
+
+        const med = this.median(w);
+        const deviations = w.map(v => Math.abs(v - med));
+        const mad = this.median(deviations);
+
+        // Hampel-style rejection: tolerate rapid human motion but drop spikes
+        const guard = mad < 1 ? 1 : mad; // Prevent divide-by-zero
+        const threshold = guard * 3.0 + 8; // Scales with dispersion, small bias
+        const last = this.filterState.lastValid;
+
+        // If it's a big jump from both the median and last good point, reject
+        const jumpFromLast = (last !== null) ? Math.abs(y - last) : 0;
+        if (Math.abs(y - med) > threshold && (last === null || jumpFromLast > threshold)) {
+            return last ?? med;
+        }
+
+        // Clamp impossible jumps even if median shifts
+        const MAX_JUMP = 120; // cm between samples
+        if (last !== null && jumpFromLast > MAX_JUMP) {
+            return last;
+        }
+
+        // Gentle EMA to avoid step changes while following true motion
+        const alpha = 0.45;
+        const filtered = (last === null) ? y : (last + alpha * (y - last));
+        this.filterState.lastValid = filtered;
+        this.filterState.lastTime = t;
+        return filtered;
+    }
+
+    median(arr) {
+        if (!arr || arr.length === 0) return 0;
+        const sorted = [...arr].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return (sorted.length % 2 === 0) ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    }
 }
 
 const lab = new LabController();
@@ -270,11 +321,22 @@ const lab = new LabController();
 document.getElementById('btn-connect').addEventListener('click', () => lab.connect());
 document.getElementById('btn-run').addEventListener('click', () => lab.startRun());
 document.getElementById('btn-export').addEventListener('click', () => {
-    const txt = document.getElementById('data-output');
-    txt.select();
+    const txt = document.getElementById('data-output').value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(() => alert("Data copied!")).catch(() => {
+            fallbackCopy();
+        });
+    } else {
+        fallbackCopy();
+    }
+});
+
+function fallbackCopy() {
+    const ta = document.getElementById('data-output');
+    ta.select();
     document.execCommand('copy');
     alert("Data copied!");
-});
+}
 
 // Drive Bindings
 const bindBtn = (id, cmd) => {
