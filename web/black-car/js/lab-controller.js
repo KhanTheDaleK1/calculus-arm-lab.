@@ -155,6 +155,11 @@ class LabController {
             runBtn.innerText = "▶ START RADAR";
             this.initGraph("Time (s)", "Hypotenuse (cm)");
             document.getElementById('data-output').value = "WARNING: Max angle 15°. Keep track short. Don't sample faster than 20Hz.";
+        } else if (id === 5) {
+            titleEl.innerHTML = "Lab 5: Harmonic Motion <span style='font-size:0.6em; color:#888;'>Position y(t)</span>";
+            runBtn.innerText = "▶ START MONITOR";
+            this.initGraph("Time (s)", "Position (cm)");
+            document.getElementById('data-output').value = "Place robot below weight. Ensure clear line of sight.";
         }
     }
 
@@ -166,6 +171,7 @@ class LabController {
         if (this.currentLab === 2) this.send('2');
         if (this.currentLab === 3) this.send('3');
         if (this.currentLab === 4) this.send('4');
+        if (this.currentLab === 5) this.send('5');
     }
 
     // --- VISUALIZATION ---

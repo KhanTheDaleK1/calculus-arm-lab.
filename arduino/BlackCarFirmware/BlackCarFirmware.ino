@@ -85,6 +85,7 @@ void loop() {
     else if (command == '2') { currentLab = 2; labStartTime = millis(); autoMode = false; }
     else if (command == '3') { currentLab = 3; labStartTime = millis(); autoMode = false; }
     else if (command == '4') { currentLab = 4; labStartTime = millis(); autoMode = false; stopMotors(); }
+    else if (command == '5') { currentLab = 5; labStartTime = millis(); autoMode = false; stopMotors(); }
   }
 
   // 2. Lab Execution
@@ -229,6 +230,20 @@ void runLabLogic() {
     }
     
     if (t > 20000) { stopMotors(); currentLab = 0; } // 20s run
+  }
+
+  // LAB 5: Harmonic Oscillator (Spring/Mass)
+  else if (currentLab == 5) {
+    stopMotors();
+    
+    // Log distance to weight (y)
+    if (millis() - lastLogTime > 100) {
+       int y = getFilteredDistance(); 
+       Serial.print(t_sec); Serial.print(","); Serial.println(y);
+       lastLogTime = millis();
+    }
+    
+    if (t > 20000) { stopMotors(); currentLab = 0; }
   }
 }
 
