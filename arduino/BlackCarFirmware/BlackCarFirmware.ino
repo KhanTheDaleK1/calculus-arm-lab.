@@ -1,17 +1,6 @@
 /*
-  Black Car - Basic Motor Test & Obstacle Avoidance
+  Black Car - Basic Motor Test & Obstacle Avoidance + Line Tracking
   Target: Elegoo Smart Robot Car V3.0 (Arduino Uno R3)
-  
-  Pinout (L298N Shield Standard):
-  - ENA (PWM Left): 5
-  - ENB (PWM Right): 6
-  - IN1 (Left A): 7
-  - IN2 (Left B): 8
-  - IN3 (Right A): 9
-  - IN4 (Right B): 11
-  
-  - Ultrasonic Trig: A5 (Analog 5 used as Digital)
-  - Ultrasonic Echo: A4 (Analog 4 used as Digital)
 */
 
 // Motor Pins
@@ -22,15 +11,29 @@
 #define IN3 11 // Swapped (Fixing Right Motor)
 #define IN4 9  // Swapped (Fixing Right Motor)
 
-// Ultrasonic Pins (V3.0 Shield Default often uses A5/A4 for Echo/Trig)
+// Ultrasonic Pins
 #define TRIG A5
 #define ECHO A4
+
+// Line Sensor Pins (Elegoo V3.0 Standard)
+#define LINE_L 10
+#define LINE_M 4
+#define LINE_R 2
 
 // State Variables
 char command = 'S';
 int speed = 150;
-int turnSpeed = 220; // Increased for better torque on turns
+int turnSpeed = 220; 
 bool autoMode = false;
+
+// Function Prototypes
+void moveForward(int speed);
+void moveBackward(int speed);
+void turnLeft(int speed);
+void turnRight(int speed);
+void stopMotors();
+int getFilteredDistance();
+int getRawDistance();
 
 void setup() {
   Serial.begin(9600);
@@ -46,6 +49,10 @@ void setup() {
   // Sensor Config
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
+  
+  pinMode(LINE_L, INPUT);
+  pinMode(LINE_M, INPUT);
+  pinMode(LINE_R, INPUT);
 
   stopMotors();
   Serial.println("READY"); 
@@ -60,39 +67,48 @@ void loop() {
     Serial.print("CMD:");
     Serial.println(command);
 
-    // Simple Protocol: F=Fwd, B=Back, L=Left, R=Right, S=Stop, A=Auto, M=Manual
     if (command == 'F') { moveForward(speed); autoMode = false; }
     else if (command == 'B') { moveBackward(speed); autoMode = false; }
     else if (command == 'L') { turnLeft(turnSpeed); autoMode = false; }
     else if (command == 'R') { turnRight(turnSpeed); autoMode = false; }
     else if (command == 'S') { stopMotors(); autoMode = false; }
-    else if (command == 'A') { autoMode = true; Serial.println("AUTO: ON"); }
+    else if (command == 'A') { autoMode = true; Serial.println("AUTO: LINE+AVOID"); }
     else if (command == 'M') { autoMode = false; stopMotors(); Serial.println("AUTO: OFF"); }
   }
 
-  // 2. Continuous Tasks
+  // 2. Read Sensors
   int distance = getFilteredDistance();
+  int lVal = digitalRead(LINE_L);
+  int mVal = digitalRead(LINE_M);
+  int rVal = digitalRead(LINE_R);
   
-  // Send Telemetry (Throttle to ~10Hz to avoid flooding)
+  // Send Telemetry (~10Hz)
   static unsigned long lastTelem = 0;
   if (millis() - lastTelem > 100) {
-    Serial.print("D:");
-    Serial.println(distance);
+    Serial.print("D:"); Serial.print(distance);
+    Serial.print("|L:"); Serial.print(lVal); Serial.print(mVal); Serial.println(rVal);
     lastTelem = millis();
   }
 
-  // 3. Auto Mode Logic
+  // 3. Auto Mode Logic (Line Tracking + Safety Stop)
   if (autoMode) {
-    if (distance < 30 && distance > 0) { // Increased threshold slightly to 30cm
-      Serial.println("AUTO: AVOIDING");
+    if (distance < 15 && distance > 0) {
+      // Safety Stop
       stopMotors();
-      delay(200);
-      moveBackward(150);
-      delay(400); // Back up longer
-      turnLeft(turnSpeed); // Use higher turn speed
-      delay(500); // Turn longer
-    } else {
-      moveForward(180); // INCREASED SPEED from 120 to 180
+      // Serial.println("AUTO: OBSTACLE"); // Optional debug
+    } 
+    else {
+      // Line Following Logic (Assuming HIGH = Black Line)
+      if (mVal == HIGH) {
+        moveForward(150); // Center on line -> Go
+      } else if (lVal == HIGH) {
+        turnLeft(turnSpeed); // Left on line -> Turn Left
+      } else if (rVal == HIGH) {
+        turnRight(turnSpeed); // Right on line -> Turn Right
+      } else {
+        // No line detected -> Stop
+        stopMotors();
+      }
     }
   }
   
@@ -104,18 +120,18 @@ void loop() {
 int getFilteredDistance() {
   int readings[3];
   
-  // Take 3 readings with sufficient delay to prevent Ghost Echoes
+  // Take 3 readings with sufficient delay
   for (int i = 0; i < 3; i++) {
     readings[i] = getRawDistance();
-    delay(30); // INCREASED from 5ms to 30ms (datasheet recommends >60ms cycle)
+    delay(30); 
   }
 
-  // Simple Bubble Sort to find Median
+  // Simple Bubble Sort
   if (readings[0] > readings[1]) { int t = readings[0]; readings[0] = readings[1]; readings[1] = t; }
   if (readings[1] > readings[2]) { int t = readings[1]; readings[1] = readings[2]; readings[2] = t; }
   if (readings[0] > readings[1]) { int t = readings[0]; readings[0] = readings[1]; readings[1] = t; }
 
-  return readings[1]; // Return Median
+  return readings[1]; 
 }
 
 int getRawDistance() {
@@ -125,21 +141,19 @@ int getRawDistance() {
   delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
   
-  // Timeout: 30,000us (~5 meters max)
   long duration = pulseIn(ECHO, HIGH, 30000);
   
-  if (duration == 0) return 400; // Timeout
+  if (duration == 0) return 400; 
   
   int cm = duration * 0.034 / 2;
   
-  // Filter: Ignore impossibly close values (Noise/Ghost Echoes)
-  if (cm < 5) return 400; // Treat < 5cm as "out of range" or ignore
+  if (cm < 5) return 400; 
   if (cm > 400) return 400;
   
   return cm;
 }
-// Remove old getDistance
-// int getDistance() { ... }
+
+// --- MOTOR FUNCTIONS ---
 
 void moveForward(int speed) {
   analogWrite(ENA, speed);

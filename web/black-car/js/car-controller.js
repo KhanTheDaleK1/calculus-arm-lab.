@@ -86,15 +86,36 @@ class CarController {
     }
 
     handleData(data) {
-        // Buffer handling could be improved, but assuming line-based
-        // Data format: "D:25"
+        // Data format: "D:25|L:101" or separate lines "D:25" / "L:101"
         console.log("RX:", data);
+        
+        // Parse Distance
         if (data.includes("D:")) {
             const parts = data.split("D:");
             if (parts.length > 1) {
-                const val = parseInt(parts[1]);
+                // Handle potential trailing chars if pipe is used
+                const valStr = parts[1].split("|")[0].trim();
+                const val = parseInt(valStr);
                 if (!isNaN(val)) {
-                    document.getElementById('val-distance').innerText = val;
+                    const el = document.getElementById('val-distance');
+                    if (el) el.innerText = val;
+                }
+            }
+        }
+
+        // Parse Line Sensors
+        if (data.includes("L:")) {
+            const parts = data.split("L:");
+            if (parts.length > 1) {
+                const valStr = parts[1].trim(); // "101"
+                // Expecting 3 chars
+                if (valStr.length >= 3) {
+                    const l = valStr[0] === '1' ? '⚫' : '⚪';
+                    const m = valStr[1] === '1' ? '⚫' : '⚪';
+                    const r = valStr[2] === '1' ? '⚫' : '⚪';
+                    
+                    const el = document.getElementById('val-line');
+                    if (el) el.innerText = `${l} ${m} ${r}`;
                 }
             }
         }
