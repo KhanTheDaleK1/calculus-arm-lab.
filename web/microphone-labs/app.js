@@ -13,10 +13,15 @@
         scopeCanvas: document.getElementById('scope-canvas'),
         scopeScrub: document.getElementById('scope-scrub'),
         scopePeriod: document.getElementById('scope-period'),
+        scopeTimebase: document.getElementById('scope-timebase'),
+        scopeTimebaseVal: document.getElementById('scope-timebase-val'),
+        scopeGain: document.getElementById('scope-gain'),
+        scopeGainVal: document.getElementById('scope-gain-val'),
         spectrumCanvas: document.getElementById('spectrum-canvas'),
         historyCanvas: document.getElementById('history-canvas'),
         btnFreeze: document.getElementById('btn-freeze'),
         btnClearHistory: document.getElementById('btn-clear-history'),
+        btnScopeSnap: document.getElementById('btn-scope-snap'),
         btnSpectrumSnap: document.getElementById('btn-spectrum-snap'),
         btnHistorySnap: document.getElementById('btn-history-snap'),
         dopplerBase: document.getElementById('doppler-base'),
@@ -65,6 +70,7 @@
     let scopeIndex = 0;
     const maxScopeBuffers = 600;
     let lastBuffer = null;
+    const scopeDivisions = 10;
 
     // Sonar
     let sonarListening = false;
@@ -366,6 +372,8 @@
     }
 
     function drawScope(buffer, opts = {}) {
+        const displayBuffer = getScopeDisplayBuffer(buffer);
+        if (!displayBuffer || !displayBuffer.length) return;
         const { width, height } = els.scopeCanvas;
         scopeCtx.fillStyle = '#000';
         scopeCtx.fillRect(0, 0, width, height);
@@ -374,11 +382,12 @@
         if (opts.showEnergy) {
             scopeCtx.fillStyle = 'rgba(208,92,227,0.2)';
             scopeCtx.beginPath();
-            const sliceWidth = width / buffer.length;
+            const sliceWidth = width / displayBuffer.length;
             let x = 0;
             scopeCtx.moveTo(0, height);
-            for (let i = 0; i < buffer.length; i++) {
-                const squared = Math.min(1, buffer[i] * buffer[i] * 9); // apply same gain then square
+            const gainBoost = getScopeGain();
+            for (let i = 0; i < displayBuffer.length; i++) {
+                const squared = Math.min(1, displayBuffer[i] * displayBuffer[i] * gainBoost * gainBoost);
                 const y = height - squared * height;
                 scopeCtx.lineTo(x, y);
                 x += sliceWidth;
@@ -392,11 +401,11 @@
         scopeCtx.lineWidth = 2;
         scopeCtx.strokeStyle = '#2ed573';
         scopeCtx.beginPath();
-        const sliceWidth = width / buffer.length;
+        const sliceWidth = width / displayBuffer.length;
         let x = 0;
-        const gain = 3; // boost small signals for clearer view
-        for (let i = 0; i < buffer.length; i++) {
-            const amplified = Math.max(-1, Math.min(1, buffer[i] * gain));
+        const gain = getScopeGain();
+        for (let i = 0; i < displayBuffer.length; i++) {
+            const amplified = Math.max(-1, Math.min(1, displayBuffer[i] * gain));
             const v = amplified * 0.5 + 0.5;
             const y = v * height;
             if (i === 0) scopeCtx.moveTo(x, y);
