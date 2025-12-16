@@ -40,13 +40,14 @@ select { background: #333; color: #fff; border: 1px solid #555; padding: 5px; bo
 .status.disconnected { color: #ff4757; }
 
 /* LAYOUT */
-.grid-layout { display: grid; grid-template-columns: 1.2fr 1fr 1fr; grid-template-rows: 1fr 1fr; grid-template-areas: "scope scope spectrum" "controls tone history"; gap: 10px; padding: 10px; flex: 1; overflow: hidden; }
+.grid-layout { display: grid; grid-template-columns: 1fr 1.2fr 1fr; grid-template-rows: 1.2fr 0.8fr; grid-template-areas: "controls scope history" "spectrum tone tools"; gap: 10px; padding: 10px; flex: 1; overflow: hidden; }
 .panel { background: var(--panel-bg); border: 1px solid #333; padding: 15px; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .scope-area { grid-area: scope; }
 .spectrum-area { grid-area: spectrum; }
 .controls-area { grid-area: controls; }
 .tone-area { grid-area: tone; }
 .history-area { grid-area: history; }
+.tools-area { grid-area: tools; }
 h2 { margin-top: 0; font-size: 1rem; color: #888; border-bottom: 1px solid #444; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; }
 
 /* SLIDERS */

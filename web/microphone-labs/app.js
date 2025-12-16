@@ -70,6 +70,9 @@
     let scopeIndex = 0;
     const maxScopeBuffers = 600;
     let lastBuffer = null;
+    let lastScopeBuffer = null;
+    let scopeTimebaseMs = 50;
+    let scopeGainMult = 3;
     const scopeDivisions = 10;
 
     // Sonar
