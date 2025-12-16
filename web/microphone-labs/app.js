@@ -67,8 +67,15 @@
     // Sonar
     let sonarListening = false;
     let sonarStartTime = 0;
-    let sonarIgnoreUntil = 0;
     let sonarDetected = false;
+    let sonarTemplate = null;
+    let sonarPingSample = 0;
+    let sonarBlankSamples = 0;
+    let sonarSearchSamples = 0;
+    let totalSamplesProcessed = 0;
+    const sonarBuffers = [];
+    const sonarBlankMs = 10;
+    const sonarWindowMs = 400;
     const baseSpeed = () => {
         const t = parseFloat(els.speedTemp.value) || 0;
         return 331.4 + 0.6 * t;
@@ -77,7 +84,9 @@
     // Acoustic stopwatch
     let speedListening = false;
     let clapTimes = [];
-    let lastClapTime = 0;
+    let speedState = 'idle';
+    let speedLockoutUntil = 0;
+    let speedSecondDeadline = 0;
 
     // Tone generator
     let toneOsc = null;
@@ -141,6 +150,11 @@
 
             dataArray = new Float32Array(analyser.fftSize);
             freqArray = new Uint8Array(analyserFreq.frequencyBinCount);
+            sonarTemplate = buildPingTemplate(sampleRate);
+            sonarBlankSamples = Math.round((sonarBlankMs / 1000) * sampleRate);
+            sonarSearchSamples = Math.round((sonarWindowMs / 1000) * sampleRate);
+            totalSamplesProcessed = 0;
+            sonarBuffers.length = 0;
 
             sourceNode.connect(analyser);
             sourceNode.connect(analyserFreq);
@@ -166,6 +180,11 @@
         sourceNode = null;
         analyser = null;
         analyserFreq = null;
+        sonarTemplate = null;
+        sonarListening = false;
+        sonarDetected = false;
+        sonarBuffers.length = 0;
+        totalSamplesProcessed = 0;
         setStatus('Mic Idle', false);
     }
 
@@ -183,14 +202,14 @@
     }
 
     function autoCorrelate(buffer, sampleRate) {
-        // Basic autocorrelation: returns freq + confidence
+        // Basic autocorrelation: returns freq + normalized confidence
         const SIZE = buffer.length;
         let rms = 0;
         for (let i = 0; i < SIZE; i++) {
             rms += buffer[i] * buffer[i];
         }
         rms = Math.sqrt(rms / SIZE);
-        if (rms < 0.01) return { freq: null, confidence: rms };
+        if (rms < 0.01) return { freq: null, confidence: 0 };
 
         let r1 = 0;
         let r2 = SIZE - 1;
@@ -229,8 +248,76 @@
             if (a) T0 = T0 - b / (2 * a);
         }
         const freq = sampleRate / T0;
-        const confidence = maxval / c[0];
-        return { freq, confidence: confidence.toFixed(2) };
+        const confidence = maxval && c[0] ? (maxval / c[0]) : 0;
+        return { freq, confidence };
+    }
+
+    function buildPingTemplate(sr) {
+        // Matches the short 2 kHz ping envelope used when triggering sonar
+        const upMs = 3;
+        const sustainMs = 10;
+        const downMs = 3;
+        const totalMs = (upMs + sustainMs + downMs) / 1000;
+        const totalSamples = Math.max(1, Math.floor(totalMs * sr));
+        const template = new Float32Array(totalSamples);
+        for (let i = 0; i < totalSamples; i++) {
+            const t = i / sr;
+            let amp = 1;
+            if (t < upMs / 1000) {
+                amp = t / (upMs / 1000);
+            } else if (t > (upMs + sustainMs) / 1000) {
+                const downT = t - (upMs + sustainMs) / 1000;
+                amp = Math.max(0, 1 - downT / (downMs / 1000));
+            }
+            template[i] = Math.sin(2 * Math.PI * 2000 * t) * amp;
+        }
+        return template;
+    }
+
+    function collectSamples(startSample, endSample) {
+        const result = [];
+        for (let i = 0; i < sonarBuffers.length; i++) {
+            const { start, data } = sonarBuffers[i];
+            const bufferEnd = start + data.length;
+            if (bufferEnd <= startSample || start >= endSample) continue;
+            const sliceStart = Math.max(0, startSample - start);
+            const sliceEnd = Math.min(data.length, endSample - start);
+            result.push(data.slice(sliceStart, sliceEnd));
+        }
+        if (!result.length) return null;
+        const totalLen = result.reduce((sum, arr) => sum + arr.length, 0);
+        const merged = new Float32Array(totalLen);
+        let offset = 0;
+        result.forEach(arr => {
+            merged.set(arr, offset);
+            offset += arr.length;
+        });
+        return merged;
+    }
+
+    function normalizedCrossCorrelation(signal, template) {
+        if (!signal || signal.length < template.length) return { offset: -1, correlation: 0 };
+        let templateEnergy = 0;
+        for (let i = 0; i < template.length; i++) templateEnergy += template[i] * template[i];
+        let maxCorr = 0;
+        let bestOffset = -1;
+        const maxOffset = signal.length - template.length;
+        for (let offset = 0; offset <= maxOffset; offset++) {
+            let dot = 0;
+            let energy = 0;
+            for (let i = 0; i < template.length; i++) {
+                const s = signal[offset + i];
+                dot += template[i] * s;
+                energy += s * s;
+            }
+            if (energy === 0) continue;
+            const corr = dot / Math.sqrt(templateEnergy * energy);
+            if (corr > maxCorr) {
+                maxCorr = corr;
+                bestOffset = offset;
+            }
+        }
+        return { offset: bestOffset, correlation: maxCorr };
     }
 
     function drawScope(buffer, opts = {}) {
@@ -397,6 +484,12 @@
         const bufferCopy = new Float32Array(dataArray);
         lastBuffer = bufferCopy;
         scopeBuffers.push(bufferCopy);
+        sonarBuffers.push({ start: totalSamplesProcessed, data: bufferCopy });
+        totalSamplesProcessed += bufferCopy.length;
+        const maxSonarSamples = sampleRate * 3; // keep ~3s of history
+        while (sonarBuffers.length && totalSamplesProcessed - sonarBuffers[0].start > maxSonarSamples) {
+            sonarBuffers.shift();
+        }
         if (scopeBuffers.length > maxScopeBuffers) scopeBuffers.shift();
         scopeIndex = scopeBuffers.length - 1;
         els.scopeScrub.max = Math.max(scopeBuffers.length - 1, 0);
@@ -407,35 +500,35 @@
         els.ampPeak.textContent = amp.peak.toFixed(3);
         els.ampDb.textContent = `${amp.db}`;
 
-        const { freq, confidence } = autoCorrelate(bufferCopy, audioCtx.sampleRate);
-        currentFreq = freq;
-        if (freq) {
-            els.freqFundamental.textContent = `${freq.toFixed(1)} Hz`;
-            els.freqConfidence.textContent = confidence;
+        const rmsGate = 0.02;
+        let freqResult = { freq: null, confidence: 0 };
+        if (amp.rms >= rmsGate) {
+            freqResult = autoCorrelate(bufferCopy, audioCtx.sampleRate);
+        }
+        const passesConfidence = freqResult.freq && freqResult.confidence >= 0.9;
+        currentFreq = passesConfidence ? freqResult.freq : null;
+        if (currentFreq) {
+            els.freqFundamental.textContent = `${currentFreq.toFixed(1)} Hz`;
+            els.freqConfidence.textContent = freqResult.confidence.toFixed(2);
         } else {
             els.freqFundamental.textContent = '-- Hz';
-            els.freqConfidence.textContent = amp.rms.toFixed(3);
+            els.freqConfidence.textContent = freqResult.confidence ? freqResult.confidence.toFixed(2) : amp.rms.toFixed(3);
         }
         handleDoppler(currentFreq);
 
         const now = audioCtx.currentTime;
-        // Sonar echo detection
-        if (sonarListening && !sonarDetected && now > sonarIgnoreUntil && amp.peak > 0.35) {
-            sonarDetected = true;
-            const dt = (now - sonarStartTime) * 1000;
-            const distance = (baseSpeed() * (dt / 1000)) / 2;
-            els.sonarDelay.textContent = `${dt.toFixed(1)} ms`;
-            els.sonarDistance.textContent = `${distance.toFixed(3)} m`;
-            els.sonarStatus.textContent = 'Echo detected';
-        }
+        if (sonarListening && !sonarDetected) detectSonarEcho(now);
 
         // Acoustic stopwatch clap detection
-        if (speedListening && amp.peak > 0.45 && now - lastClapTime > 0.15) {
-            clapTimes.push(now);
-            lastClapTime = now;
-            if (clapTimes.length === 1) {
-                els.speedStatus.textContent = 'First clap captured';
-            } else if (clapTimes.length === 2) {
+        if (speedListening && now > speedLockoutUntil && amp.peak > 0.45) {
+            if (speedState === 'waitingFirst') {
+                clapTimes = [now];
+                speedState = 'waitingSecond';
+                speedLockoutUntil = now + 0.2;
+                speedSecondDeadline = now + 3;
+                els.speedStatus.textContent = 'First clap recorded! Walk away and clap again.';
+            } else if (speedState === 'waitingSecond') {
+                clapTimes.push(now);
                 const dt = (clapTimes[1] - clapTimes[0]) * 1000;
                 const dist = parseFloat(els.speedDistance.value) || 0;
                 const estimated = dist && dt ? (dist / (dt / 1000)) : 0;
@@ -443,7 +536,12 @@
                 els.speedEst.textContent = estimated ? `${estimated.toFixed(2)} m/s` : '--';
                 els.speedStatus.textContent = 'Done';
                 speedListening = false;
+                speedState = 'idle';
             }
+        } else if (speedListening && speedState === 'waitingSecond' && now > speedSecondDeadline) {
+            speedListening = false;
+            speedState = 'idle';
+            els.speedStatus.textContent = 'Timeout waiting for second clap. Try again.';
         }
 
         if (!freeze) {
@@ -485,6 +583,11 @@
             setStatus('Start mic first', false);
             return;
         }
+        if (!sonarTemplate) {
+            sonarTemplate = buildPingTemplate(sampleRate);
+            sonarBlankSamples = Math.round((sonarBlankMs / 1000) * sampleRate);
+            sonarSearchSamples = Math.round((sonarWindowMs / 1000) * sampleRate);
+        }
         const t = audioCtx.currentTime + 0.05;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -500,10 +603,34 @@
         sonarListening = true;
         sonarDetected = false;
         sonarStartTime = t;
-        sonarIgnoreUntil = t + 0.05;
+        sonarPingSample = Math.round(sonarStartTime * sampleRate);
         els.sonarStatus.textContent = 'Listening for echo...';
         els.sonarDelay.textContent = '-- ms';
         els.sonarDistance.textContent = '-- m';
+    }
+
+    function detectSonarEcho(now) {
+        if (!sonarListening || !sonarTemplate) return;
+        const searchStart = sonarPingSample + sonarBlankSamples;
+        const searchEnd = searchStart + sonarSearchSamples;
+        const latestSample = totalSamplesProcessed;
+        if (latestSample < searchStart + sonarTemplate.length) return;
+        const window = collectSamples(searchStart, searchEnd);
+        if (!window || window.length < sonarTemplate.length) return;
+        const { offset, correlation } = normalizedCrossCorrelation(window, sonarTemplate);
+        if (offset >= 0 && correlation >= 0.45) {
+            sonarDetected = true;
+            sonarListening = false;
+            const detectedSample = searchStart + offset;
+            const dtMs = ((detectedSample - sonarPingSample) / sampleRate) * 1000;
+            const distance = (baseSpeed() * (dtMs / 1000)) / 2;
+            els.sonarDelay.textContent = `${dtMs.toFixed(1)} ms`;
+            els.sonarDistance.textContent = `${distance.toFixed(3)} m`;
+            els.sonarStatus.textContent = `Echo detected (corr ${correlation.toFixed(2)})`;
+        } else if (now - sonarStartTime > (sonarBlankMs + sonarWindowMs) / 1000 + 0.1) {
+            sonarListening = false;
+            els.sonarStatus.textContent = 'No echo detected';
+        }
     }
 
     function resetSonar() {
@@ -517,7 +644,10 @@
     function startSpeedListen() {
         clapTimes = [];
         speedListening = true;
-        els.speedStatus.textContent = 'Listening for two claps';
+        speedState = 'waitingFirst';
+        speedLockoutUntil = 0;
+        speedSecondDeadline = 0;
+        els.speedStatus.textContent = 'Waiting for first clap...';
         els.speedDt.textContent = '-- ms';
         els.speedEst.textContent = '-- m/s';
     }
@@ -525,28 +655,45 @@
     function resetSpeed() {
         speedListening = false;
         clapTimes = [];
+        speedState = 'idle';
+        speedLockoutUntil = 0;
+        speedSecondDeadline = 0;
         els.speedStatus.textContent = 'Idle';
         els.speedDt.textContent = '-- ms';
         els.speedEst.textContent = '-- m/s';
     }
 
-    function startTone() {
+    async function startTone() {
         if (!audioCtx) {
-            startMic().then(startTone);
-            return;
+            await startMic();
+        }
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
         }
         stopTone();
         toneOsc = audioCtx.createOscillator();
         toneGainNode = audioCtx.createGain();
         toneOsc.type = 'sine';
         toneOsc.frequency.value = parseFloat(els.toneSlider.value);
-        toneGainNode.gain.value = parseFloat(els.toneGain.value);
+        const targetGain = parseFloat(els.toneGain.value);
+        const t = audioCtx.currentTime;
+        toneGainNode.gain.setValueAtTime(0, t);
+        toneGainNode.gain.setTargetAtTime(targetGain, t, 0.05);
         toneOsc.connect(toneGainNode).connect(audioCtx.destination);
-        toneOsc.start();
+        toneOsc.start(t);
     }
 
     function stopTone() {
-        if (toneOsc) toneOsc.stop();
+        if (toneGainNode && audioCtx) {
+            const t = audioCtx.currentTime;
+            toneGainNode.gain.cancelScheduledValues(t);
+            toneGainNode.gain.setTargetAtTime(0, t, 0.05);
+        }
+        if (toneOsc && audioCtx) {
+            toneOsc.stop(audioCtx.currentTime + 0.1);
+        } else if (toneOsc) {
+            toneOsc.stop();
+        }
         if (toneGainNode) toneGainNode.disconnect();
         toneOsc = null;
         toneGainNode = null;
@@ -571,7 +718,10 @@
     });
     els.toneGain.addEventListener('input', (e) => {
         els.toneGainVal.textContent = e.target.value;
-        if (toneGainNode) toneGainNode.gain.value = parseFloat(e.target.value);
+        if (toneGainNode && audioCtx) {
+            const t = audioCtx.currentTime;
+            toneGainNode.gain.setTargetAtTime(parseFloat(e.target.value), t, 0.05);
+        }
     });
     els.scopeScrub.addEventListener('input', (e) => {
         const idx = parseInt(e.target.value, 10);
