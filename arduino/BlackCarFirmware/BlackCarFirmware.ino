@@ -90,24 +90,38 @@ void loop() {
     lastTelem = millis();
   }
 
-  // 3. Auto Mode Logic (Line Tracking + Safety Stop)
+  // 3. Auto Mode Logic (Roam -> Line Capture -> Safety Stop)
   if (autoMode) {
+    // Priority 1: Safety Stop (Close Obstacle)
     if (distance < 15 && distance > 0) {
-      // Safety Stop
       stopMotors();
-      // Serial.println("AUTO: OBSTACLE"); // Optional debug
+      // Serial.println("AUTO: OBSTACLE");
     } 
+    // Priority 2: Line Capture (If ANY sensor sees line)
+    else if (lVal == HIGH || mVal == HIGH || rVal == HIGH) {
+       // Line Following Logic
+       if (mVal == HIGH) {
+        moveForward(150); 
+       } else if (lVal == HIGH) {
+        turnLeft(turnSpeed);
+       } else if (rVal == HIGH) {
+        turnRight(turnSpeed);
+       }
+    }
+    // Priority 3: Free Roam (Wander)
     else {
-      // Line Following Logic (Assuming HIGH = Black Line)
-      if (mVal == HIGH) {
-        moveForward(150); // Center on line -> Go
-      } else if (lVal == HIGH) {
-        turnLeft(turnSpeed); // Left on line -> Turn Left
-      } else if (rVal == HIGH) {
-        turnRight(turnSpeed); // Right on line -> Turn Right
-      } else {
-        // No line detected -> Stop
+      // Basic Obstacle Avoidance (Wander)
+      if (distance < 30 && distance > 0) { 
+        // Obstacle nearby -> Avoid
         stopMotors();
+        delay(200);
+        moveBackward(150);
+        delay(400); 
+        turnLeft(turnSpeed); 
+        delay(500); 
+      } else {
+        // Clear path -> Roam Forward
+        moveForward(180); 
       }
     }
   }
