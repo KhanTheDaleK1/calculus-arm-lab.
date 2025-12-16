@@ -218,32 +218,26 @@ void runLabLogic() {
     if (t > 5000) { stopMotors(); currentLab = 0; }
   }
 
-  // LAB 4: Radar Trap (Stationary Observer)
+  // LAB 4: Radar Trap (Stationary)
   else if (currentLab == 4) {
-    // Robot is stationary. Just logging distance.
     stopMotors(); 
-    
-    if (millis() - lastLogTime > 100) {
+    if (millis() - lastLogTime > 100) { // 10Hz
        int h = getFilteredDistance(); 
        Serial.print(t_sec); Serial.print(","); Serial.println(h);
        lastLogTime = millis();
     }
-    
-    if (t > 20000) { stopMotors(); currentLab = 0; } // 20s run
+    // No auto-stop. User must press Stop on UI.
   }
 
-  // LAB 5: Harmonic Oscillator (Spring/Mass)
+  // LAB 5: Harmonic Motion (Stationary)
   else if (currentLab == 5) {
     stopMotors();
-    
-    // Log distance to weight (y)
-    if (millis() - lastLogTime > 100) {
+    if (millis() - lastLogTime > 100) { // 10Hz
        int y = getFilteredDistance(); 
        Serial.print(t_sec); Serial.print(","); Serial.println(y);
        lastLogTime = millis();
     }
-    
-    if (t > 20000) { stopMotors(); currentLab = 0; }
+    // No auto-stop. User must press Stop on UI.
   }
 }
 
