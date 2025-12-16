@@ -202,3 +202,35 @@ canvas {
     border-radius: 8px;
     border: 1px solid #222;
 }
+
+/* MODAL (SOP) */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.modal-content {
+    background: #0f0f0f;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 0 20px rgba(208, 92, 227, 0.4);
+    color: var(--text);
+    position: relative;
+}
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    color: var(--text-dim);
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+.close-btn:hover { color: var(--text); }
