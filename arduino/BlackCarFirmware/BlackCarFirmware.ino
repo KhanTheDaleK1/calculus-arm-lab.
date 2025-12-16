@@ -92,17 +92,20 @@ void loop() {
     return; // Skip normal telemetry/auto logic during Lab
   }
 
-  // 3. Normal Telemetry (Only if NOT in Lab)
+  // 2. Read Sensors
   int distance = getFilteredDistance();
   int lVal = digitalRead(LINE_L);
   int mVal = digitalRead(LINE_M);
   int rVal = digitalRead(LINE_R);
   
-  // Send Telemetry (~10Hz)
+  // Send Telemetry (~10Hz) - ONLY IN FREE DRIVE MODE
   static unsigned long lastTelem = 0;
   if (millis() - lastTelem > 100) {
-    // Only send raw telemetry if we aren't in a data-critical lab
-    // Serial.print("D:"); ...
+    if (currentLab == 0) {
+      Serial.print("D:"); Serial.print(distance);
+      Serial.print("|L:"); Serial.print(lVal); Serial.print(mVal); Serial.println(rVal);
+    }
+    lastTelem = millis();
   }
   
   // 4. Auto Mode Logic (Roam -> Line Capture -> Safety Stop)
