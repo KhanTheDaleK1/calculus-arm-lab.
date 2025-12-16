@@ -36,6 +36,7 @@
             <select id="device-select"><option>Detecting...</option></select>
             <button id="btn-start" class="btn primary">Start Mic</button>
             <button id="btn-stop" class="btn action">Stop</button>
+            <button id="btn-help" class="btn secondary">Lab Guide</button>
             <span id="mic-status" class="status-badge warn">Idle</span>
         </div>
     </header>
@@ -134,6 +135,13 @@
             }
         };
         render();
+    });
+    window.addEventListener('load', () => {
+        const btn = document.getElementById('btn-help');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            alert("Microphone Lab Guide:\n\n1) Start Mic and allow permission.\n2) Spectrum: strongest bins = loudest freqs.\n3) Pitch: locks on single tones.\n4) Scope: adjust Zoom X / Gain Y, use Pause to inspect, Copy CSV to analyze.\n5) Speed of Sound/Doppler: clap twice or enter base freq to see shift.");
+        });
     });
 </script>
 </body>

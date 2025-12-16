@@ -402,3 +402,9 @@ window.addEventListener('load', () => {
     };
     render();
 });
+
+// Wire Lab Guide button to open modal
+window.addEventListener('load', () => {
+    const guideBtn = document.getElementById('btn-sop');
+    if (guideBtn) guideBtn.addEventListener('click', () => lab.showSOP());
+});
