@@ -7,10 +7,9 @@
     <link rel="stylesheet" href="../css/style.css?v=1765837035">
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         body { overflow: hidden; background: radial-gradient(circle at center, #1a0b1a, #0d0d0d); }
-        .bento-grid { display: grid; grid-template-columns: 280px 1fr 320px; gap: 20px; height: calc(100vh - 110px); margin-top: 10px; }
+        .bento-grid { display: grid; grid-template-columns: 280px 1fr 320px; gap: 20px; height: calc(100vh - 100px); margin-top: 10px; }
         .col-left, .col-center, .col-right { display: flex; flex-direction: column; gap: 16px; height: 100%; }
         .card { background: rgba(20,20,20,0.9); backdrop-filter: blur(10px); border: 1px solid #333; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; box-shadow: 0 8px 28px rgba(0,0,0,0.45); }
         .card.hero { border-top: 3px solid #d05ce3; flex: 1; }
@@ -50,17 +49,17 @@
             <div class="col-left">
                 <section class="card controls">
                     <h2>System Link 🔌</h2>
-                    <p style="font-size:0.8rem; color:#888; margin-top:-4px;">$\mathbf{q} = [\theta_1, \theta_2, \theta_3]^T$</p>
+                    <p style="font-size:0.8rem; color:#888; margin-top:-4px;">q = [θ₁, θ₂, θ₃]<sup>T</sup></p>
                     <div class="slider-group">
-                        <label>Base ($\theta_1$) <span class="val-display"><span id="val-theta1-deg">90°</span> / <span id="val-theta1-rad" style="color:#d05ce3;">1.57rad</span></span></label>
+                        <label>Base (θ₁) <span class="val-display"><span id="val-theta1-deg">90°</span> / <span id="val-theta1-rad" style="color:#d05ce3;">1.57rad</span></span></label>
                         <input type="range" id="slider-theta1" min="0" max="180" value="90">
                     </div>
                     <div class="slider-group">
-                        <label>Shoulder ($\theta_2$) <span class="val-display"><span id="val-theta2-deg">90°</span> / <span id="val-theta2-rad" style="color:#d05ce3;">1.57rad</span></span></label>
+                        <label>Shoulder (θ₂) <span class="val-display"><span id="val-theta2-deg">90°</span> / <span id="val-theta2-rad" style="color:#d05ce3;">1.57rad</span></span></label>
                         <input type="range" id="slider-theta2" min="0" max="180" value="90">
                     </div>
                     <div class="slider-group">
-                        <label>Elbow ($\theta_3$) <span class="val-display"><span id="val-theta3-deg">90°</span> / <span id="val-theta3-rad" style="color:#d05ce3;">1.57rad</span></span></label>
+                        <label>Elbow (θ₃) <span class="val-display"><span id="val-theta3-deg">90°</span> / <span id="val-theta3-rad" style="color:#d05ce3;">1.57rad</span></span></label>
                         <input type="range" id="slider-theta3" min="0" max="180" value="90">
                     </div>
                     <div class="help-box" style="margin-top:12px; font-size: 0.8rem; color: #888;">
@@ -78,13 +77,6 @@
                     </ul>
                 </section>
 
-                <section id="sys-log-panel" class="card sys-log-wrap">
-                    <div class="panel-header log-header" onclick="toggleLog()">
-                        <h2 style="margin:0;">System Log 📜</h2>
-                        <span id="log-icon">▼</span>
-                    </div>
-                    <div id="log-output" class="log-area">System Ready.</div>
-                </section>
             </div>
 
             <div class="col-center">
@@ -96,7 +88,7 @@
                             <button id="btn-clear" class="btn action">🗑️ Clear Graph</button>
                         </div>
                     </div>
-                    <div id="plot-container" style="width:100%; height:100%; min-height:400px; border:1px solid #2a2a2a; border-radius:10px; background:#0c0c0c;"></div>
+                    <div id="plot-container" style="width:100%; height:100%; min-height:320px; border:1px solid #2a2a2a; border-radius:10px; background:#0c0c0c; flex:1;"></div>
                     <div id="math-joke-container" style="margin-top:10px; color:#888;">
                         <span id="math-joke-header">[Math Joke of the Session 🐨]</span><br>
                         <span id="math-joke-text">Loading humor...</span>
@@ -106,7 +98,7 @@
 
             <div class="col-right">
                 <section class="card data">
-                    <h2>Position Vector $\mathbf{x}(t)$</h2>
+                    <h2>Position Vector x(t)</h2>
                     <div class="readout-grid">
                         <div>x<span id="out-x" style="color:#ff4757;">0.00</span></div>
                         <div>y<span id="out-y" style="color:#2ed573;">0.00</span></div>
@@ -115,14 +107,14 @@
                 </section>
 
                 <section class="card data">
-                    <h2>Velocity $\mathbf{v}(t)$</h2>
+                    <h2>Velocity v(t)</h2>
                     <div class="readout-grid">
                         <div>vₓ<span id="vel-x">0.00</span></div>
                         <div>v_y<span id="vel-y">0.00</span></div>
                         <div>v_z<span id="vel-z">0.00</span></div>
                     </div>
                     <div style="margin-top:12px; text-align:center;">
-                        <span style="font-size:0.85rem; color:#888;">Speed $\|\mathbf{v}\|$</span>
+                        <span style="font-size:0.85rem; color:#888;">Speed |v|</span>
                         <div id="math-speed" style="font-size:1.9rem; font-weight:700; color:#fff;">0.00 <span style="font-size:0.8rem; color:#aaa;">cm/s</span></div>
                     </div>
                 </section>
