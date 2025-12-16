@@ -19,6 +19,7 @@ body {
     font-family: 'Segoe UI', system-ui, sans-serif; 
     /* RESTORED SCROLLING (Fixes Arm/Black Car) */
     overflow-y: auto; 
+    line-height: 1.6;
 }
 
 .app-container {
@@ -82,6 +83,39 @@ button:hover { filter: brightness(1.2); }
 
 .btn.primary { background: var(--accent); color: #000; }
 .btn.action { background: var(--border); border: 1px solid var(--accent); color: var(--accent); }
+.btn.secondary { background: #222; color: var(--text); border: 1px solid #444; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* FORM CONTROLS */
+select, input[type=number], input[type=text] {
+    background: #0a0a0a;
+    color: var(--text);
+    border: 1px solid #444;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    min-width: 120px;
+}
+select:focus, input:focus { outline: 1px solid var(--accent); }
+input[type=range] { accent-color: var(--accent); cursor: pointer; }
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+.status-badge.success { color: var(--success); border-color: rgba(46,213,115,0.4); }
+.status-badge.warn { color: #ffd700; border-color: rgba(255,215,0,0.4); }
+.status-badge.error { color: #ff6b6b; border-color: rgba(255,107,107,0.4); }
+
+.connection-status { display: flex; align-items: center; gap: 10px; }
 
 /* GRID LAYOUTS (Fixes Black Car) */
 .grid-layout {
@@ -99,7 +133,16 @@ button:hover { filter: brightness(1.2); }
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
 }
 
-h2 { margin-top: 0; color: var(--text-dim); font-size: 1rem; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 10px; }
+h2 { margin-top: 0; color: var(--text-dim); font-size: 1rem; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 10px; letter-spacing: 0.5px; }
+h3 { margin: 0 0 8px 0; color: #fff; font-size: 1.05rem; }
+p { margin: 0 0 10px 0; }
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
 
 /* NAV CARDS (Landing Page) */
 .nav-container {
@@ -126,3 +169,36 @@ h2 { margin-top: 0; color: var(--text-dim); font-size: 1rem; text-transform: upp
 .nav-card span { font-size: 3rem; display: block; margin-bottom: 15px; }
 .nav-card h2 { border: none; font-size: 1.2rem; color: var(--accent); margin: 0; padding: 0; }
 .nav-card p { color: var(--text-dim); font-size: 0.9rem; margin-top: 5px; }
+
+/* LAB LISTS */
+.lab-list { display: flex; flex-direction: column; gap: 14px; }
+.lab-card {
+    background: #0f0f0f;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+}
+.lab-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(208, 92, 227, 0.25);
+}
+.lab-card p { color: var(--text-dim); }
+
+/* INLINE CONTROL GROUPS */
+.inline-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* CANVAS BASELINE */
+canvas {
+    background: #000;
+    border-radius: 8px;
+    border: 1px solid #222;
+}
