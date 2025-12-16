@@ -11,11 +11,11 @@ class LabController {
         
         // SOP Content
         this.sopData = {
-            1: "<h3>Lab 1: MVT Drag Race</h3><b>Setup:</b> Place robot on a long straight track (floor).<br><b>Action:</b> Press Start. Robot accelerates for 2s, coasts, then stops.<br><b>Goal:</b> Analyze Position vs Time to find max velocity (MVT).",
-            2: "<h3>Lab 2: Riemann Braking</h3><b>Setup:</b> Place robot on a long straight track.<br><b>Action:</b> Press Start. Robot hits max speed immediately, then brakes.<br><b>Goal:</b> Integrate Velocity vs Time (Riemann Sums) to find total distance.",
-            3: "<h3>Lab 3: Trig Oscillator</h3><b>Setup:</b> Large open floor area required.<br><b>Action:</b> Press Start. Robot drives in a sinusoidal 'snake' pattern.<br><b>Goal:</b> Model the path as y = Asin(Bx).",
-            4: "<h3>Lab 4: Radar Trap</h3><b>Setup:</b> Robot is STATIONARY. Place perpendicular to the walking path.<br><b>Action:</b> Press Start. Walk past the robot in a straight line.<br><b>Goal:</b> Use Related Rates to find dx/dt from dh/dt.<br><b>Note:</b> Stay within the 15° sensor cone!",
-            5: "<h3>Lab 5: Harmonic Motion</h3><b>Setup:</b> Robot is STATIONARY facing UP (or sideways). Place oscillating weight directly in front of sensor.<br><b>Action:</b> Start weight bouncing. Press Start.<br><b>Goal:</b> Verify a(t) is proportional to -y(t)."
+            1: "<h3>Lab 1: Drag Race (Average vs Instant Speed)</h3><ul><li>Setup: Straight floor lane.</li><li>Press START: robot accelerates ~2s, coasts, then stops.</li><li>Look at position-time curve; find slope at steepest point (instant speed) and compare to average speed.</li></ul>",
+            2: "<h3>Lab 2: Braking Distance (Integrals)</h3><ul><li>Setup: Straight lane, clear path.</li><li>Press START: robot jumps to top speed, then brakes.</li><li>Integrate velocity-time curve to estimate stopping distance; compare to measured distance.</li></ul>",
+            3: "<h3>Lab 3: Trig Oscillator</h3><ul><li>Setup: Open space.</li><li>Press START: robot weaves in a sine-like path.</li><li>Fit y = A·sin(Bx); discuss amplitude and wavelength vs motor commands.</li></ul>",
+            4: "<h3>Lab 4: Radar Trap (Related Rates)</h3><ul><li>Setup: Robot stays still, facing walking path ~perpendicular.</li><li>Press START, walk past at steady speed.</li><li>Use distance-time to infer lateral speed; note 15° sensor cone.</li></ul>",
+            5: "<h3>Lab 5: Harmonic Motion</h3><ul><li>Setup: Robot still, sensor aimed at bouncing mass.</li><li>Press START while mass oscillates.</li><li>Compare displacement and acceleration signs; discuss a(t) ≈ -ω²·y(t).</li></ul>"
         };
     }
 
