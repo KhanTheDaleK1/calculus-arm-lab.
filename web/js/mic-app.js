@@ -5,7 +5,8 @@ const THEME = { accent: '#d05ce3', bg: '#141414', grid: '#333' }; // Mom's Purpl
 // STATE
 let audioCtx, analyser, micSource, toneOsc, toneGain;
 let isRunning = false;
-let dataArray, timeArray; 
+let dataArray; // For Spectrum (Uint8 is fine for visuals)
+let waveArray; // For Scope (Float32 for HD Smoothness)
 let scopeZoomX = 1, scopeGainY = 1;
 
 // STOPWATCH STATE
@@ -53,7 +54,7 @@ window.onload = () => {
 
 function initCanvas(id) {
     const c = document.getElementById(id);
-    c.width = c.clientWidth;
+    c.width = c.clientWidth; // High DPI handling could go here
     c.height = c.clientHeight;
 }
 
@@ -72,8 +73,8 @@ async function startEngine() {
         micSource.connect(analyser);
 
         const len = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(len);
-        timeArray = new Uint8Array(len);
+        dataArray = new Uint8Array(len);   // Spectrum (Standard)
+        waveArray = new Float32Array(len); // Scope (High Def)
 
         isRunning = true;
         document.getElementById('mic-status').innerText = "LIVE";
@@ -96,7 +97,7 @@ function loop() {
     requestAnimationFrame(loop);
 
     analyser.getByteFrequencyData(dataArray);
-    analyser.getByteTimeDomainData(timeArray);
+    analyser.getFloatTimeDomainData(waveArray); // <--- KEY CHANGE: Get Floats (-1.0 to 1.0)
 
     drawSpectrum();
     drawScope();
@@ -116,7 +117,7 @@ function drawSpectrum() {
 
     for(let i=0; i<dataArray.length; i++) {
         const barH = (dataArray[i]/255) * h;
-        // Purple Gradient Heatmap
+        // Mom's Purple Gradient Heatmap
         const pct = i/dataArray.length;
         ctx.fillStyle = `hsl(${280 + (pct*60)}, 100%, ${50 + (barH/h)*20}%)`; 
         ctx.fillRect(x, h-barH, barW, barH);
@@ -129,54 +130,85 @@ function drawScope() {
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
 
-    ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
+    // Clear
+    ctx.fillStyle = '#0b0b0b'; 
+    ctx.fillRect(0,0,w,h);
     
-    // Grid
+    // Center Line
     ctx.beginPath();
     ctx.strokeStyle = '#222'; 
     ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); 
     ctx.stroke(); 
 
+    // Waveform Style
     ctx.lineWidth = 2;
     ctx.strokeStyle = THEME.accent; // Mom's Purple
+    ctx.lineJoin = 'round'; // Smooth corners
     ctx.beginPath();
 
-    const sliceW = w * 1.0 / (timeArray.length / scopeZoomX);
+    // The Slice Width depends on Zoom
+    // If we have 2048 samples, we only draw a portion if Zoom > 1
+    const drawLen = waveArray.length / scopeZoomX;
+    const sliceW = w / drawLen;
+    
     let x = 0;
 
-    for(let i=0; i < timeArray.length; i++) {
-        if (i > timeArray.length / scopeZoomX) break;
+    // Helper to map Float (-1.0 to 1.0) to Canvas Y
+    const getY = (idx) => {
+        let val = waveArray[idx]; // Range -1 to 1
+        // Apply Gain (Y-Axis Zoom)
+        val = val * scopeGainY; 
+        // Invert for Canvas (0 is top)
+        // 0 -> h/2.  1 -> 0.  -1 -> h.
+        return (1 - val) * (h/2);
+    };
+
+    ctx.moveTo(0, getY(0));
+
+    // SMOOTHING ALGORITHM
+    // Instead of lineTo(x,y), we use quadraticCurveTo
+    // We draw from Midpoint to Midpoint to ensure continuity
+    for(let i=1; i < drawLen - 1; i++) {
+        const xNext = i * sliceW;
+        const yNext = getY(i);
         
-        let v = timeArray[i] / 128.0; 
-        let y = v * h/2;
+        // Look ahead
+        const xNext2 = (i + 1) * sliceW;
+        const yNext2 = getY(i + 1);
 
-        let dev = v - 1;
-        y = (1 + (dev * scopeGainY)) * h/2;
+        // Control Point (current point)
+        // End Point (midpoint between current and next)
+        const xMid = (xNext + xNext2) / 2;
+        const yMid = (yNext + yNext2) / 2;
 
-        if (i===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        x += sliceW;
+        ctx.quadraticCurveTo(xNext, yNext, xMid, yMid);
     }
+    
     ctx.stroke();
 }
 
 // --- ANALYSIS ---
 function analyze() {
+    // RMS Calculation (Float version)
     let sum=0;
-    for(let i=0; i<timeArray.length; i++) {
-        let v = (timeArray[i]-128)/128;
-        sum += v*v;
+    for(let i=0; i<waveArray.length; i++) {
+        sum += waveArray[i] * waveArray[i]; // No need to subtract 128
     }
-    const rms = Math.sqrt(sum/timeArray.length);
+    const rms = Math.sqrt(sum/waveArray.length);
     document.getElementById('amp-rms').innerText = rms.toFixed(3);
-    document.getElementById('amp-db').innerText = (20*Math.log10(rms)).toFixed(1);
+    
+    // Safety check for log(0)
+    const db = rms > 0 ? (20*Math.log10(rms)) : -100;
+    document.getElementById('amp-db').innerText = db.toFixed(1);
 
+    // Gate
     if (rms < CONFIG.silenceThresh) {
         document.getElementById('freq-fundamental').innerText = "-- Hz";
         document.getElementById('freq-confidence').innerText = "Low Signal";
         return;
     }
     
-    const pitch = autoCorrelate(timeArray, audioCtx.sampleRate);
+    const pitch = autoCorrelate(waveArray, audioCtx.sampleRate);
     if (pitch === -1) {
         document.getElementById('freq-fundamental').innerText = "-- Hz";
         document.getElementById('freq-confidence').innerText = "Noisy";
@@ -191,19 +223,29 @@ function autoCorrelate(buf, rate) {
     let bestOffset = -1;
     let bestCorr = 0;
 
-    for (let offset = 8; offset < SIZE/2; offset++) {
+    // Search Range: 50Hz to 2000Hz (approx)
+    // 48000 / 50 = 960 samples max offset
+    // 48000 / 2000 = 24 samples min offset
+    const MAX_SAMPLES = Math.floor(rate/50);
+    const MIN_SAMPLES = Math.floor(rate/2000);
+
+    for (let offset = MIN_SAMPLES; offset < MAX_SAMPLES && offset < SIZE/2; offset++) {
         let corr = 0;
+        // Simple difference function (lower is better match)
         for (let i=0; i<SIZE-offset; i++) {
-            corr += Math.abs((buf[i]-128) - (buf[i+offset]-128));
+            corr += Math.abs(buf[i] - buf[i+offset]);
         }
-        corr = 1 - (corr/SIZE); 
+        // Invert to make it a "Correlation" (1.0 is perfect)
+        corr = 1 - (corr / (SIZE-offset)); 
         
         if (corr > bestCorr) {
             bestCorr = corr;
             bestOffset = offset;
         }
     }
-    if (bestCorr > 0.9) return rate / bestOffset;
+    
+    // Confidence Threshold
+    if (bestCorr > 0.92) return rate / bestOffset;
     return -1;
 }
 
@@ -245,17 +287,17 @@ function armStopwatch() {
 function processStopwatch() {
     if (clapState === 'IDLE') return;
     const rms = parseFloat(document.getElementById('amp-rms').innerText);
-    const THRESH = 0.2; 
+    const THRESH = 0.15; // Trigger threshold
     const now = Date.now();
 
     if (clapState === 'ARMED' && rms > THRESH) {
         clapStart = now;
         clapState = 'LOCKOUT';
-        document.getElementById('speed-status').innerText = "Clap detected... Wait...";
+        document.getElementById('speed-status').innerText = "Clap 1! Waiting...";
     }
-    else if (clapState === 'LOCKOUT' && (now - clapStart > 200)) {
+    else if (clapState === 'LOCKOUT' && (now - clapStart > 300)) {
         clapState = 'WAITING_2';
-        document.getElementById('speed-status').innerText = "Waiting for CLAP 2...";
+        document.getElementById('speed-status').innerText = "Ready for CLAP 2...";
     }
     else if (clapState === 'WAITING_2' && rms > THRESH) {
         const diff = now - clapStart;
@@ -270,16 +312,16 @@ function processStopwatch() {
     }
 }
 
-// --- EXPORT CSV (Robust) ---
+// --- EXPORT CSV (Updated for Floats) ---
 function copyScope() {
-    if (!timeArray) return alert("Start the microphone first!");
-    let csv = "Time(s),Voltage\n";
+    if (!waveArray) return alert("Start the microphone first!");
+    let csv = "Time(s),Amplitude\n";
     const step = 1/audioCtx.sampleRate;
-    for(let i=0; i<timeArray.length; i++) {
-        csv += `${(i*step).toFixed(4)},${(timeArray[i]/128).toFixed(3)}\n`;
+    for(let i=0; i<waveArray.length; i++) {
+        csv += `${(i*step).toFixed(5)},${waveArray[i].toFixed(4)}\n`;
     }
     navigator.clipboard.writeText(csv)
-        .then(() => alert("Copied Scope Data to Clipboard!"))
+        .then(() => alert("Copied High-Res Scope Data!"))
         .catch(err => alert("Copy failed: " + err));
 }
 
@@ -291,6 +333,6 @@ function copySpectrum() {
         csv += `${(i*bin).toFixed(1)},${dataArray[i]}\n`;
     }
     navigator.clipboard.writeText(csv)
-        .then(() => alert("Copied Spectrum Data to Clipboard!"))
+        .then(() => alert("Copied Spectrum Data!"))
         .catch(err => alert("Copy failed: " + err));
 }
