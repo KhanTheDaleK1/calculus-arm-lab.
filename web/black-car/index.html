@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Car - Robotics Lab</title>
+    <link rel="icon" href="../assets/icon.jpg">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="header-left">
+                <a href="../index.html" style="text-decoration: none; display: flex; align-items: center; gap: 15px;">
+                    <img src="../assets/icon.jpg" class="mom-icon" alt="Mom" onerror="this.style.display='none'">
+                    <h1>Black <span class="highlight">Car</span></h1>
+                </a>
+            </div>
+            <div class="connection-status">
+                <span id="status-indicator" class="status disconnected">Disconnected</span>
+            </div>
+        </header>
+
+        <main class="grid-layout" style="grid-template-columns: 1fr 1fr;">
+            <!-- SENSOR PANEL -->
+            <section class="panel">
+                <h2>Sensors <span>📡</span></h2>
+                
+                <div class="math-module">
+                    <h3>Ultrasonic Sensor</h3>
+                    <div class="readout-grid">
+                        <div style="grid-column: span 3;">
+                            <div class="big-number" id="val-distance">--</div>
+                            <span style="color:#888; font-size:0.8rem;">CM DISTANCE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="math-module">
+                    <h3>Line Tracing (Photodiode)</h3>
+                    <div class="readout-grid">
+                        <div style="grid-column: span 3;">
+                            <div class="big-number" id="val-line">OFF TRACK</div>
+                            <span style="color:#888; font-size:0.8rem;">STATUS</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CONTROLS PANEL -->
+            <section class="panel">
+                <h2>Controls <span>🎮</span></h2>
+                <div class="slider-group" style="text-align: center; margin-top: 20px;">
+                    <button class="btn primary" style="padding: 15px 30px; font-size: 1.2rem;">START TRACING</button>
+                    <button class="btn action" style="padding: 15px 30px; font-size: 1.2rem; margin-left: 10px;">STOP</button>
+                </div>
+
+                <div class="help-box">
+                    <p><strong>Status:</strong> Waiting for connection...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

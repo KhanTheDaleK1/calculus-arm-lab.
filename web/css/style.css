@@ -70,3 +70,55 @@ input[type=range] { width: 100%; cursor: pointer; accent-color: var(--accent); }
 .log-header { background: #111; color: #888; padding: 5px 15px; font-size: 0.75rem; font-family: monospace; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; user-select: none; }
 .log-header:hover { color: #fff; background: #222; }
 #log-output { flex-grow: 1; padding: 10px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 0.8rem; color: var(--accent); }
+
+/* NAVIGATION LANDING */
+.nav-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1;
+    gap: 20px;
+    padding: 20px;
+    flex-wrap: wrap;
+}
+
+.nav-card {
+    background: var(--panel-bg);
+    border: 1px solid #333;
+    border-radius: 8px;
+    width: 250px;
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(208, 92, 227, 0.2);
+}
+
+.nav-card h2 {
+    color: var(--text-main);
+    border: none;
+    font-size: 1.5rem;
+    margin: 10px 0;
+}
+
+.nav-card span {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+.nav-card p {
+    color: #888;
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 0 10px;
+}

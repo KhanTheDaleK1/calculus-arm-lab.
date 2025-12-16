@@ -3,112 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CalculusArm Lab 🐨</title>
+    <title>Kim's Robotics Lab</title>
     <link rel="icon" href="assets/icon.jpg">
-    <link rel="stylesheet" href="css/style.css?v=1765837035">
-    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script src="js/stk500.js?v=1765837035"></script>
-    <script src="js/jokes.js?v=1765837035"></script>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="app-container">
         <header>
             <div class="header-left">
                 <img src="assets/icon.jpg" class="mom-icon" alt="Mom" onerror="this.style.display='none'">
-                <h1>CalculusArm <span class="highlight">Dynamics Lab</span> 🐨</h1>
+                <h1>Kim's <span class="highlight">Robotics Lab</span></h1>
             </div>
             <div class="connection-status">
-                <select id="serial-port-list" class="port-dropdown"><option value="prompt">🔌 Add New Device...</option></select>
-                <button id="btn-open-port" class="btn primary">Connect</button>
-                <button id="btn-flash" class="btn action">⚡ Flash Firmware</button>
-                <span id="status-indicator" class="status disconnected">Disconnected</span>
+                <span class="status connected">ONLINE</span>
             </div>
         </header>
 
-        <main class="grid-layout">
-            <section class="panel control-panel">
-                <h2>1. Configuration ($\mathcal{C}$) <span>🐨</span></h2>
-                <p style="font-size: 0.8rem; color: #888;">Joint Vector $\mathbf{q} = [\theta_1, \theta_2, \theta_3]^T$</p>
-                
-                <div class="slider-group">
-                    <label>Base ($\theta_1$) <span class="val-display"><span id="val-theta1-deg">90°</span> / <span id="val-theta1-rad" style="color:#d05ce3;">1.57rad</span></span></label>
-                    <input type="range" id="slider-theta1" min="0" max="180" value="90">
-                </div>
-                <div class="slider-group">
-                    <label>Shoulder ($\theta_2$) <span class="val-display"><span id="val-theta2-deg">90°</span> / <span id="val-theta2-rad" style="color:#d05ce3;">1.57rad</span></span></label>
-                    <input type="range" id="slider-theta2" min="0" max="180" value="90">
-                </div>
-                <div class="slider-group">
-                    <label>Elbow ($\theta_3$) <span class="val-display"><span id="val-theta3-deg">90°</span> / <span id="val-theta3-rad" style="color:#d05ce3;">1.57rad</span></span></label>
-                    <input type="range" id="slider-theta3" min="0" max="180" value="90">
-                </div>
-                
-                <div class="help-box" style="margin-top:20px; font-size: 0.8rem; color: #888;">
-                    <p><strong>Note:</strong> Servo hardware operates in Degrees. Calculus uses Radians.</p>
-                    <a href="https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all" target="_blank" style="color:#d05ce3;">Download Drivers (Laptop)</a>
-                </div>
-            </section>
+        <main class="nav-container">
+            <a href="/arm/index.html" class="nav-card">
+                <span>🐨</span>
+                <h2>Robotic Arm</h2>
+                <p>Calculus Dynamics & Motion Control</p>
+            </a>
 
-            <section class="panel vis-panel">
-                <h2>2. Task Space ($\mathbb{R}^3$) <span>🐨</span></h2>
-                <div id="plot-container" style="width:100%; height:400px; background:#121212;"></div>
-                <div class="plot-controls">
-                    <button id="btn-record" class="btn action">🔴 Record Motion</button>
-                    <button id="btn-clear" class="btn action">🗑️ Clear Graph</button>
-                </div>
+            <a href="/black-car/index.html" class="nav-card">
+                <span>🏎️</span>
+                <h2>Black Car</h2>
+                <p>Ultrasonic & Line Tracing</p>
+            </a>
 
-                <div id="math-joke-container">
-                    <span id="math-joke-header">[Math Joke of the Session 🐨]</span><br>
-                    <span id="math-joke-text">Loading humor...</span>
-                </div>
-            </section>
-
-            <section class="panel math-panel">
-                <h2>3. Analysis <span>🐨</span></h2>
-                <div class="math-module">
-                    <h3>Forward Kinematics (\mathbf{q})$</h3>
-                    <p>Position Vector $\mathbf{x} = \langle x, y, z \rangle$</p>
-                    <div class="readout-grid">
-                        <div>x: <span id="out-x" style="color:#ff4757;">0.00</span></div>
-                        <div>y: <span id="out-y" style="color:#2ed573;">0.00</span></div>
-                        <div>z: <span id="out-z" style="color:#1e90ff;">0.00</span></div>
-                    </div>
-                </div>
-                <div class="math-module">
-                    <h3>Velocity Vector $\mathbf{v}$</h3>
-                    <p>$\mathbf{v} = \langle v_x, v_y, v_z \rangle$</p>
-                    <div class="readout-grid" style="color:#aaa;">
-                        <div>$: <span id="vel-x">0.00</span></div>
-                        <div>$: <span id="vel-y">0.00</span></div>
-                        <div>$: <span id="vel-z">0.00</span></div>
-                    </div>
-                    <hr style="border:0; border-top:1px dashed #444; margin:8px 0;">
-                    <p>Speed $\|\mathbf{v}\|$:</p>
-                    <div id="math-speed" class="big-number">0.00 <span style="font-size:0.5em; color:#888;">cm/s</span></div>
-                </div>
-                <div class="math-module">
-                    <h3>Local Linear Approx.</h3>
-                    <p>Regression (last ~1s):</p>
-                    <div style="font-family: monospace; font-size: 0.85rem; line-height: 1.4;">
-                        <div id="func-x" style="color:#ff4757;">x(t) ≈ --</div>
-                        <div id="func-y" style="color:#2ed573;">y(t) ≈ --</div>
-                        <div id="func-z" style="color:#1e90ff;">z(t) ≈ --</div>
-                    </div>
-                </div>
-            </section>
+            <a href="/grey-car/index.html" class="nav-card">
+                <span>🚗</span>
+                <h2>Grey Car</h2>
+                <p>Autonomous Rover</p>
+            </a>
         </main>
-
-        <section id="sys-log-panel" class="system-log">
-            <div class="log-header" onclick="toggleLog()">
-                <span>System Log</span>
-                <span id="log-icon">🐨</span>
-            </div>
-            <div id="log-output">System Ready.</div>
-        </section>
     </div>
-    
-    <script src="js/app.js?v=1765837035"></script>
 </body>
 </html>
