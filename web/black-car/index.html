@@ -62,25 +62,70 @@
                     <p>Trigonometric Modeling</p>
                     <div class="math-display">$$y = A \sin(B(x-h)) + k$$</div>
                 </div>
+
+                <div class="lab-card" onclick="loadLab(0)">
+                    <h3>Free Drive Mode</h3>
+                    <p>Manual & Autonomous</p>
+                    <div class="math-display" style="font-size: 1.5rem;">🎮</div>
+                </div>
             </section>
 
             <!-- MAIN: LAB WORKSPACE -->
             <section class="panel" id="workspace">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <h2 id="lab-title" style="border: none; margin: 0;">Select a Module</h2>
-                    <div class="plot-controls">
+                    <div class="plot-controls" id="lab-controls">
                         <button id="btn-run" class="btn primary" disabled>▶ INITIATE RUN</button>
                         <button id="btn-export" class="btn action">📋 Copy CSV</button>
                     </div>
                 </div>
 
-                <!-- PLOTLY CHART -->
+                <!-- PLOTLY CHART (For Labs) -->
                 <div id="plot-area" style="width: 100%; height: 400px; background: #000; margin-top: 20px; border: 1px solid #333;"></div>
 
-                <!-- DATA OUTPUT -->
-                <div style="margin-top: 20px;">
+                <!-- DATA OUTPUT (For Labs) -->
+                <div id="data-section" style="margin-top: 20px;">
                     <h3>Data Output (TI-84 Format)</h3>
                     <textarea id="data-output" style="width: 100%; height: 150px; background: #111; color: #0f0; border: 1px solid #333; font-family: monospace; padding: 10px;" readonly>Waiting for data...</textarea>
+                </div>
+
+                <!-- DRIVE PANEL (Hidden by default) -->
+                <div id="drive-panel" style="display: none; flex-direction: column; align-items: center; margin-top: 20px;">
+                    <!-- SENSORS -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; margin-bottom: 30px;">
+                        <div class="math-module" style="text-align: center;">
+                            <h3>Ultrasonic</h3>
+                            <div class="big-number" id="val-distance">--</div>
+                            <span style="color:#888;">CM</span>
+                        </div>
+                        <div class="math-module" style="text-align: center;">
+                            <h3>Line Sensors</h3>
+                            <div class="big-number" id="val-line">-- -- --</div>
+                            <span style="color:#888;">L M R</span>
+                        </div>
+                    </div>
+
+                    <!-- MODE BTNS -->
+                    <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+                        <button id="btn-manual" class="btn primary" style="width: 150px;">MANUAL</button>
+                        <button id="btn-auto" class="btn action" style="width: 150px;">AUTO (ROAM)</button>
+                    </div>
+
+                    <!-- D-PAD -->
+                    <div style="display: grid; grid-template-columns: 80px 80px 80px; gap: 10px;">
+                        <div></div>
+                        <button id="btn-fwd" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬆️</button>
+                        <div></div>
+                        
+                        <button id="btn-left" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬅️</button>
+                        <button id="btn-stop" class="btn action" style="height: 60px; font-size: 1.5rem;">🛑</button>
+                        <button id="btn-right" class="btn primary" style="height: 60px; font-size: 1.5rem;">➡️</button>
+                        
+                        <div></div>
+                        <button id="btn-back" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬇️</button>
+                        <div></div>
+                    </div>
+                    <p style="margin-top: 20px; color: #666;">WASD Keys Enabled</p>
                 </div>
             </section>
         </main>

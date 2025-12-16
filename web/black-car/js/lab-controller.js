@@ -3,9 +3,8 @@ class LabController {
         this.port = null;
         this.writer = null;
         this.isConnected = false;
-        this.currentLab = 0;
+        this.currentLab = -1;
         this.dataBuffer = [];
-        this.startTime = 0;
     }
 
     async connect() {
@@ -50,16 +49,39 @@ class LabController {
     }
 
     handleData(data) {
-        // Expecting format: "DATA:time,value" or raw lines
-        // For simplicity, let's assume the Arduino sends lines like "1.2,45.0"
-        // We'll filter for numbers.
-        
+        // Handle Drive Mode Telemetry
+        if (this.currentLab === 0) {
+            // Distance
+            if (data.includes("D:")) {
+                const parts = data.split("D:");
+                if (parts.length > 1) {
+                    const valStr = parts[1].split("|")[0].trim();
+                    const val = parseInt(valStr);
+                    if (!isNaN(val)) document.getElementById('val-distance').innerText = val;
+                }
+            }
+            // Line Sensors
+            if (data.includes("L:")) {
+                const parts = data.split("L:");
+                if (parts.length > 1) {
+                    const valStr = parts[1].trim(); 
+                    if (valStr.length >= 3) {
+                        const l = valStr[0] === '1' ? '⚫' : '⚪';
+                        const m = valStr[1] === '1' ? '⚫' : '⚪';
+                        const r = valStr[2] === '1' ? '⚫' : '⚪';
+                        document.getElementById('val-line').innerText = `${l} ${m} ${r}`;
+                    }
+                }
+            }
+            return; 
+        }
+
+        // Handle Lab Mode Data (CSV)
         const lines = data.split('\n');
         lines.forEach(line => {
             line = line.trim();
             if (line.length === 0) return;
             
-            // Check if it looks like CSV "time,val"
             if (line.includes(',')) {
                 const parts = line.split(',');
                 if (parts.length >= 2) {
@@ -90,10 +112,31 @@ class LabController {
 
     setLab(id) {
         this.currentLab = id;
-        this.dataBuffer = []; // Clear data
+        this.dataBuffer = [];
         
         const titleEl = document.getElementById('lab-title');
         const runBtn = document.getElementById('btn-run');
+        const labControls = document.getElementById('lab-controls');
+        const plotArea = document.getElementById('plot-area');
+        const dataSection = document.getElementById('data-section');
+        const drivePanel = document.getElementById('drive-panel');
+        
+        // UI Switching
+        if (id === 0) {
+            // Drive Mode
+            titleEl.innerText = "Free Drive Mode";
+            labControls.style.display = 'none';
+            plotArea.style.display = 'none';
+            dataSection.style.display = 'none';
+            drivePanel.style.display = 'flex';
+            this.send('S'); // Stop any running lab
+        } else {
+            // Lab Mode
+            labControls.style.display = 'flex';
+            plotArea.style.display = 'block';
+            dataSection.style.display = 'block';
+            drivePanel.style.display = 'none';
+        }
         
         if (id === 1) {
             titleEl.innerHTML = "Lab 1: MVT Drag Race <span style='font-size:0.6em; color:#888;'>Position s(t)</span>";
@@ -112,12 +155,8 @@ class LabController {
 
     startRun() {
         if (!this.isConnected) return alert("Connect Robot First!");
-        
-        this.dataBuffer = []; // Reset data
+        this.dataBuffer = []; 
         this.updateText();
-        
-        // Send command to firmware to start specific lab routine
-        // Protocol: '1' -> Lab 1, '2' -> Lab 2, '3' -> Lab 3
         if (this.currentLab === 1) this.send('1');
         if (this.currentLab === 2) this.send('2');
         if (this.currentLab === 3) this.send('3');
@@ -144,15 +183,10 @@ class LabController {
     updateGraph() {
         const t = this.dataBuffer.map(d => d.t);
         const y = this.dataBuffer.map(d => d.y);
-        
-        Plotly.update('plot-area', {
-            x: [t],
-            y: [y]
-        });
+        Plotly.update('plot-area', { x: [t], y: [y] });
     }
 
     updateText() {
-        // Format for TI-84: Just simple CSV
         let txt = "Time,Value\n";
         this.dataBuffer.forEach(d => {
             txt += `${d.t.toFixed(2)},${d.y.toFixed(2)}\n`;
@@ -170,11 +204,48 @@ document.getElementById('btn-export').addEventListener('click', () => {
     const txt = document.getElementById('data-output');
     txt.select();
     document.execCommand('copy');
-    alert("Data copied to clipboard!");
+    alert("Data copied!");
 });
 
-// Global function for HTML onclick
+// Drive Bindings
+const bindBtn = (id, cmd) => {
+    const btn = document.getElementById(id);
+    if(btn) {
+        btn.addEventListener('mousedown', () => lab.send(cmd));
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); lab.send(cmd); });
+        btn.addEventListener('mouseup', () => lab.send('S'));
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); lab.send('S'); });
+    }
+};
+
+bindBtn('btn-fwd', 'F');
+bindBtn('btn-back', 'B');
+bindBtn('btn-left', 'L');
+bindBtn('btn-right', 'R');
+bindBtn('btn-stop', 'S');
+
+document.getElementById('btn-auto').addEventListener('click', () => lab.send('A'));
+document.getElementById('btn-manual').addEventListener('click', () => lab.send('M'));
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+    if (lab.currentLab !== 0) return; // Only drive in Drive Mode
+    if (e.repeat) return;
+    if (e.key === 'w' || e.key === 'ArrowUp') lab.send('F');
+    if (e.key === 's' || e.key === 'ArrowDown') lab.send('B');
+    if (e.key === 'a' || e.key === 'ArrowLeft') lab.send('L');
+    if (e.key === 'd' || e.key === 'ArrowRight') lab.send('R');
+});
+
+document.addEventListener('keyup', (e) => {
+    if (lab.currentLab !== 0) return;
+    if (['w','s','a','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+        lab.send('S');
+    }
+});
+
+// Global function
 window.loadLab = (id) => lab.setLab(id);
 
-// Init Default
+// Init
 lab.setLab(1);
