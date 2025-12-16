@@ -84,6 +84,7 @@ void loop() {
     else if (command == '1') { currentLab = 1; labStartTime = millis(); autoMode = false; }
     else if (command == '2') { currentLab = 2; labStartTime = millis(); autoMode = false; }
     else if (command == '3') { currentLab = 3; labStartTime = millis(); autoMode = false; }
+    else if (command == '4') { currentLab = 4; labStartTime = millis(); autoMode = false; stopMotors(); }
   }
 
   // 2. Lab Execution
@@ -214,6 +215,20 @@ void runLabLogic() {
     }
     
     if (t > 5000) { stopMotors(); currentLab = 0; }
+  }
+
+  // LAB 4: Radar Trap (Stationary Observer)
+  else if (currentLab == 4) {
+    // Robot is stationary. Just logging distance.
+    stopMotors(); 
+    
+    if (millis() - lastLogTime > 100) {
+       int h = getFilteredDistance(); 
+       Serial.print(t_sec); Serial.print(","); Serial.println(h);
+       lastLogTime = millis();
+    }
+    
+    if (t > 20000) { stopMotors(); currentLab = 0; } // 20s run
   }
 }
 

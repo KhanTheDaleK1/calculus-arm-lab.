@@ -150,6 +150,11 @@ class LabController {
             titleEl.innerHTML = "Lab 3: Trig Oscillator <span style='font-size:0.6em; color:#888;'>Offset y(x)</span>";
             runBtn.innerText = "▶ START OSCILLATOR";
             this.initGraph("Time (s)", "Offset (cm)");
+        } else if (id === 4) {
+            titleEl.innerHTML = "Lab 4: Radar Trap <span style='font-size:0.6em; color:#888;'>Hypotenuse h(t)</span>";
+            runBtn.innerText = "▶ START RADAR";
+            this.initGraph("Time (s)", "Hypotenuse (cm)");
+            document.getElementById('data-output').value = "WARNING: Max angle 15°. Keep track short. Don't sample faster than 20Hz.";
         }
     }
 
@@ -160,6 +165,7 @@ class LabController {
         if (this.currentLab === 1) this.send('1');
         if (this.currentLab === 2) this.send('2');
         if (this.currentLab === 3) this.send('3');
+        if (this.currentLab === 4) this.send('4');
     }
 
     // --- VISUALIZATION ---
