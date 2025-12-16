@@ -109,11 +109,31 @@
             <div class="panel card">
                 <h2>History 📜</h2>
                 <canvas id="history-canvas"></canvas>
+                <div style="margin-top:10px; color:#888; font-size:0.9rem;">
+                    <div id="mic-joke-header">[Joke of the Session 🐨]</div>
+                    <div id="mic-joke-text">Loading...</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script src="../js/mic-app.js"></script>
+<script src="../arm/js/jokes.js"></script>
+<script>
+    window.addEventListener('load', () => {
+        const jokeEl = document.getElementById('mic-joke-text');
+        if (!jokeEl) return;
+        const render = () => {
+            if (window.mathJokes && window.mathJokes.length) {
+                const j = window.mathJokes[Math.floor(Math.random() * window.mathJokes.length)];
+                jokeEl.textContent = `"${j}"`;
+            } else {
+                setTimeout(render, 200);
+            }
+        };
+        render();
+    });
+</script>
 </body>
 </html>

@@ -387,3 +387,18 @@ if (driveModeBtn) driveModeBtn.addEventListener('click', () => lab.setLab(0));
 
 // Init default to Lab 1
 lab.setLab(1);
+
+// Joke loader for Black Car
+window.addEventListener('load', () => {
+    const jokeEl = document.getElementById('car-joke-text');
+    if (!jokeEl) return;
+    const render = () => {
+        if (window.mathJokes && window.mathJokes.length) {
+            const j = window.mathJokes[Math.floor(Math.random() * window.mathJokes.length)];
+            jokeEl.textContent = `"${j}"`;
+        } else {
+            setTimeout(render, 200);
+        }
+    };
+    render();
+});

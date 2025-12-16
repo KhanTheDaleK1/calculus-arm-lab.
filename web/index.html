@@ -43,5 +43,27 @@
             </a>
         </main>
     </div>
+
+    <div style="margin-top:20px; color:#888; font-size:0.9rem; text-align:center;">
+        <div>[Joke of the Session 🐨]</div>
+        <div id="home-joke-text">Loading...</div>
+    </div>
+
+    <script src="arm/js/jokes.js"></script>
+    <script>
+        window.addEventListener('load', () => {
+            const el = document.getElementById('home-joke-text');
+            if (!el) return;
+            const render = () => {
+                if (window.mathJokes && window.mathJokes.length) {
+                    const j = window.mathJokes[Math.floor(Math.random() * window.mathJokes.length)];
+                    el.textContent = `"${j}"`;
+                } else {
+                    setTimeout(render, 200);
+                }
+            };
+            render();
+        });
+    </script>
 </body>
 </html>

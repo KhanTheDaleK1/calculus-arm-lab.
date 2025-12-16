@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Black Car - Robotics Lab</title>
     <link rel="stylesheet" href="../css/style.css">
+    <script src="../arm/js/jokes.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -64,9 +65,28 @@
                 </div>
 
                 <p style="margin-top: 20px; color: #666; font-size: 0.8rem;">Keyboard: WASD / Arrows</p>
+                <div style="margin-top: 14px; color:#888; text-align:center;">
+                    <div>[Joke of the Session 🐨]</div>
+                    <div id="drive-joke-text">Loading...</div>
+                </div>
             </section>
         </main>
     </div>
     <script src="js/car-controller.js"></script>
+    <script>
+        window.addEventListener('load', () => {
+            const jokeEl = document.getElementById('drive-joke-text');
+            if (!jokeEl) return;
+            const render = () => {
+                if (window.mathJokes && window.mathJokes.length) {
+                    const j = window.mathJokes[Math.floor(Math.random() * window.mathJokes.length)];
+                    jokeEl.textContent = `"${j}"`;
+                } else {
+                    setTimeout(render, 200);
+                }
+            };
+            render();
+        });
+    </script>
 </body>
 </html>
