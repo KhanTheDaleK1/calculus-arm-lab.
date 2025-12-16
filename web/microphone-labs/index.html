@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Microphone Labs v2.0</title>
+    <title>Microphone Labs 🐨</title>
     <link rel="icon" href="../assets/icon.jpg">
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/mic-style.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -13,13 +13,17 @@
 <div class="app-container">
     
     <header>
-        <div class="brand">
-            <i class="fa-solid fa-microphone-lines"></i> MICROPHONE <span class="highlight">LABS</span>
+        <div class="header-left">
+            <a href="../index.html" class="home-link">
+                <img src="../assets/icon.jpg" class="mom-icon" alt="Koala" onerror="this.style.display='none'">
+                <div class="brand-text">Microphone <span class="highlight">Labs</span> 🐨</div>
+            </a>
         </div>
+        
         <div class="controls">
-            <select id="device-select"><option>Detecting...</option></select>
-            <button id="btn-start" class="btn-primary">START</button>
-            <button id="btn-stop" class="btn-danger">STOP</button>
+            <select id="device-select"><option>Detecting Mics...</option></select>
+            <button id="btn-start" class="btn-primary">Start Mic</button>
+            <button id="btn-stop" class="btn-secondary">Stop</button>
             <span id="mic-status" class="status-badge">Idle</span>
         </div>
     </header>
@@ -29,8 +33,8 @@
         <div class="col-left">
             <div class="card spectrum-card">
                 <div class="card-header">
-                    <span>SPECTRUM (FFT)</span>
-                    <button class="btn-xs" id="btn-copy-spectrum">COPY CSV</button>
+                    <span>Frequency Spectrum 📊</span>
+                    <button class="btn-xs" id="btn-copy-spectrum">Copy Data</button>
                 </div>
                 <canvas id="spectrum-canvas"></canvas>
                 <div class="readout-row">
@@ -40,32 +44,32 @@
             </div>
 
             <div class="card stats-card">
-                <div class="card-header">FUNDAMENTAL FREQ</div>
+                <div class="card-header">Pitch Detect 🎵</div>
                 <div class="big-readout" id="freq-fundamental">-- Hz</div>
-                <div class="sub-readout">CONFIDENCE: <span id="freq-confidence">0%</span></div>
+                <div class="sub-readout">Confidence: <span id="freq-confidence">0%</span></div>
             </div>
         </div>
 
         <div class="col-center">
             <div class="card scope-card">
                 <div class="card-header">
-                    <span>LIVE OSCILLOSCOPE</span>
+                    <span>Live Waveform 〰️</span>
                     <div class="scope-controls">
-                        <label><i class="fa-solid fa-magnifying-glass-plus"></i> TIME <input type="range" id="scope-timebase" min="1" max="10" step="1" value="1"></label>
-                        <label><i class="fa-solid fa-arrows-up-down"></i> GAIN <input type="range" id="scope-gain" min="1" max="10" step="0.5" value="1"></label>
-                        <button class="btn-xs" id="btn-copy-scope">COPY CSV</button>
+                        <label>Time <input type="range" id="scope-timebase" min="1" max="10" step="1" value="1"></label>
+                        <label>Gain <input type="range" id="scope-gain" min="1" max="10" step="0.5" value="1"></label>
+                        <button class="btn-xs" id="btn-copy-scope">Copy Data</button>
                     </div>
                 </div>
                 <canvas id="scope-canvas"></canvas>
             </div>
 
             <div class="card tone-card">
-                <div class="card-header">TONE GENERATOR</div>
+                <div class="card-header">Tone Generator 🔊</div>
                 <div class="tone-controls">
-                    <button id="btn-tone-toggle" class="btn-toggle">ACTIVATE</button>
+                    <button id="btn-tone-toggle" class="btn-toggle">Play Tone</button>
                     <div class="sliders">
-                        <label>FREQ: <span id="tone-freq-val">440</span> Hz <input type="range" id="tone-freq" min="50" max="1000" value="440"></label>
-                        <label>VOL: <span id="tone-vol-val">50</span>% <input type="range" id="tone-vol" min="0" max="1" step="0.01" value="0.5"></label>
+                        <label>Freq: <span id="tone-freq-val">440</span> Hz <input type="range" id="tone-freq" min="50" max="1000" value="440"></label>
+                        <label>Vol: <span id="tone-vol-val">50</span>% <input type="range" id="tone-vol" min="0" max="1" step="0.01" value="0.5"></label>
                     </div>
                 </div>
             </div>
@@ -73,21 +77,21 @@
 
         <div class="col-right">
             <div class="card tool-card">
-                <div class="card-header">SPEED OF SOUND</div>
-                <p class="desc">Clap once. Wait. Clap again.</p>
+                <div class="card-header">Speed of Sound ⏱️</div>
+                <p class="desc">Clap once... wait... clap again!</p>
                 <div class="tool-readout" id="speed-dt">-- ms</div>
                 <div class="calc-row">
                     <label>Dist (m) <input type="number" id="speed-distance" value="2"></label>
                     <div class="result">Est: <span id="speed-est">-- m/s</span></div>
                 </div>
                 <div class="action-row">
-                    <button id="btn-speed-start" class="btn-action">ARM TRIGGER</button>
+                    <button id="btn-speed-start" class="btn-action">Arm Trigger</button>
                     <span id="speed-status" class="status-text">Idle</span>
                 </div>
             </div>
 
             <div class="card history-card">
-                <div class="card-header">HISTORY (WATERFALL)</div>
+                <div class="card-header">History 📜</div>
                 <canvas id="history-canvas"></canvas>
             </div>
         </div>
@@ -95,5 +99,6 @@
     </div>
 </div>
 
-<script src="app.js"></script> </body>
+<script src="../js/mic-app.js"></script> 
+</body>
 </html>
