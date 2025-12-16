@@ -130,8 +130,9 @@ class LabController {
 
     updateStatus(msg) {
         const el = document.getElementById('status-indicator');
+        if (!el) return;
         el.innerText = msg;
-        el.className = "status connected";
+        el.className = msg.includes("Connected") ? "status-badge success" : "status-badge warn";
     }
 
     // --- LAB LOGIC ---

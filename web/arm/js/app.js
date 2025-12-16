@@ -247,7 +247,7 @@ async function handleConnect() {
         readLoop();
         
         document.getElementById('status-indicator').textContent = "Connected";
-        document.getElementById('status-indicator').className = "status connected";
+        document.getElementById('status-indicator').className = "status-badge success";
         document.getElementById('btn-open-port').textContent = "Disconnect";
         sel.disabled = true;
     } catch(e) { log("Connect Error: " + e); alert(e); }

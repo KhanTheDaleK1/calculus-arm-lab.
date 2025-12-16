@@ -140,8 +140,7 @@ class CarController {
         const el = document.getElementById('status-indicator');
         if (el) {
             el.innerText = msg;
-            if (msg.includes("Connected")) el.className = "status connected";
-            else el.className = "status disconnected";
+            el.className = msg.includes("Connected") ? "status-badge success" : "status-badge warn";
         }
     }
 }
