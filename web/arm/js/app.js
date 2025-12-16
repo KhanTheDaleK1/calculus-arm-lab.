@@ -41,6 +41,7 @@ const D2R = Math.PI / 180;
 
 // --- KINEMATICS ---
 function computeFK() {
+    // Simple 3-DOF planar FK with link lengths L1/L2 (mm) and base rotation
     const t1 = state.theta1 * D2R;
     const t2 = state.theta2 * D2R;
     const t3 = (state.theta3 - 90) * D2R; 

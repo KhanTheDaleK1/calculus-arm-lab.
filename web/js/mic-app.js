@@ -21,7 +21,7 @@ window.onload = () => {
     initCanvas('scope-canvas');
     initCanvas('history-canvas');
 
-    // 2. LOAD MICS
+    // 2. LOAD MICS: populate device list from available audio inputs
     navigator.mediaDevices.enumerateDevices().then(devs => {
         const sel = document.getElementById('device-select');
         sel.innerHTML = '';
@@ -37,20 +37,20 @@ window.onload = () => {
     document.getElementById('btn-start').onclick = startEngine;
     document.getElementById('btn-stop').onclick = stopEngine;
     
-    // Tuning
+    // Tuning controls: horizontal zoom and vertical gain for scope
     document.getElementById('scope-timebase').oninput = (e) => scopeZoomX = parseInt(e.target.value);
     document.getElementById('scope-gain').oninput = (e) => scopeGainY = parseFloat(e.target.value);
     
-    // Copy Buttons
+    // Copy Buttons: export CSVs
     document.getElementById('btn-copy-spectrum').onclick = copySpectrum;
     document.getElementById('btn-copy-scope').onclick = copyScope;
 
-    // Tone
+    // Tone generator controls
     document.getElementById('btn-tone-toggle').onclick = toggleTone;
     document.getElementById('tone-freq').oninput = updateTone;
     document.getElementById('tone-vol').oninput = updateTone;
 
-    // Stopwatch
+    // Stopwatch: acoustic speed-of-sound
     document.getElementById('btn-speed-start').onclick = armStopwatch;
 };
 
@@ -98,8 +98,8 @@ function loop() {
     if (!isRunning) return;
     requestAnimationFrame(loop);
 
-    analyser.getByteFrequencyData(dataArray);
-    analyser.getFloatTimeDomainData(waveArray); // <--- KEY CHANGE: Get Floats (-1.0 to 1.0)
+    analyser.getByteFrequencyData(dataArray);   // FFT magnitude bins
+    analyser.getFloatTimeDomainData(waveArray); // Float wave (-1..1) for HD scope
 
     drawSpectrum();
     drawScope();
@@ -374,6 +374,7 @@ function processStopwatch() {
 // --- EXPORT CSV (Updated for Floats) ---
 function copyScope() {
     if (!waveArray) return alert("Start the microphone first!");
+    // Export high-res waveform
     let csv = "Time(s),Amplitude\n";
     const step = 1/audioCtx.sampleRate;
     for(let i=0; i<waveArray.length; i++) {
@@ -386,6 +387,7 @@ function copyScope() {
 
 function copySpectrum() {
     if (!dataArray) return alert("Start the microphone first!");
+    // Export magnitude bins
     let csv = "Freq(Hz),Magnitude\n";
     const bin = (audioCtx.sampleRate/2) / dataArray.length;
     for(let i=0; i<dataArray.length; i++) {
