@@ -811,8 +811,11 @@
     els.btnSpeedReset.addEventListener('click', resetSpeed);
     els.btnTone.addEventListener('click', startTone);
     els.btnToneStop.addEventListener('click', stopTone);
+    if (els.btnScopeSnap) els.btnScopeSnap.addEventListener('click', scopeSnapshot);
     if (els.btnSpectrumSnap) els.btnSpectrumSnap.addEventListener('click', spectrumSnapshot);
     if (els.btnHistorySnap) els.btnHistorySnap.addEventListener('click', historySnapshot);
+    if (els.scopeTimebase) els.scopeTimebase.addEventListener('input', updateScopeTuning);
+    if (els.scopeGain) els.scopeGain.addEventListener('input', updateScopeTuning);
     els.toneSlider.addEventListener('input', (e) => {
         els.toneValue.textContent = e.target.value;
         if (toneOsc) toneOsc.frequency.value = parseFloat(e.target.value);
@@ -848,4 +851,5 @@
     }
 
     updateExpectedSpeed();
+    updateScopeTuning();
 })();
