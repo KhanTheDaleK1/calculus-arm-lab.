@@ -5,100 +5,101 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Microphone Labs 🐨</title>
     <link rel="icon" href="../assets/icon.jpg">
-    <link rel="stylesheet" href="../css/mic-style.css"> 
+    <link rel="stylesheet" href="../css/style.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { overflow: hidden; } 
+        .bento-grid { 
+            display: grid; 
+            grid-template-columns: 25% 50% 25%; 
+            gap: 15px; 
+            height: calc(100vh - 100px); /* Fill remaining height */
+        }
+        .col-left, .col-center, .col-right { display: flex; flex-direction: column; gap: 15px; height: 100%; }
+        .card { flex: 1; display: flex; flex-direction: column; }
+        .scope-card { flex: 2; } /* Center scope is bigger */
+        canvas { flex-grow: 1; width: 100%; background: #000; border-radius: 4px;}
+    </style>
 </head>
 <body>
 
-<div class="app-container">
+<div class="app-container" style="height: 100vh;">
     
     <header>
         <div class="header-left">
             <a href="../index.html" class="home-link">
-                <img src="../assets/icon.jpg" class="mom-icon" alt="Koala" onerror="this.style.display='none'">
+                <img src="../assets/icon.jpg" class="mom-icon" alt="Koala">
                 <div class="brand-text">Microphone <span class="highlight">Labs</span> 🐨</div>
             </a>
         </div>
         
         <div class="controls">
-            <select id="device-select"><option>Detecting Mics...</option></select>
-            <button id="btn-start" class="btn-primary">Start Mic</button>
-            <button id="btn-stop" class="btn-secondary">Stop</button>
-            <span id="mic-status" class="status-badge">Idle</span>
+            <select id="device-select"><option>Detecting...</option></select>
+            <button id="btn-start" class="btn primary">Start Mic</button>
+            <button id="btn-stop" class="btn action">Stop</button>
+            <span id="mic-status" style="margin-left:10px; color:#666;">Idle</span>
         </div>
     </header>
 
     <div class="bento-grid">
-        
         <div class="col-left">
-            <div class="card spectrum-card">
-                <div class="card-header">
-                    <span>Frequency Spectrum 📊</span>
-                    <button class="btn-xs" id="btn-copy-spectrum">Copy Data</button>
-                </div>
+            <div class="panel card">
+                <h2>Spectrum 📊 <button class="btn action" id="btn-copy-spectrum" style="float:right; padding:2px 8px; font-size:0.7rem;">CSV</button></h2>
                 <canvas id="spectrum-canvas"></canvas>
-                <div class="readout-row">
-                    <div>RMS: <span id="amp-rms" class="val-text">--</span></div>
-                    <div>dB: <span id="amp-db" class="val-text">--</span></div>
+                <div style="display:flex; justify-content:space-between; margin-top:5px; color:#aaa; font-size:0.9rem;">
+                    <span>RMS: <b id="amp-rms" style="color:var(--accent);">--</b></span>
+                    <span>dB: <b id="amp-db">--</b></span>
                 </div>
             </div>
-
-            <div class="card stats-card">
-                <div class="card-header">Pitch Detect 🎵</div>
-                <div class="big-readout" id="freq-fundamental">-- Hz</div>
-                <div class="sub-readout">Confidence: <span id="freq-confidence">0%</span></div>
+            <div class="panel card" style="flex: 0 0 150px;">
+                <h2>Pitch 🎵</h2>
+                <div style="text-align:center; font-size:2.5rem; color:var(--accent); font-weight:bold; margin-top:10px;" id="freq-fundamental">--</div>
+                <div style="text-align:center; color:#666;">Confidence: <span id="freq-confidence">0%</span></div>
             </div>
         </div>
 
         <div class="col-center">
-            <div class="card scope-card">
-                <div class="card-header">
-                    <span>Live Waveform 〰️</span>
-                    <div class="scope-controls">
-                        <label>Time <input type="range" id="scope-timebase" min="1" max="10" step="1" value="1"></label>
-                        <label>Gain <input type="range" id="scope-gain" min="1" max="10" step="0.5" value="1"></label>
-                        <button class="btn-xs" id="btn-copy-scope">Copy Data</button>
-                    </div>
-                </div>
+            <div class="panel card scope-card">
+                <h2>Oscilloscope 〰️ 
+                    <span style="float:right; font-size:0.8rem; display:flex; gap:10px;">
+                        <label>Zoom X <input type="range" id="scope-timebase" min="1" max="10" value="1"></label>
+                        <label>Gain Y <input type="range" id="scope-gain" min="1" max="10" value="1"></label>
+                    </span>
+                </h2>
                 <canvas id="scope-canvas"></canvas>
             </div>
-
-            <div class="card tone-card">
-                <div class="card-header">Tone Generator 🔊</div>
-                <div class="tone-controls">
-                    <button id="btn-tone-toggle" class="btn-toggle">Play Tone</button>
-                    <div class="sliders">
-                        <label>Freq: <span id="tone-freq-val">440</span> Hz <input type="range" id="tone-freq" min="50" max="1000" value="440"></label>
-                        <label>Vol: <span id="tone-vol-val">50</span>% <input type="range" id="tone-vol" min="0" max="1" step="0.01" value="0.5"></label>
+            <div class="panel card" style="flex: 0 0 160px;">
+                <h2>Tone Gen 🔊</h2>
+                <div style="display:flex; align-items:center; gap:20px; height:100%;">
+                    <button id="btn-tone-toggle" class="btn action" style="height:60px;">PLAY TONE</button>
+                    <div style="flex-grow:1;">
+                        <label style="display:flex; justify-content:space-between;">Freq: <span id="tone-freq-val">440</span>Hz <input type="range" id="tone-freq" min="50" max="1000" value="440" style="width:100%"></label>
+                        <label style="display:flex; justify-content:space-between;">Vol: <span id="tone-vol-val">50</span>% <input type="range" id="tone-vol" min="0" max="1" step="0.01" value="0.5" style="width:100%"></label>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="col-right">
-            <div class="card tool-card">
-                <div class="card-header">Speed of Sound ⏱️</div>
-                <p class="desc">Clap once... wait... clap again!</p>
-                <div class="tool-readout" id="speed-dt">-- ms</div>
-                <div class="calc-row">
-                    <label>Dist (m) <input type="number" id="speed-distance" value="2"></label>
-                    <div class="result">Est: <span id="speed-est">-- m/s</span></div>
+            <div class="panel card">
+                <h2>Speed of Sound ⏱️</h2>
+                <div style="text-align:center; margin:10px 0;">
+                    <div style="font-size:2rem; color:#fff;" id="speed-dt">-- ms</div>
+                    <div style="color:var(--success);">Est: <span id="speed-est">-- m/s</span></div>
                 </div>
-                <div class="action-row">
-                    <button id="btn-speed-start" class="btn-action">Arm Trigger</button>
-                    <span id="speed-status" class="status-text">Idle</span>
-                </div>
+                <label>Distance (m): <input type="number" id="speed-distance" value="2" style="width:50px; background:#000; color:#fff; border:1px solid #444;"></label>
+                <button id="btn-speed-start" class="btn primary" style="width:100%; margin-top:10px;">Arm Trigger</button>
+                <div id="speed-status" style="text-align:center; margin-top:5px; color:#ffd700; font-size:0.8rem;">Idle</div>
             </div>
-
-            <div class="card history-card">
-                <div class="card-header">History 📜</div>
+            <div class="panel card">
+                <h2>History 📜</h2>
                 <canvas id="history-canvas"></canvas>
             </div>
         </div>
-
     </div>
 </div>
 
-<script src="../js/mic-app.js"></script> 
+<script src="../js/mic-app.js"></script>
 </body>
 </html>
