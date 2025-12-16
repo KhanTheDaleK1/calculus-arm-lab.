@@ -222,8 +222,10 @@
         scopeCtx.beginPath();
         const sliceWidth = width / buffer.length;
         let x = 0;
+        const gain = 3; // boost small signals for clearer view
         for (let i = 0; i < buffer.length; i++) {
-            const v = buffer[i] * 0.5 + 0.5;
+            const amplified = Math.max(-1, Math.min(1, buffer[i] * gain));
+            const v = amplified * 0.5 + 0.5;
             const y = v * height;
             if (i === 0) scopeCtx.moveTo(x, y);
             else scopeCtx.lineTo(x, y);
