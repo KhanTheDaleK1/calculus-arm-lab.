@@ -378,5 +378,11 @@ document.addEventListener('keyup', (e) => {
 // Global function
 window.loadLab = (id) => lab.setLab(id);
 
-// Init
+// Mode toggles
+const labModeBtn = document.getElementById('btn-lab-mode');
+const driveModeBtn = document.getElementById('btn-drive-mode');
+if (labModeBtn) labModeBtn.addEventListener('click', () => lab.setLab(1));
+if (driveModeBtn) driveModeBtn.addEventListener('click', () => lab.setLab(0));
+
+// Init default to Lab 1
 lab.setLab(1);
