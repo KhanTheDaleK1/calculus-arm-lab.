@@ -10,6 +10,7 @@ let waveArray; // For Scope (Float32 for HD Smoothness)
 let scopeZoomX = 1, scopeGainY = 1;
 let freqHistory = [];
 let historyStart = null;
+let scopePaused = false;
 
 // STOPWATCH STATE
 let clapState = 'IDLE'; 
@@ -52,6 +53,9 @@ window.onload = () => {
 
     // Stopwatch: acoustic speed-of-sound
     document.getElementById('btn-speed-start').onclick = armStopwatch;
+
+    // Scope pause/resume
+    document.getElementById('btn-scope-pause').onclick = toggleScopePause;
 };
 
 function initCanvas(id) {
@@ -99,7 +103,7 @@ function loop() {
     requestAnimationFrame(loop);
 
     analyser.getByteFrequencyData(dataArray);   // FFT magnitude bins
-    analyser.getFloatTimeDomainData(waveArray); // Float wave (-1..1) for HD scope
+    if (!scopePaused) analyser.getFloatTimeDomainData(waveArray); // Float wave (-1..1) for HD scope
 
     drawSpectrum();
     drawScope();
@@ -137,11 +141,22 @@ function drawScope() {
     ctx.fillStyle = '#0b0b0b'; 
     ctx.fillRect(0,0,w,h);
     
-    // Center Line
-    ctx.beginPath();
+    // Grid lines (horizontal/vertical) for readability
     ctx.strokeStyle = '#222'; 
+    ctx.lineWidth = 1;
+    ctx.beginPath();
     ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); 
     ctx.stroke(); 
+    ctx.strokeStyle = '#1b1b1b';
+    const divisions = 8;
+    for (let i = 1; i < divisions; i++) {
+        const xg = (i/divisions) * w;
+        ctx.beginPath(); ctx.moveTo(xg, 0); ctx.lineTo(xg, h); ctx.stroke();
+    }
+    for (let j = 1; j < divisions; j++) {
+        const yg = (j/divisions) * h;
+        ctx.beginPath(); ctx.moveTo(0, yg); ctx.lineTo(w, yg); ctx.stroke();
+    }
 
     // Waveform Style
     ctx.lineWidth = 2;
@@ -311,6 +326,7 @@ function updateDoppler(freq) {
 // --- TONE ---
 function toggleTone() {
     const btn = document.getElementById('btn-tone-toggle');
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (toneOsc) {
         toneOsc.stop(); toneOsc = null;
         btn.classList.remove('active'); btn.innerText = "Play Tone";
@@ -396,4 +412,10 @@ function copySpectrum() {
     navigator.clipboard.writeText(csv)
         .then(() => alert("Copied Spectrum Data!"))
         .catch(err => alert("Copy failed: " + err));
+}
+
+function toggleScopePause() {
+    scopePaused = !scopePaused;
+    const btn = document.getElementById('btn-scope-pause');
+    if (btn) btn.textContent = scopePaused ? "Resume" : "Pause";
 }

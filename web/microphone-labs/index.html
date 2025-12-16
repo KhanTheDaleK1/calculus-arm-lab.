@@ -69,9 +69,10 @@
         <div class="col-center">
             <div class="panel card scope-card">
                 <h2>Oscilloscope 〰️ 
-                    <span style="float:right; font-size:0.8rem; display:flex; gap:10px;">
+                    <span style="float:right; font-size:0.8rem; display:flex; gap:10px; align-items:center;">
                         <label>Zoom X <input type="range" id="scope-timebase" min="1" max="10" value="1"></label>
                         <label>Gain Y <input type="range" id="scope-gain" min="1" max="10" value="1"></label>
+                        <button class="btn action" id="btn-scope-pause" style="padding:4px 10px; font-size:0.75rem;">Pause</button>
                     </span>
                 </h2>
                 <canvas id="scope-canvas"></canvas>
