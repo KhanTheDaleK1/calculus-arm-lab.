@@ -17,6 +17,8 @@
                 </a>
             </div>
             <div class="connection-status">
+                <button id="btn-connect-usb" class="btn primary">USB Connect</button>
+                <button id="btn-connect-ble" class="btn action">Bluetooth</button>
                 <span id="status-indicator" class="status disconnected">Disconnected</span>
             </div>
         </header>
@@ -37,29 +39,36 @@
                 </div>
 
                 <div class="math-module">
-                    <h3>Line Tracing (Photodiode)</h3>
-                    <div class="readout-grid">
-                        <div style="grid-column: span 3;">
-                            <div class="big-number" id="val-line">OFF TRACK</div>
-                            <span style="color:#888; font-size:0.8rem;">STATUS</span>
-                        </div>
+                    <h3>Mode</h3>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                        <button id="btn-manual" class="btn primary" style="width: 100%;">MANUAL</button>
+                        <button id="btn-auto" class="btn action" style="width: 100%;">AUTO (AVOID)</button>
                     </div>
                 </div>
             </section>
 
             <!-- CONTROLS PANEL -->
-            <section class="panel">
-                <h2>Controls <span>🎮</span></h2>
-                <div class="slider-group" style="text-align: center; margin-top: 20px;">
-                    <button class="btn primary" style="padding: 15px 30px; font-size: 1.2rem;">START TRACING</button>
-                    <button class="btn action" style="padding: 15px 30px; font-size: 1.2rem; margin-left: 10px;">STOP</button>
+            <section class="panel" style="display: flex; flex-direction: column; align-items: center;">
+                <h2>Manual Control <span>🎮</span></h2>
+                
+                <div style="display: grid; grid-template-columns: 80px 80px 80px; gap: 10px; margin-top: 30px;">
+                    <div></div>
+                    <button id="btn-fwd" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬆️</button>
+                    <div></div>
+                    
+                    <button id="btn-left" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬅️</button>
+                    <button id="btn-stop" class="btn action" style="height: 60px; font-size: 1.5rem;">🛑</button>
+                    <button id="btn-right" class="btn primary" style="height: 60px; font-size: 1.5rem;">➡️</button>
+                    
+                    <div></div>
+                    <button id="btn-back" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬇️</button>
+                    <div></div>
                 </div>
 
-                <div class="help-box">
-                    <p><strong>Status:</strong> Waiting for connection...</p>
-                </div>
+                <p style="margin-top: 20px; color: #666; font-size: 0.8rem;">Keyboard: WASD / Arrows</p>
             </section>
         </main>
     </div>
+    <script src="js/car-controller.js"></script>
 </body>
 </html>
