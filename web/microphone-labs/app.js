@@ -136,6 +136,17 @@
         els.speedExpected.textContent = `${c.toFixed(1)} m/s`;
     }
 
+    function updateScopeTuning() {
+        if (els.scopeTimebase) {
+            scopeTimebaseMs = parseFloat(els.scopeTimebase.value) || scopeTimebaseMs;
+            els.scopeTimebaseVal.textContent = scopeTimebaseMs.toFixed(0);
+        }
+        if (els.scopeGain) {
+            scopeGainMult = parseFloat(els.scopeGain.value) || scopeGainMult;
+            els.scopeGainVal.textContent = scopeGainMult.toFixed(1);
+        }
+    }
+
     async function startMic() {
         try {
             stopMic();
@@ -570,7 +581,8 @@
         analyser.getFloatTimeDomainData(dataArray);
         const bufferCopy = new Float32Array(dataArray);
         lastBuffer = bufferCopy;
-        scopeBuffers.push(bufferCopy);
+        const scopedBuffer = getScopeDisplayBuffer(bufferCopy);
+        if (scopedBuffer) scopeBuffers.push(scopedBuffer);
         sonarBuffers.push({ start: totalSamplesProcessed, data: bufferCopy });
         totalSamplesProcessed += bufferCopy.length;
         const maxSonarSamples = sampleRate * 3; // keep ~3s of history
@@ -587,7 +599,7 @@
         els.ampPeak.textContent = amp.peak.toFixed(3);
         els.ampDb.textContent = `${amp.db}`;
 
-        const rmsGate = 0.02;
+        const rmsGate = 0.01;
         let freqResult = { freq: null, confidence: 0 };
         if (amp.rms >= rmsGate) {
             freqResult = autoCorrelate(bufferCopy, audioCtx.sampleRate);
@@ -632,7 +644,7 @@
         }
 
         if (!freeze) {
-            drawScope(bufferCopy, { showEnergy: false });
+            drawScope(scopedBuffer || bufferCopy, { showEnergy: false });
             drawSpectrum();
             if (currentFreq) {
                 frequencyHistory.push({ time: now, freq: currentFreq });
