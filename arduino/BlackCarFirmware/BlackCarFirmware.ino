@@ -17,10 +17,10 @@
 // Motor Pins
 #define ENA 5
 #define ENB 6
-#define IN1 8 // Swapped from 7
-#define IN2 7 // Swapped from 8
-#define IN3 9
-#define IN4 11
+#define IN1 7 // Reverted to Original (Forward)
+#define IN2 8 // Reverted to Original
+#define IN3 11 // Swapped (Fixing Right Motor)
+#define IN4 9  // Swapped (Fixing Right Motor)
 
 // Ultrasonic Pins (V3.0 Shield Default often uses A5/A4 for Echo/Trig)
 #define TRIG A5
