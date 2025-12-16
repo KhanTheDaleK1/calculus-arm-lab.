@@ -66,8 +66,8 @@ void loop() {
     else if (command == 'L') { turnLeft(turnSpeed); autoMode = false; }
     else if (command == 'R') { turnRight(turnSpeed); autoMode = false; }
     else if (command == 'S') { stopMotors(); autoMode = false; }
-    else if (command == 'A') { autoMode = true; }
-    else if (command == 'M') { autoMode = false; stopMotors(); }
+    else if (command == 'A') { autoMode = true; Serial.println("AUTO: ON"); }
+    else if (command == 'M') { autoMode = false; stopMotors(); Serial.println("AUTO: OFF"); }
   }
 
   // 2. Continuous Tasks
@@ -83,15 +83,16 @@ void loop() {
 
   // 3. Auto Mode Logic
   if (autoMode) {
-    if (distance < 25 && distance > 0) {
+    if (distance < 30 && distance > 0) { // Increased threshold slightly to 30cm
+      Serial.println("AUTO: AVOIDING");
       stopMotors();
       delay(200);
       moveBackward(150);
-      delay(300);
-      turnLeft(180);
-      delay(400);
+      delay(400); // Back up longer
+      turnLeft(turnSpeed); // Use higher turn speed
+      delay(500); // Turn longer
     } else {
-      moveForward(120);
+      moveForward(180); // INCREASED SPEED from 120 to 180
     }
   }
   
