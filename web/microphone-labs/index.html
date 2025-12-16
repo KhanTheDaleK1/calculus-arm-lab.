@@ -89,6 +89,13 @@
                 <label>Distance (m): <input type="number" id="speed-distance" value="2" style="width:50px; background:#000; color:#fff; border:1px solid #444;"></label>
                 <button id="btn-speed-start" class="btn primary" style="width:100%; margin-top:10px;">Arm Trigger</button>
                 <div id="speed-status" style="text-align:center; margin-top:5px; color:#ffd700; font-size:0.8rem;">Idle</div>
+                <hr style="border:0; border-top:1px solid #222; margin:12px 0;">
+                <h3 style="margin:0 0 6px 0; font-size:0.9rem; color:#ccc;">Doppler Shift</h3>
+                <label style="font-size:0.85rem; color:#aaa;">Base Freq (Hz): <input type="number" id="doppler-base" value="440" style="width:70px; background:#000; color:#fff; border:1px solid #444; margin-left:6px;"></label>
+                <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:0.9rem; color:#ccc;">
+                    <span>Shift: <b id="doppler-shift">-- Hz</b></span>
+                    <span>v≈ <b id="doppler-speed">-- m/s</b></span>
+                </div>
             </div>
             <div class="panel card">
                 <h2>History 📜</h2>

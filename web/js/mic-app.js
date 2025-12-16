@@ -8,6 +8,8 @@ let isRunning = false;
 let dataArray; // For Spectrum (Uint8 is fine for visuals)
 let waveArray; // For Scope (Float32 for HD Smoothness)
 let scopeZoomX = 1, scopeGainY = 1;
+let freqHistory = [];
+let historyStart = null;
 
 // STOPWATCH STATE
 let clapState = 'IDLE'; 
@@ -102,6 +104,7 @@ function loop() {
     drawSpectrum();
     drawScope();
     analyze();
+    drawHistory();
     processStopwatch();
 }
 
@@ -146,16 +149,23 @@ function drawScope() {
     ctx.lineJoin = 'round'; // Smooth corners
     ctx.beginPath();
 
-    // The Slice Width depends on Zoom
-    // If we have 2048 samples, we only draw a portion if Zoom > 1
-    const drawLen = waveArray.length / scopeZoomX;
+    // Determine segment ~10ms with zoom and edge trigger
+    const sampleRate = audioCtx ? audioCtx.sampleRate : 48000;
+    const maxSamples = Math.min(waveArray.length, Math.max(32, Math.floor(sampleRate * 0.01 * scopeZoomX)));
+    let startIdx = 0;
+    // Edge trigger: find first rising zero-crossing above small threshold
+    for (let i = 1; i < maxSamples; i++) {
+        if (waveArray[i-1] < 0 && waveArray[i] >= 0 && Math.abs(waveArray[i]) > 0.02) { startIdx = i; break; }
+    }
+
+    const drawLen = Math.min(maxSamples, waveArray.length - startIdx);
     const sliceW = w / drawLen;
     
     let x = 0;
 
     // Helper to map Float (-1.0 to 1.0) to Canvas Y
     const getY = (idx) => {
-        let val = waveArray[idx]; // Range -1 to 1
+        let val = waveArray[startIdx + idx]; // Range -1 to 1
         // Apply Gain (Y-Axis Zoom)
         val = val * scopeGainY; 
         // Invert for Canvas (0 is top)
@@ -215,6 +225,8 @@ function analyze() {
     } else {
         document.getElementById('freq-fundamental').innerText = Math.round(pitch) + " Hz";
         document.getElementById('freq-confidence').innerText = "Locked";
+        updateHistory(pitch);
+        updateDoppler(pitch);
     }
 }
 
@@ -247,6 +259,53 @@ function autoCorrelate(buf, rate) {
     // Confidence Threshold
     if (bestCorr > 0.92) return rate / bestOffset;
     return -1;
+}
+
+function updateHistory(freq) {
+    const now = performance.now() / 1000;
+    if (historyStart === null) historyStart = now;
+    freqHistory.push({ t: now - historyStart, f: freq });
+    if (freqHistory.length > 300) freqHistory.shift();
+}
+
+function drawHistory() {
+    const c = document.getElementById('history-canvas');
+    if (!c || freqHistory.length === 0) return;
+    const ctx = c.getContext('2d');
+    const w = c.width, h = c.height;
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle = '#222';
+    ctx.beginPath();
+    ctx.moveTo(0, h/2);
+    ctx.lineTo(w, h/2);
+    ctx.stroke();
+
+    const maxF = Math.max(500, Math.max(...freqHistory.map(p => p.f)));
+    const minF = 0;
+    const len = freqHistory.length;
+    ctx.strokeStyle = THEME.accent;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < len; i++) {
+        const x = (i / (len - 1)) * w;
+        const y = h - ((freqHistory[i].f - minF) / (maxF - minF)) * h;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+}
+
+function updateDoppler(freq) {
+    const baseInput = document.getElementById('doppler-base');
+    if (!baseInput) return;
+    const base = parseFloat(baseInput.value) || 0;
+    if (base <= 0) return;
+    const shift = freq - base;
+    const speed = 343 * (shift / base); // m/s, simple moving source approximation
+    const shiftEl = document.getElementById('doppler-shift');
+    const speedEl = document.getElementById('doppler-speed');
+    if (shiftEl) shiftEl.innerText = shift.toFixed(1) + " Hz";
+    if (speedEl) speedEl.innerText = speed.toFixed(2) + " m/s";
 }
 
 // --- TONE ---
