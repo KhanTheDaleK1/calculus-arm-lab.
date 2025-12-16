@@ -59,6 +59,12 @@ window.onload = () => {
     document.getElementById('clapBtn').onclick = armClapTrigger;
 };
 
+function toggleSOP(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('open');
+}
+
 function initCanvas(id) {
     const c = document.getElementById(id);
     c.width = c.clientWidth;
