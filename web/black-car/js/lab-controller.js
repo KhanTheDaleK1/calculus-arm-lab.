@@ -5,6 +5,16 @@ class LabController {
         this.isConnected = false;
         this.currentLab = -1;
         this.dataBuffer = [];
+        this.serialBuffer = ""; // Fix: Buffer for fragmented serial packets
+        
+        // SOP Content
+        this.sopData = {
+            1: "<h3>Lab 1: MVT Drag Race</h3><b>Setup:</b> Place robot on a long straight track (floor).<br><b>Action:</b> Press Start. Robot accelerates for 2s, coasts, then stops.<br><b>Goal:</b> Analyze Position vs Time to find max velocity (MVT).",
+            2: "<h3>Lab 2: Riemann Braking</h3><b>Setup:</b> Place robot on a long straight track.<br><b>Action:</b> Press Start. Robot hits max speed immediately, then brakes.<br><b>Goal:</b> Integrate Velocity vs Time (Riemann Sums) to find total distance.",
+            3: "<h3>Lab 3: Trig Oscillator</h3><b>Setup:</b> Large open floor area required.<br><b>Action:</b> Press Start. Robot drives in a sinusoidal 'snake' pattern.<br><b>Goal:</b> Model the path as y = Asin(Bx).",
+            4: "<h3>Lab 4: Radar Trap</h3><b>Setup:</b> Robot is STATIONARY. Place perpendicular to the walking path.<br><b>Action:</b> Press Start. Walk past the robot in a straight line.<br><b>Goal:</b> Use Related Rates to find dx/dt from dh/dt.<br><b>Note:</b> Stay within the 15° sensor cone!",
+            5: "<h3>Lab 5: Harmonic Motion</h3><b>Setup:</b> Robot is STATIONARY facing UP (or sideways). Place oscillating weight directly in front of sensor.<br><b>Action:</b> Start weight bouncing. Press Start.<br><b>Goal:</b> Verify a(t) is proportional to -y(t)."
+        };
     }
 
     async connect() {
@@ -49,6 +59,23 @@ class LabController {
     }
 
     handleData(data) {
+        // Fix: Accumulate data in buffer
+        this.serialBuffer += data;
+        
+        // Split by newline
+        const lines = this.serialBuffer.split('\n');
+        
+        // Keep the last element (incomplete line) in the buffer
+        this.serialBuffer = lines.pop(); 
+
+        lines.forEach(line => {
+            this.processLine(line.trim());
+        });
+    }
+
+    processLine(data) {
+        if (data.length === 0) return;
+
         // Handle Drive Mode Telemetry
         if (this.currentLab === 0) {
             // Distance
@@ -77,25 +104,20 @@ class LabController {
         }
 
         // Handle Lab Mode Data (CSV)
-        const lines = data.split('\n');
-        lines.forEach(line => {
-            line = line.trim();
-            if (line.length === 0) return;
-            
-            if (line.includes(',')) {
-                const parts = line.split(',');
-                if (parts.length >= 2) {
-                    const t = parseFloat(parts[0]);
-                    const y = parseFloat(parts[1]);
-                    
-                    if (!isNaN(t) && !isNaN(y)) {
-                        this.dataBuffer.push({t, y});
-                        this.updateGraph();
-                        this.updateText();
-                    }
+        if (data.includes(',')) {
+            const parts = data.split(',');
+            if (parts.length >= 2) {
+                const t = parseFloat(parts[0]);
+                const y = parseFloat(parts[1]);
+                
+                // Filter out obviously bad parses (e.g. if t is NaN or y is NaN)
+                if (!isNaN(t) && !isNaN(y)) {
+                    this.dataBuffer.push({t, y});
+                    this.updateGraph();
+                    this.updateText();
                 }
             }
-        });
+        }
     }
 
     async send(cmd) {
@@ -136,6 +158,8 @@ class LabController {
             plotArea.style.display = 'block';
             dataSection.style.display = 'block';
             drivePanel.style.display = 'none';
+            // Show SOP Button
+            document.getElementById('btn-sop').style.display = 'inline-block';
         }
         
         if (id === 1) {
@@ -161,6 +185,22 @@ class LabController {
             this.initGraph("Time (s)", "Position (cm)");
             document.getElementById('data-output').value = "Place robot below weight. Ensure clear line of sight.";
         }
+    }
+    
+    showSOP() {
+        const modal = document.getElementById('sop-modal');
+        const content = document.getElementById('sop-content');
+        
+        if (this.sopData[this.currentLab]) {
+            content.innerHTML = this.sopData[this.currentLab];
+        } else {
+            content.innerHTML = "<h3>Instructions</h3><p>Select a lab to view instructions.</p>";
+        }
+        modal.style.display = "flex";
+    }
+
+    closeSOP() {
+        document.getElementById('sop-modal').style.display = "none";
     }
 
     startRun() {
