@@ -145,10 +145,10 @@ const bindBtn = (id, cmd) => {
     }
 };
 
-bindBtn('btn-fwd', 'F');
-bindBtn('btn-back', 'B');
-bindBtn('btn-left', 'L');
-bindBtn('btn-right', 'R');
+bindBtn('btn-fwd', 'L'); // Swapped based on feedback
+bindBtn('btn-back', 'R'); // Swapped
+bindBtn('btn-left', 'F'); // Swapped
+bindBtn('btn-right', 'B'); // Swapped
 bindBtn('btn-stop', 'S'); // Explicit Stop Button
 
 // Mode Toggles
@@ -158,10 +158,10 @@ document.getElementById('btn-manual').addEventListener('click', () => car.send('
 // Keyboard Controls
 document.addEventListener('keydown', (e) => {
     if (e.repeat) return;
-    if (e.key === 'w' || e.key === 'ArrowUp') car.send('F');
-    if (e.key === 's' || e.key === 'ArrowDown') car.send('B');
-    if (e.key === 'a' || e.key === 'ArrowLeft') car.send('L');
-    if (e.key === 'd' || e.key === 'ArrowRight') car.send('R');
+    if (e.key === 'w' || e.key === 'ArrowUp') car.send('L'); // Swapped
+    if (e.key === 's' || e.key === 'ArrowDown') car.send('R'); // Swapped
+    if (e.key === 'a' || e.key === 'ArrowLeft') car.send('F'); // Swapped
+    if (e.key === 'd' || e.key === 'ArrowRight') car.send('B'); // Swapped
 });
 
 document.addEventListener('keyup', (e) => {

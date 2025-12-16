@@ -54,6 +54,11 @@ void loop() {
   // 1. Process Incoming Commands
   if (Serial.available() > 0) {
     command = Serial.read();
+    
+    // Debug: Confirm we heard the command
+    Serial.print("CMD:");
+    Serial.println(command);
+
     // Simple Protocol: F=Fwd, B=Back, L=Left, R=Right, S=Stop, A=Auto, M=Manual
     if (command == 'F') { moveForward(speed); autoMode = false; }
     else if (command == 'B') { moveBackward(speed); autoMode = false; }
