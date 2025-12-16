@@ -35,9 +35,10 @@
                 </div>
                 <div class="math-module" style="margin-top:10px;">
                     <h3>Audio Amplitude</h3>
-                    <p style="margin:0;">RMS: <span id="amp-rms" style="color:#d05ce3;">0.000</span></p>
+                    <p style="margin:0;">RMS (Normalized 0-1): <span id="amp-rms" style="color:#d05ce3;">0.000</span></p>
                     <p style="margin:0;">Peak: <span id="amp-peak" style="color:#ff4757;">0.000</span></p>
                     <p style="margin:5px 0 0 0;">Level (dBFS): <span id="amp-db" style="color:#2ed573;">-∞</span></p>
+                    <p style="margin:5px 0 0 0; color:#888; font-size:0.8rem;">Freeze to view energy (shaded $f(t)^2$ area).</p>
                 </div>
                 <div class="math-module">
                     <h3>Fundamental (Autocorr)</h3>
@@ -56,15 +57,19 @@
                 <h2>Audio Scope & Spectrum <span>👀</span></h2>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:center;">
                     <div style="background:#111; padding:8px; border:1px solid #222;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                            <span style="color:#888; font-size:0.85rem;">Audio Scope</span>
-                            <span id="scope-trigger" style="color:#2ed573; font-size:0.8rem;">Edge: Auto</span>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; gap:10px;">
+                            <span style="color:#888; font-size:0.85rem;">Audio Scope (Time, Amplitude)</span>
+                            <span id="scope-period" style="color:#2ed573; font-size:0.8rem;">T: -- ms</span>
                         </div>
                         <canvas id="scope-canvas" width="500" height="200" style="width:100%; height:200px; background:#000; border:1px solid #222;"></canvas>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                            <label style="color:#888; font-size:0.8rem;">History:</label>
+                            <input id="scope-scrub" type="range" min="0" max="0" value="0" disabled style="flex:1;">
+                        </div>
                     </div>
                     <div style="background:#111; padding:8px; border:1px solid #222;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                            <span style="color:#888; font-size:0.85rem;">Audio Spectrum</span>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; gap:10px;">
+                            <span style="color:#888; font-size:0.85rem;">Audio Spectrum (Freq Hz, Magnitude dB)</span>
                             <span style="color:#2ed573; font-size:0.8rem;">FFT</span>
                         </div>
                         <canvas id="spectrum-canvas" width="500" height="200" style="width:100%; height:200px; background:#000; border:1px solid #222;"></canvas>
@@ -109,12 +114,16 @@
                     <label style="display:flex; justify-content:space-between; align-items:center; font-size:0.9rem;">Distance (m)
                         <input id="speed-distance" type="number" value="2" min="0.1" step="0.1" style="width:100px; background:#111; color:#fff; border:1px solid #333; padding:4px;">
                     </label>
+                    <label style="display:flex; justify-content:space-between; align-items:center; font-size:0.9rem; margin-top:6px;">Room Temp (°C)
+                        <input id="speed-temp" type="number" value="20" min="-10" max="45" step="0.5" style="width:100px; background:#111; color:#fff; border:1px solid #333; padding:4px;">
+                    </label>
                     <div class="plot-controls" style="margin-top:10px; justify-content:flex-start;">
                         <button id="btn-speed-start" class="btn primary">Start Listening</button>
                         <button id="btn-speed-reset" class="btn secondary">Reset</button>
                     </div>
                     <p style="margin:5px 0 0 0;">Δt: <span id="speed-dt" style="color:#d05ce3;">-- ms</span></p>
                     <p style="margin:0;">Estimated: <span id="speed-est" style="color:#2ed573;">-- m/s</span></p>
+                    <p style="margin:0;">Expected (temp): <span id="speed-expected" style="color:#888;">343.0 m/s</span></p>
                     <p style="margin:0; color:#888;">Status: <span id="speed-status">Idle</span></p>
                 </div>
             </section>
