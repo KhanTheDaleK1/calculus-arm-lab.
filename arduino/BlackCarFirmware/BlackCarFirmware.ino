@@ -29,6 +29,7 @@
 // State Variables
 char command = 'S';
 int speed = 150;
+int turnSpeed = 220; // Increased for better torque on turns
 bool autoMode = false;
 
 void setup() {
@@ -62,8 +63,8 @@ void loop() {
     // Simple Protocol: F=Fwd, B=Back, L=Left, R=Right, S=Stop, A=Auto, M=Manual
     if (command == 'F') { moveForward(speed); autoMode = false; }
     else if (command == 'B') { moveBackward(speed); autoMode = false; }
-    else if (command == 'L') { turnLeft(speed); autoMode = false; }
-    else if (command == 'R') { turnRight(speed); autoMode = false; }
+    else if (command == 'L') { turnLeft(turnSpeed); autoMode = false; }
+    else if (command == 'R') { turnRight(turnSpeed); autoMode = false; }
     else if (command == 'S') { stopMotors(); autoMode = false; }
     else if (command == 'A') { autoMode = true; }
     else if (command == 'M') { autoMode = false; stopMotors(); }
