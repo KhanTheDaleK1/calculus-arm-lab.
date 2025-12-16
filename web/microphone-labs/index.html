@@ -26,9 +26,39 @@
             </div>
         </header>
 
-        <main class="grid-layout" style="grid-template-columns: 320px 1fr 0.9fr;">
-            <section class="panel">
-                <h2>Session & Levels <span>🎙️</span></h2>
+        <main class="grid-layout">
+            <section class="panel scope-area">
+                <h2>Oscilloscope <span>👀</span></h2>
+                <div style="background:#111; padding:8px; border:1px solid #222;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; gap:10px;">
+                        <span style="color:#888; font-size:0.85rem;">Audio Scope (Time, Amplitude)</span>
+                        <span id="scope-period" style="color:#2ed573; font-size:0.8rem;">T: -- ms</span>
+                    </div>
+                    <canvas id="scope-canvas" width="500" height="240" style="width:100%; height:240px; background:#000; border:1px solid #222;"></canvas>
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                        <label style="color:#888; font-size:0.8rem;">History:</label>
+                        <input id="scope-scrub" type="range" min="0" max="0" value="0" disabled style="flex:1;">
+                        <button id="btn-freeze" class="btn action">⏸️ Freeze</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel spectrum-area">
+                <h2>Spectrum <span>📡</span></h2>
+                <div style="background:#111; padding:8px; border:1px solid #222;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; gap:10px;">
+                        <span style="color:#888; font-size:0.85rem;">Audio Spectrum (Freq Hz, Magnitude dB)</span>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <span style="color:#2ed573; font-size:0.8rem;">FFT</span>
+                            <button id="btn-spectrum-snap" class="btn action" style="padding:4px 8px;">Snapshot CSV</button>
+                        </div>
+                    </div>
+                    <canvas id="spectrum-canvas" width="500" height="260" style="width:100%; height:260px; background:#000; border:1px solid #222;"></canvas>
+                </div>
+            </section>
+
+            <section class="panel controls-area">
+                <h2>Controls & Stats <span>🎙️</span></h2>
                 <div class="slider-group">
                     <label>Input Device <span class="val-display" id="device-label">---</span></label>
                     <p style="color:#888; font-size:0.85rem; margin:5px 0 0 0;">Grant microphone access to enumerate devices.</p>
@@ -45,58 +75,6 @@
                     <p style="margin:0;">Frequency: <span id="freq-fundamental" style="color:#d05ce3;">-- Hz</span></p>
                     <p style="margin:5px 0 0 0;">Confidence: <span id="freq-confidence" style="color:#888;">--</span></p>
                 </div>
-                <div class="math-module">
-                    <h3>System Notes</h3>
-                    <p style="margin:0; color:#aaa;">- Disable noise suppression/echo cancellation for best results.</p>
-                    <p style="margin:0; color:#aaa;">- Wired or USB mics tend to be most stable.</p>
-                    <p style="margin:0; color:#aaa;">- Matching Phyphox acoustics experiments.</p>
-                </div>
-            </section>
-
-            <section class="panel">
-                <h2>Audio Scope & Spectrum <span>👀</span></h2>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:center;">
-                    <div style="background:#111; padding:8px; border:1px solid #222;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; gap:10px;">
-                            <span style="color:#888; font-size:0.85rem;">Audio Scope (Time, Amplitude)</span>
-                            <span id="scope-period" style="color:#2ed573; font-size:0.8rem;">T: -- ms</span>
-                        </div>
-                        <canvas id="scope-canvas" width="500" height="200" style="width:100%; height:200px; background:#000; border:1px solid #222;"></canvas>
-                        <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-                            <label style="color:#888; font-size:0.8rem;">History:</label>
-                            <input id="scope-scrub" type="range" min="0" max="0" value="0" disabled style="flex:1;">
-                        </div>
-                    </div>
-                    <div style="background:#111; padding:8px; border:1px solid #222;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; gap:10px;">
-                            <span style="color:#888; font-size:0.85rem;">Audio Spectrum (Freq Hz, Magnitude dB)</span>
-                            <span style="color:#2ed573; font-size:0.8rem;">FFT</span>
-                        </div>
-                        <canvas id="spectrum-canvas" width="500" height="200" style="width:100%; height:200px; background:#000; border:1px solid #222;"></canvas>
-                    </div>
-                </div>
-                <div class="plot-controls" style="margin-top:15px;">
-                    <button id="btn-freeze" class="btn action">⏸️ Freeze</button>
-                    <button id="btn-clear-history" class="btn action">🗑️ Clear History</button>
-                </div>
-            </section>
-
-            <section class="panel">
-                <h2>Frequency History <span>📈</span></h2>
-                <canvas id="history-canvas" width="300" height="220" style="width:100%; height:220px; background:#000; border:1px solid #222;"></canvas>
-                <p style="color:#888; font-size:0.9rem;">Tracks the detected fundamental in real-time (Audio Autocorrelation).</p>
-                <div class="math-module">
-                    <h3>Doppler Shift</h3>
-                    <label style="display:flex; justify-content:space-between; align-items:center; font-size:0.9rem;">Base Frequency (Hz) <input id="doppler-base" type="number" value="1000" min="50" max="20000" step="1" style="width:120px; background:#111; color:#fff; border:1px solid #333; padding:4px;"></label>
-                    <p style="margin:6px 0 0 0;">Measured: <span id="doppler-measured" style="color:#d05ce3;">-- Hz</span></p>
-                    <p style="margin:0;">Δf: <span id="doppler-delta" style="color:#ff4757;">-- Hz</span></p>
-                    <p style="margin:0;">Approx. Velocity: <span id="doppler-speed" style="color:#2ed573;">-- m/s</span></p>
-                    <p style="margin:6px 0 0 0; color:#888; font-size:0.85rem;">Assumes 343 m/s speed of sound.</p>
-                </div>
-            </section>
-
-            <section class="panel">
-                <h2>Sonar & Speed of Sound <span>🌊</span></h2>
                 <div class="math-module">
                     <h3>Sonar (Ping + Echo)</h3>
                     <p style="margin:0; color:#aaa;">Emits a short click and looks for the first echo peak. Works best in quiet rooms facing a wall.</p>
@@ -126,9 +104,15 @@
                     <p style="margin:0;">Expected (temp): <span id="speed-expected" style="color:#888;">343.0 m/s</span></p>
                     <p style="margin:0; color:#888;">Status: <span id="speed-status">Idle</span></p>
                 </div>
+                <div class="math-module">
+                    <h3>System Notes</h3>
+                    <p style="margin:0; color:#aaa;">- Disable noise suppression/echo cancellation for best results.</p>
+                    <p style="margin:0; color:#aaa;">- Wired or USB mics tend to be most stable.</p>
+                    <p style="margin:0; color:#aaa;">- Matching Phyphox acoustics experiments.</p>
+                </div>
             </section>
 
-            <section class="panel">
+            <section class="panel tone-area">
                 <h2>Tone Generator <span>🎚️</span></h2>
                 <p style="color:#888; font-size:0.9rem; margin-top:0;">Generates a sine wave to probe the microphone (Tone generator experiment).</p>
                 <div class="slider-group">
@@ -145,6 +129,24 @@
                 </div>
                 <div class="help-box">
                     <p style="margin:0;">Use external speaker for cleaner measurements.</p>
+                </div>
+            </section>
+
+            <section class="panel history-area">
+                <h2>Frequency History <span>📈</span></h2>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <button id="btn-clear-history" class="btn action">🗑️ Clear History</button>
+                    <button id="btn-history-snap" class="btn action">Snapshot CSV</button>
+                </div>
+                <canvas id="history-canvas" width="300" height="220" style="width:100%; height:220px; background:#000; border:1px solid #222;"></canvas>
+                <p style="color:#888; font-size:0.9rem;">Tracks the detected fundamental in real-time (Audio Autocorrelation).</p>
+                <div class="math-module">
+                    <h3>Doppler Shift</h3>
+                    <label style="display:flex; justify-content:space-between; align-items:center; font-size:0.9rem;">Base Frequency (Hz) <input id="doppler-base" type="number" value="1000" min="50" max="20000" step="1" style="width:120px; background:#111; color:#fff; border:1px solid #333; padding:4px;"></label>
+                    <p style="margin:6px 0 0 0;">Measured: <span id="doppler-measured" style="color:#d05ce3;">-- Hz</span></p>
+                    <p style="margin:0;">Δf: <span id="doppler-delta" style="color:#ff4757;">-- Hz</span></p>
+                    <p style="margin:0;">Approx. Velocity: <span id="doppler-speed" style="color:#2ed573;">-- m/s</span></p>
+                    <p style="margin:6px 0 0 0; color:#888; font-size:0.85rem;">Assumes 343 m/s speed of sound.</p>
                 </div>
             </section>
         </main>

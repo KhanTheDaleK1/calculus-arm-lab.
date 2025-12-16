@@ -17,6 +17,8 @@
         historyCanvas: document.getElementById('history-canvas'),
         btnFreeze: document.getElementById('btn-freeze'),
         btnClearHistory: document.getElementById('btn-clear-history'),
+        btnSpectrumSnap: document.getElementById('btn-spectrum-snap'),
+        btnHistorySnap: document.getElementById('btn-history-snap'),
         dopplerBase: document.getElementById('doppler-base'),
         dopplerMeasured: document.getElementById('doppler-measured'),
         dopplerDelta: document.getElementById('doppler-delta'),
@@ -318,6 +320,49 @@
             }
         }
         return { offset: bestOffset, correlation: maxCorr };
+    }
+
+    function flashButton(btn, label = 'Copied!') {
+        if (!btn) return;
+        const original = btn.textContent;
+        btn.textContent = label;
+        setTimeout(() => { btn.textContent = original; }, 900);
+    }
+
+    async function spectrumSnapshot() {
+        if (!analyserFreq || !freqArray) return;
+        try {
+            analyserFreq.getByteFrequencyData(freqArray);
+            const lines = ['Frequency (Hz),Amplitude (dB)'];
+            const binHz = sampleRate / analyserFreq.fftSize;
+            for (let i = 0; i < freqArray.length; i++) {
+                const mag = Math.max(freqArray[i], 1e-6);
+                const db = 20 * Math.log10(mag / 255);
+                const freq = i * binHz;
+                lines.push(`${freq.toFixed(1)},${db.toFixed(2)}`);
+            }
+            const csv = lines.join('\n');
+            await navigator.clipboard.writeText(csv);
+            flashButton(els.btnSpectrumSnap);
+        } catch (err) {
+            console.error('Snapshot failed', err);
+        }
+    }
+
+    async function historySnapshot() {
+        if (!frequencyHistory.length) return;
+        try {
+            const lines = ['Time (s),Frequency (Hz)'];
+            const t0 = frequencyHistory[0].time;
+            frequencyHistory.forEach(p => {
+                lines.push(`${(p.time - t0).toFixed(3)},${p.freq.toFixed(2)}`);
+            });
+            const csv = lines.join('\n');
+            await navigator.clipboard.writeText(csv);
+            flashButton(els.btnHistorySnap);
+        } catch (err) {
+            console.error('Snapshot failed', err);
+        }
     }
 
     function drawScope(buffer, opts = {}) {
@@ -712,6 +757,8 @@
     els.btnSpeedReset.addEventListener('click', resetSpeed);
     els.btnTone.addEventListener('click', startTone);
     els.btnToneStop.addEventListener('click', stopTone);
+    if (els.btnSpectrumSnap) els.btnSpectrumSnap.addEventListener('click', spectrumSnapshot);
+    if (els.btnHistorySnap) els.btnHistorySnap.addEventListener('click', historySnapshot);
     els.toneSlider.addEventListener('input', (e) => {
         els.toneValue.textContent = e.target.value;
         if (toneOsc) toneOsc.frequency.value = parseFloat(e.target.value);
