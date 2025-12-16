@@ -5,7 +5,8 @@ class LabController {
         this.isConnected = false;
         this.currentLab = -1;
         this.dataBuffer = [];
-        this.serialBuffer = ""; // Fix: Buffer for fragmented serial packets
+        this.serialBuffer = "";
+        this.smoothingWindowSize = 5; // For a basic moving average smoothing
         
         // SOP Content
         this.sopData = {
@@ -233,9 +234,25 @@ class LabController {
     }
 
     updateGraph() {
+        if (this.dataBuffer.length === 0) return;
+
         const t = this.dataBuffer.map(d => d.t);
-        const y = this.dataBuffer.map(d => d.y);
-        Plotly.update('plot-area', { x: [t], y: [y] });
+        const rawY = this.dataBuffer.map(d => d.y);
+
+        let smoothedY = [];
+        if (rawY.length < this.smoothingWindowSize) {
+            smoothedY = rawY; // Not enough data for smoothing yet
+        } else {
+            for (let i = 0; i < rawY.length; i++) {
+                const start = Math.max(0, i - Math.floor(this.smoothingWindowSize / 2));
+                const end = Math.min(rawY.length, i + Math.ceil(this.smoothingWindowSize / 2));
+                const window = rawY.slice(start, end);
+                const sum = window.reduce((a, b) => a + b, 0);
+                smoothedY.push(sum / window.length);
+            }
+        }
+        
+        Plotly.update('plot-area', { x: [t], y: [smoothedY] });
     }
 
     updateText() {

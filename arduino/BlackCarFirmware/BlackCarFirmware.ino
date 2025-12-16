@@ -37,8 +37,8 @@ void moveBackward(int speed);
 void turnLeft(int speed);
 void turnRight(int speed);
 void stopMotors();
-int getFilteredDistance();
-int getRawDistance();
+float getFilteredDistance();
+float getRawDistance();
 void runLabLogic();
 
 void setup() {
@@ -159,7 +159,7 @@ void runLabLogic() {
     
     // Log Data (10Hz)
     if (millis() - lastLogTime > 100) {
-      int d = getRawDistance(); // Use Raw for speed, filtered might be too slow
+      float d = getRawDistance(); // Now returns float
       Serial.print(t_sec); Serial.print(","); Serial.println(d);
       lastLogTime = millis();
     }
@@ -167,31 +167,22 @@ void runLabLogic() {
     if (t > 4000) { stopMotors(); currentLab = 0; } // End
   }
 
-  // LAB 2: Braking (Vel vs Time)
+  // LAB 2: Braking
   else if (currentLab == 2) {
-    static int lastDist = 0;
-    
-    // Profile: High Speed (0-1.5s), Brake (1.5s+)
+    static float lastDist = 0; // Changed to float
     if (t < 1500) moveForward(255);
     else stopMotors();
     
     if (millis() - lastLogTime > 100) {
-      int d = getRawDistance();
-      // Calc Velocity (cm/s) = (d_new - d_old) / 0.1s
-      // Note: Since sensor faces BACK, d increases as we move forward.
-      // v = delta_d / delta_t
-      if (lastDist == 0) lastDist = d; // Init
-      
+      float d = getRawDistance(); // Now returns float
+      if (lastDist == 0) lastDist = d;
       float v = (d - lastDist) / 0.1; 
       lastDist = d;
-      
-      // Filter crazy spikes
       if (abs(v) < 500) {
         Serial.print(t_sec); Serial.print(","); Serial.println(v);
       }
       lastLogTime = millis();
     }
-    
     if (t > 3000) { stopMotors(); currentLab = 0; }
   }
 
@@ -222,8 +213,8 @@ void runLabLogic() {
   else if (currentLab == 4) {
     stopMotors(); 
     if (millis() - lastLogTime > 100) { // 10Hz
-       int h = getFilteredDistance(); 
-       Serial.print(t_sec); Serial.print(","); Serial.println(h);
+       float h = getFilteredDistance(); 
+       Serial.print(t_sec); Serial.print(","); Serial.println(h, 2); // 2 decimal places
        lastLogTime = millis();
     }
     // No auto-stop. User must press Stop on UI.
@@ -233,8 +224,8 @@ void runLabLogic() {
   else if (currentLab == 5) {
     stopMotors();
     if (millis() - lastLogTime > 100) { // 10Hz
-       int y = getFilteredDistance(); 
-       Serial.print(t_sec); Serial.print(","); Serial.println(y);
+       float y = getFilteredDistance(); 
+       Serial.print(t_sec); Serial.print(","); Serial.println(y, 2); // 2 decimal places
        lastLogTime = millis();
     }
     // No auto-stop. User must press Stop on UI.
@@ -243,40 +234,36 @@ void runLabLogic() {
 
 // --- FILTERING LOGIC ---
 
-int getFilteredDistance() {
-  int readings[3];
-  
-  // Take 3 readings with sufficient delay
-  for (int i = 0; i < 3; i++) {
-    readings[i] = getRawDistance();
-    delay(30); 
-  }
-
+float getFilteredDistance() {
+  float readings[3];
+  for (int i = 0; i < 3; i++) { readings[i] = getRawDistance(); delay(30); }
   // Simple Bubble Sort
-  if (readings[0] > readings[1]) { int t = readings[0]; readings[0] = readings[1]; readings[1] = t; }
-  if (readings[1] > readings[2]) { int t = readings[1]; readings[1] = readings[2]; readings[2] = t; }
-  if (readings[0] > readings[1]) { int t = readings[0]; readings[0] = readings[1]; readings[1] = t; }
-
+  if (readings[0] > readings[1]) { float t = readings[0]; readings[0] = readings[1]; readings[1] = t; }
+  if (readings[1] > readings[2]) { float t = readings[1]; readings[1] = readings[2]; readings[2] = t; }
+  if (readings[0] > readings[1]) { float t = readings[0]; readings[0] = readings[1]; readings[1] = t; }
   return readings[1]; 
 }
 
-int getRawDistance() {
+float getRawDistance() {
+
+  digitalWrite(TRIG, LOW); delayMicroseconds(2);
+
+  digitalWrite(TRIG, HIGH); delayMicroseconds(10);
+
   digitalWrite(TRIG, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG, LOW);
-  
+
   long duration = pulseIn(ECHO, HIGH, 30000);
-  
-  if (duration == 0) return 400; 
-  
-  int cm = duration * 0.034 / 2;
-  
-  if (cm < 5) return 400; 
-  if (cm > 400) return 400;
-  
+
+  if (duration == 0) return 400.0; 
+
+  float cm = duration * 0.0343 / 2.0;
+
+  if (cm < 2.0) return 400.0; 
+
+  if (cm > 400.0) return 400.0;
+
   return cm;
+
 }
 
 // --- MOTOR FUNCTIONS ---
