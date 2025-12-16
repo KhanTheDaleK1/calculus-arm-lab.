@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Car - Robotics Lab</title>
+    <link rel="icon" href="../assets/icon.jpg">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="header-left">
+                <a href="../index.html" style="text-decoration: none; display: flex; align-items: center; gap: 15px;">
+                    <img src="../assets/icon.jpg" class="mom-icon" alt="Mom" onerror="this.style.display='none'">
+                    <h1>Black <span class="highlight">Car</span></h1>
+                </a>
+            </div>
+            <div class="connection-status">
+                <button id="btn-connect-usb" class="btn primary">USB Connect</button>
+                <button id="btn-connect-ble" class="btn action">Bluetooth</button>
+                <span id="status-indicator" class="status disconnected">Disconnected</span>
+            </div>
+        </header>
+
+        <main class="grid-layout" style="grid-template-columns: 1fr 1fr;">
+            <!-- SENSOR PANEL -->
+            <section class="panel">
+                <h2>Sensors <span>📡</span></h2>
+                
+                <div class="math-module">
+                    <h3>Ultrasonic Sensor</h3>
+                    <div class="readout-grid">
+                        <div style="grid-column: span 3;">
+                            <div class="big-number" id="val-distance">--</div>
+                            <span style="color:#888; font-size:0.8rem;">CM DISTANCE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="math-module">
+                    <h3>Mode</h3>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                        <button id="btn-manual" class="btn primary" style="width: 100%;">MANUAL</button>
+                        <button id="btn-auto" class="btn action" style="width: 100%;">AUTO (AVOID)</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CONTROLS PANEL -->
+            <section class="panel" style="display: flex; flex-direction: column; align-items: center;">
+                <h2>Manual Control <span>🎮</span></h2>
+                
+                <div style="display: grid; grid-template-columns: 80px 80px 80px; gap: 10px; margin-top: 30px;">
+                    <div></div>
+                    <button id="btn-fwd" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬆️</button>
+                    <div></div>
+                    
+                    <button id="btn-left" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬅️</button>
+                    <button id="btn-stop" class="btn action" style="height: 60px; font-size: 1.5rem;">🛑</button>
+                    <button id="btn-right" class="btn primary" style="height: 60px; font-size: 1.5rem;">➡️</button>
+                    
+                    <div></div>
+                    <button id="btn-back" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬇️</button>
+                    <div></div>
+                </div>
+
+                <p style="margin-top: 20px; color: #666; font-size: 0.8rem;">Keyboard: WASD / Arrows</p>
+            </section>
+        </main>
+    </div>
+    <script src="js/car-controller.js"></script>
+</body>
+</html>

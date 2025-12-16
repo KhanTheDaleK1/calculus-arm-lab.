@@ -3,72 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Black Car - Robotics Lab</title>
+    <title>Calculus Robotics Lab</title>
     <link rel="icon" href="../assets/icon.jpg">
     <link rel="stylesheet" href="../css/style.css">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        .lab-card {
+            border-left: 4px solid var(--accent);
+            background: #111;
+            padding: 20px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .lab-card:hover { background: #1a1a1a; }
+        .lab-card h3 { margin: 0 0 10px 0; color: #fff; }
+        .lab-card p { color: #888; font-size: 0.9rem; margin: 0; }
+        .math-display { font-size: 0.9rem; color: #aaa; margin-top: 10px; font-family: 'Times New Roman', serif; }
+    </style>
 </head>
 <body>
     <div class="app-container">
         <header>
             <div class="header-left">
                 <a href="../index.html" style="text-decoration: none; display: flex; align-items: center; gap: 15px;">
-                    <img src="../assets/icon.jpg" class="mom-icon" alt="Mom" onerror="this.style.display='none'">
-                    <h1>Black <span class="highlight">Car</span></h1>
+                    <img src="../assets/icon.jpg" class="mom-icon" alt="Mom">
+                    <h1>Calculus <span class="highlight">Lab</span></h1>
                 </a>
             </div>
             <div class="connection-status">
-                <button id="btn-connect-usb" class="btn primary">USB Connect</button>
-                <button id="btn-connect-ble" class="btn action">Bluetooth</button>
+                <a href="drive.html" class="btn secondary">🛠️ Manual Drive</a>
+                <button id="btn-connect" class="btn primary">🔌 Connect Robot</button>
                 <span id="status-indicator" class="status disconnected">Disconnected</span>
             </div>
         </header>
 
-        <main class="grid-layout" style="grid-template-columns: 1fr 1fr;">
-            <!-- SENSOR PANEL -->
+        <main class="grid-layout" style="grid-template-columns: 300px 1fr;">
+            
+            <!-- SIDEBAR: MODULE SELECTOR -->
             <section class="panel">
-                <h2>Sensors <span>📡</span></h2>
+                <h2>Modules <span>📚</span></h2>
                 
-                <div class="math-module">
-                    <h3>Ultrasonic Sensor</h3>
-                    <div class="readout-grid">
-                        <div style="grid-column: span 3;">
-                            <div class="big-number" id="val-distance">--</div>
-                            <span style="color:#888; font-size:0.8rem;">CM DISTANCE</span>
-                        </div>
-                    </div>
+                <div class="lab-card" onclick="loadLab(1)">
+                    <h3>Lab 1: MVT Drag Race</h3>
+                    <p>Differential Calculus</p>
+                    <div class="math-display">$$v(c) = \frac{s(b) - s(a)}{b - a}$$</div>
                 </div>
 
-                <div class="math-module">
-                    <h3>Mode</h3>
-                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
-                        <button id="btn-manual" class="btn primary" style="width: 100%;">MANUAL</button>
-                        <button id="btn-auto" class="btn action" style="width: 100%;">AUTO (AVOID)</button>
-                    </div>
+                <div class="lab-card" onclick="loadLab(2)">
+                    <h3>Lab 2: Riemann Braking</h3>
+                    <p>Integral Calculus</p>
+                    <div class="math-display">$$\int_{a}^{b} v(t) dt \approx \sum v(t_i)\Delta t$$</div>
+                </div>
+
+                <div class="lab-card" onclick="loadLab(3)">
+                    <h3>Lab 3: Trig Oscillator</h3>
+                    <p>Trigonometric Modeling</p>
+                    <div class="math-display">$$y = A \sin(B(x-h)) + k$$</div>
                 </div>
             </section>
 
-            <!-- CONTROLS PANEL -->
-            <section class="panel" style="display: flex; flex-direction: column; align-items: center;">
-                <h2>Manual Control <span>🎮</span></h2>
-                
-                <div style="display: grid; grid-template-columns: 80px 80px 80px; gap: 10px; margin-top: 30px;">
-                    <div></div>
-                    <button id="btn-fwd" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬆️</button>
-                    <div></div>
-                    
-                    <button id="btn-left" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬅️</button>
-                    <button id="btn-stop" class="btn action" style="height: 60px; font-size: 1.5rem;">🛑</button>
-                    <button id="btn-right" class="btn primary" style="height: 60px; font-size: 1.5rem;">➡️</button>
-                    
-                    <div></div>
-                    <button id="btn-back" class="btn primary" style="height: 60px; font-size: 1.5rem;">⬇️</button>
-                    <div></div>
+            <!-- MAIN: LAB WORKSPACE -->
+            <section class="panel" id="workspace">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 id="lab-title" style="border: none; margin: 0;">Select a Module</h2>
+                    <div class="plot-controls">
+                        <button id="btn-run" class="btn primary" disabled>▶ INITIATE RUN</button>
+                        <button id="btn-export" class="btn action">📋 Copy CSV</button>
+                    </div>
                 </div>
 
-                <p style="margin-top: 20px; color: #666; font-size: 0.8rem;">Keyboard: WASD / Arrows</p>
+                <!-- PLOTLY CHART -->
+                <div id="plot-area" style="width: 100%; height: 400px; background: #000; margin-top: 20px; border: 1px solid #333;"></div>
+
+                <!-- DATA OUTPUT -->
+                <div style="margin-top: 20px;">
+                    <h3>Data Output (TI-84 Format)</h3>
+                    <textarea id="data-output" style="width: 100%; height: 150px; background: #111; color: #0f0; border: 1px solid #333; font-family: monospace; padding: 10px;" readonly>Waiting for data...</textarea>
+                </div>
             </section>
         </main>
     </div>
-    <script src="js/car-controller.js"></script>
+
+    <script src="js/lab-controller.js"></script>
 </body>
 </html>

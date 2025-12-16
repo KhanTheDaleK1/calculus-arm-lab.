@@ -26,6 +26,11 @@ int speed = 150;
 int turnSpeed = 220; 
 bool autoMode = false;
 
+// Lab State
+int currentLab = 0; // 0=None, 1=Drag, 2=Brake, 3=Osc
+unsigned long labStartTime = 0;
+unsigned long lastLogTime = 0;
+
 // Function Prototypes
 void moveForward(int speed);
 void moveBackward(int speed);
@@ -34,6 +39,7 @@ void turnRight(int speed);
 void stopMotors();
 int getFilteredDistance();
 int getRawDistance();
+void runLabLogic();
 
 void setup() {
   Serial.begin(9600);
@@ -64,19 +70,29 @@ void loop() {
     command = Serial.read();
     
     // Debug: Confirm we heard the command
-    Serial.print("CMD:");
-    Serial.println(command);
+    // Serial.print("CMD:"); Serial.println(command); // Commented out to keep CSV clean
 
-    if (command == 'F') { moveForward(speed); autoMode = false; }
-    else if (command == 'B') { moveBackward(speed); autoMode = false; }
-    else if (command == 'L') { turnLeft(turnSpeed); autoMode = false; }
-    else if (command == 'R') { turnRight(turnSpeed); autoMode = false; }
-    else if (command == 'S') { stopMotors(); autoMode = false; }
-    else if (command == 'A') { autoMode = true; Serial.println("AUTO: LINE+AVOID"); }
-    else if (command == 'M') { autoMode = false; stopMotors(); Serial.println("AUTO: OFF"); }
+    if (command == 'F') { moveForward(speed); autoMode = false; currentLab = 0; }
+    else if (command == 'B') { moveBackward(speed); autoMode = false; currentLab = 0; }
+    else if (command == 'L') { turnLeft(turnSpeed); autoMode = false; currentLab = 0; }
+    else if (command == 'R') { turnRight(turnSpeed); autoMode = false; currentLab = 0; }
+    else if (command == 'S') { stopMotors(); autoMode = false; currentLab = 0; }
+    else if (command == 'A') { autoMode = true; currentLab = 0; } // Auto Mode
+    else if (command == 'M') { autoMode = false; currentLab = 0; stopMotors(); }
+    
+    // Lab Commands
+    else if (command == '1') { currentLab = 1; labStartTime = millis(); autoMode = false; }
+    else if (command == '2') { currentLab = 2; labStartTime = millis(); autoMode = false; }
+    else if (command == '3') { currentLab = 3; labStartTime = millis(); autoMode = false; }
   }
 
-  // 2. Read Sensors
+  // 2. Lab Execution
+  if (currentLab > 0) {
+    runLabLogic();
+    return; // Skip normal telemetry/auto logic during Lab
+  }
+
+  // 3. Normal Telemetry (Only if NOT in Lab)
   int distance = getFilteredDistance();
   int lVal = digitalRead(LINE_L);
   int mVal = digitalRead(LINE_M);
@@ -85,17 +101,15 @@ void loop() {
   // Send Telemetry (~10Hz)
   static unsigned long lastTelem = 0;
   if (millis() - lastTelem > 100) {
-    Serial.print("D:"); Serial.print(distance);
-    Serial.print("|L:"); Serial.print(lVal); Serial.print(mVal); Serial.println(rVal);
-    lastTelem = millis();
+    // Only send raw telemetry if we aren't in a data-critical lab
+    // Serial.print("D:"); ...
   }
-
-  // 3. Auto Mode Logic (Roam -> Line Capture -> Safety Stop)
+  
+  // 4. Auto Mode Logic (Roam -> Line Capture -> Safety Stop)
   if (autoMode) {
     // Priority 1: Safety Stop (Close Obstacle)
     if (distance < 15 && distance > 0) {
       stopMotors();
-      // Serial.println("AUTO: OBSTACLE");
     } 
     // Priority 2: Line Capture (If ANY sensor sees line)
     else if (lVal == HIGH || mVal == HIGH || rVal == HIGH) {
@@ -112,7 +126,6 @@ void loop() {
     else {
       // Basic Obstacle Avoidance (Wander)
       if (distance < 30 && distance > 0) { 
-        // Obstacle nearby -> Avoid
         stopMotors();
         delay(200);
         moveBackward(150);
@@ -120,13 +133,85 @@ void loop() {
         turnLeft(turnSpeed); 
         delay(500); 
       } else {
-        // Clear path -> Roam Forward
         moveForward(180); 
       }
     }
   }
   
   delay(10);
+}
+
+void runLabLogic() {
+  unsigned long t = millis() - labStartTime;
+  float t_sec = t / 1000.0;
+  
+  // LAB 1: Drag Race (Pos vs Time)
+  if (currentLab == 1) {
+    // Profile: Accel (0-2s), Coast (2-3s), Stop (>3s)
+    if (t < 2000) moveForward(150 + (t/20)); // Ramp speed
+    else if (t < 3000) moveForward(255);
+    else stopMotors();
+    
+    // Log Data (10Hz)
+    if (millis() - lastLogTime > 100) {
+      int d = getRawDistance(); // Use Raw for speed, filtered might be too slow
+      Serial.print(t_sec); Serial.print(","); Serial.println(d);
+      lastLogTime = millis();
+    }
+    
+    if (t > 4000) { stopMotors(); currentLab = 0; } // End
+  }
+
+  // LAB 2: Braking (Vel vs Time)
+  else if (currentLab == 2) {
+    static int lastDist = 0;
+    
+    // Profile: High Speed (0-1.5s), Brake (1.5s+)
+    if (t < 1500) moveForward(255);
+    else stopMotors();
+    
+    if (millis() - lastLogTime > 100) {
+      int d = getRawDistance();
+      // Calc Velocity (cm/s) = (d_new - d_old) / 0.1s
+      // Note: Since sensor faces BACK, d increases as we move forward.
+      // v = delta_d / delta_t
+      if (lastDist == 0) lastDist = d; // Init
+      
+      float v = (d - lastDist) / 0.1; 
+      lastDist = d;
+      
+      // Filter crazy spikes
+      if (abs(v) < 500) {
+        Serial.print(t_sec); Serial.print(","); Serial.println(v);
+      }
+      lastLogTime = millis();
+    }
+    
+    if (t > 3000) { stopMotors(); currentLab = 0; }
+  }
+
+  // LAB 3: Oscillator (Heading/Power vs Time)
+  else if (currentLab == 3) {
+    // Snake Pattern
+    float val = sin(t_sec * 3.0) * 100; // Amplitude 100, Freq ~0.5Hz
+    
+    int pLeft = 150 + val;
+    int pRight = 150 - val;
+    
+    // Motor Control directly
+    analogWrite(ENA, constrain(pLeft, 0, 255));
+    analogWrite(ENB, constrain(pRight, 0, 255));
+    digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);
+    
+    if (millis() - lastLogTime > 100) {
+      // Log "Offset" (Simulated by the sine value being driven)
+      Serial.print(t_sec); Serial.print(","); Serial.println(val);
+      lastLogTime = millis();
+    }
+    
+    if (t > 5000) { stopMotors(); currentLab = 0; }
+  }
 }
 
 // --- FILTERING LOGIC ---
