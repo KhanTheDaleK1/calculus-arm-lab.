@@ -103,10 +103,10 @@ void loop() {
 int getFilteredDistance() {
   int readings[3];
   
-  // Take 3 readings
+  // Take 3 readings with sufficient delay to prevent Ghost Echoes
   for (int i = 0; i < 3; i++) {
     readings[i] = getRawDistance();
-    delay(5); // Slight pause between pings to prevent echo overlap
+    delay(30); // INCREASED from 5ms to 30ms (datasheet recommends >60ms cycle)
   }
 
   // Simple Bubble Sort to find Median
@@ -124,13 +124,17 @@ int getRawDistance() {
   delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
   
-  // Timeout: 30,000us (~5 meters max) to prevent blocking
+  // Timeout: 30,000us (~5 meters max)
   long duration = pulseIn(ECHO, HIGH, 30000);
   
-  if (duration == 0) return 400; // Timeout (Too far)
+  if (duration == 0) return 400; // Timeout
   
   int cm = duration * 0.034 / 2;
+  
+  // Filter: Ignore impossibly close values (Noise/Ghost Echoes)
+  if (cm < 5) return 400; // Treat < 5cm as "out of range" or ignore
   if (cm > 400) return 400;
+  
   return cm;
 }
 // Remove old getDistance
