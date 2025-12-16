@@ -71,7 +71,7 @@ void loop() {
   }
 
   // 2. Continuous Tasks
-  int distance = getDistance();
+  int distance = getFilteredDistance();
   
   // Send Telemetry (Throttle to ~10Hz to avoid flooding)
   static unsigned long lastTelem = 0;
@@ -97,6 +97,44 @@ void loop() {
   
   delay(10);
 }
+
+// --- FILTERING LOGIC ---
+
+int getFilteredDistance() {
+  int readings[3];
+  
+  // Take 3 readings
+  for (int i = 0; i < 3; i++) {
+    readings[i] = getRawDistance();
+    delay(5); // Slight pause between pings to prevent echo overlap
+  }
+
+  // Simple Bubble Sort to find Median
+  if (readings[0] > readings[1]) { int t = readings[0]; readings[0] = readings[1]; readings[1] = t; }
+  if (readings[1] > readings[2]) { int t = readings[1]; readings[1] = readings[2]; readings[2] = t; }
+  if (readings[0] > readings[1]) { int t = readings[0]; readings[0] = readings[1]; readings[1] = t; }
+
+  return readings[1]; // Return Median
+}
+
+int getRawDistance() {
+  digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+  
+  // Timeout: 30,000us (~5 meters max) to prevent blocking
+  long duration = pulseIn(ECHO, HIGH, 30000);
+  
+  if (duration == 0) return 400; // Timeout (Too far)
+  
+  int cm = duration * 0.034 / 2;
+  if (cm > 400) return 400;
+  return cm;
+}
+// Remove old getDistance
+// int getDistance() { ... }
 
 void moveForward(int speed) {
   analogWrite(ENA, speed);
@@ -141,15 +179,4 @@ void stopMotors() {
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, LOW);
-}
-
-int getDistance() {
-  digitalWrite(TRIG, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG, LOW);
-  
-  long duration = pulseIn(ECHO, HIGH);
-  return duration * 0.034 / 2;
 }
