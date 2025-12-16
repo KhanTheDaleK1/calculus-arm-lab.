@@ -29,6 +29,10 @@
         .slider-group label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .plot-controls { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
         .sys-log-wrap { flex: 1; display: flex; flex-direction: column; }
+        @media (max-width: 900px) {
+            .bento-grid { grid-template-columns: 1fr; height: auto; }
+            .card.hero { min-height: 300px; }
+        }
     </style>
 </head>
 <body>

@@ -205,6 +205,15 @@ canvas {
     border: 1px solid #222;
 }
 
+/* RESPONSIVE */
+@media (max-width: 900px) {
+    header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .connection-status, .controls, .inline-controls { flex-wrap: wrap; }
+    .connection-status button, .controls button, .inline-controls button, .controls select { width: 100%; }
+    .grid-layout { grid-template-columns: 1fr !important; }
+    .nav-card span { font-size: 2.4rem; }
+}
+
 /* MODAL (SOP) */
 .modal {
     display: none;

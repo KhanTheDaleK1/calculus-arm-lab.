@@ -19,6 +19,10 @@
         .card { flex: 1; display: flex; flex-direction: column; }
         .scope-card { flex: 2; } /* Center scope is bigger */
         canvas { flex-grow: 1; width: 100%; background: #000; border-radius: 4px;}
+        @media (max-width: 900px) {
+            .bento-grid { grid-template-columns: 1fr; height: auto; }
+            body { overflow: auto; }
+        }
     </style>
 </head>
 <body>
