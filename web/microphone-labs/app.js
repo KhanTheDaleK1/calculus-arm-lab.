@@ -374,6 +374,36 @@
         }
     }
 
+    function getScopeGain() {
+        return scopeGainMult || 1;
+    }
+
+    function getScopeDisplayBuffer(buffer) {
+        if (!buffer || !buffer.length) return null;
+        const windowSamples = Math.max(8, Math.min(buffer.length, Math.round((scopeTimebaseMs / 1000) * sampleRate)));
+        const start = Math.max(0, buffer.length - windowSamples);
+        const slice = buffer.slice(start, start + windowSamples);
+        lastScopeBuffer = slice;
+        return slice;
+    }
+
+    async function scopeSnapshot() {
+        const source = lastScopeBuffer || (lastBuffer ? getScopeDisplayBuffer(lastBuffer) : null);
+        if (!source || !source.length) return;
+        try {
+            const lines = ['Time (s),Voltage'];
+            const dt = 1 / sampleRate;
+            for (let i = 0; i < source.length; i++) {
+                lines.push(`${(i * dt).toFixed(6)},${source[i].toFixed(6)}`);
+            }
+            const csv = lines.join('\n');
+            await navigator.clipboard.writeText(csv);
+            flashButton(els.btnScopeSnap);
+        } catch (err) {
+            console.error('Snapshot failed', err);
+        }
+    }
+
     function drawScope(buffer, opts = {}) {
         const displayBuffer = getScopeDisplayBuffer(buffer);
         if (!displayBuffer || !displayBuffer.length) return;
