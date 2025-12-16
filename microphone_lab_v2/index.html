@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGNAL LAB v2.0 // EVAN-OPTIPLEX</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<div class="app-container">
+    
+    <header>
+        <div class="brand"><i class="fa-solid fa-wave-square"></i> SIGNAL LAB <span class="version">v2.0</span></div>
+        <div class="controls">
+            <select id="micSelect"><option>Detecting Mics...</option></select>
+            <button id="startBtn" class="btn-primary">START ENGINE</button>
+            <button id="stopBtn" class="btn-danger">HALT</button>
+        </div>
+    </header>
+
+    <div class="bento-grid">
+        
+        <div class="col-left">
+            <div class="card spectrum-card">
+                <div class="card-header">
+                    <span><i class="fa-solid fa-chart-bar"></i> SPECTRUM (FFT)</span>
+                    <button class="btn-xs" onclick="copySpectrumData()">COPY CSV</button>
+                </div>
+                <canvas id="spectrumCanvas"></canvas>
+                <div class="readout-group">
+                    <div class="readout">PEAK FREQ: <span id="peakFreq">--</span> Hz</div>
+                    <div class="readout">RMS LEVEL: <span id="rmsLevel">--</span></div>
+                </div>
+            </div>
+
+            <div class="card stats-card">
+                <div class="card-header"><i class="fa-solid fa-microchip"></i> PITCH DETECTION</div>
+                <div class="big-readout" id="fundamentalFreq">-- Hz</div>
+                <div class="sub-readout">CONFIDENCE: <span id="confidence">0%</span></div>
+                <div class="status-note" id="pitchNote">Waiting for signal...</div>
+            </div>
+        </div>
+
+        <div class="col-center">
+            <div class="card scope-card">
+                <div class="card-header">
+                    <span><i class="fa-solid fa-heart-pulse"></i> OSCILLOSCOPE</span>
+                    <div class="scope-controls">
+                        <label>ZOOM X: <input type="range" id="timebaseConfig" min="1" max="10" step="1" value="1"></label>
+                        <label>GAIN Y: <input type="range" id="gainConfig" min="1" max="10" step="0.5" value="1"></label>
+                        <button class="btn-xs" onclick="copyScopeData()">COPY CSV</button>
+                    </div>
+                </div>
+                <canvas id="scopeCanvas"></canvas>
+            </div>
+
+            <div class="card tone-card">
+                <div class="card-header"><span><i class="fa-solid fa-bullhorn"></i> TONE GENERATOR</span></div>
+                <div class="tone-ui">
+                    <div class="slider-group">
+                        <label>FREQ: <span id="toneFreqLabel">440</span> Hz</label>
+                        <input type="range" id="toneFreq" min="20" max="2000" value="440">
+                    </div>
+                    <div class="slider-group">
+                        <label>VOL: <span id="toneVolLabel">50</span>%</label>
+                        <input type="range" id="toneVol" min="0" max="1" step="0.01" value="0.5">
+                    </div>
+                    <button id="toggleToneBtn" class="btn-toggle">ACTIVATE TONE</button>
+                    <div class="wave-select">
+                        <select id="toneType">
+                            <option value="sine">Sine</option>
+                            <option value="square">Square</option>
+                            <option value="sawtooth">Sawtooth</option>
+                            <option value="triangle">Triangle</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-right">
+            <div class="card tool-card">
+                <div class="card-header"><i class="fa-solid fa-satellite-dish"></i> SONAR (ECHO)</div>
+                <p class="tool-desc">Emits chirp. Measures reflection time.</p>
+                <div class="tool-readout" id="sonarResult">-- ms / -- m</div>
+                <button id="pingBtn" class="btn-action">PING</button>
+                <div class="status-note">Requires loud speaker.</div>
+            </div>
+
+            <div class="card tool-card">
+                <div class="card-header"><i class="fa-solid fa-stopwatch"></i> SPEED OF SOUND</div>
+                <p class="tool-desc">Detects two sharp claps.</p>
+                <div class="tool-readout" id="stopwatchResult">-- ms</div>
+                <div class="input-group">
+                    <label>DIST (m): <input type="number" id="clapDist" value="2" style="width:50px;"></label>
+                    <span id="calculatedSpeed">-- m/s</span>
+                </div>
+                <button id="clapBtn" class="btn-action">ARM TRIGGER</button>
+                <div class="status-note" id="clapStatus">Status: Idle</div>
+            </div>
+
+            <div class="card history-card">
+                <div class="card-header">FREQUENCY HISTORY</div>
+                <canvas id="historyCanvas"></canvas>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
