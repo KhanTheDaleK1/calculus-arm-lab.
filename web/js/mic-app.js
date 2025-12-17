@@ -79,7 +79,16 @@ async function startEngine() {
         analyser.fftSize = CONFIG.fftSize;
 
         const devId = document.getElementById('device-select').value;
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: devId ? {exact: devId} : undefined } });
+        const constraints = { 
+            audio: { 
+                deviceId: devId ? {exact: devId} : undefined,
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            } 
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
 
