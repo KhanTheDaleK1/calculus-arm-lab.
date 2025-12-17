@@ -12,12 +12,6 @@ let historyStart = null;
 let scopePaused = false;
 let toneDelta = 2;
 
-// XY MODE
-let xyMode = false;
-let splitter;
-let analyserX, analyserY;
-let waveArrayX, waveArrayY;
-
 // SCOPE SETTINGS
 let scopeSettings = {
     timePerDiv: 0.001,
@@ -79,33 +73,31 @@ function initCanvas(id) {
     if(c) { c.width = c.clientWidth; c.height = c.clientHeight; }
 }
 
+async function initAudioGraph() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    
+    // Main Analyser (Mono Mix)
+    if (!analyser) {
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = CONFIG.fftSize;
+    }
+    
+    // Arrays
+    const len = analyser.frequencyBinCount;
+    if(!dataArray) dataArray = new Uint8Array(len);
+    if(!waveArray) waveArray = new Float32Array(len);
+}
+
 async function startEngine() {
     if (isRunning) return;
     try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
-        
-        if (!analyser) {
-            analyser = audioCtx.createAnalyser();
-            analyser.fftSize = CONFIG.fftSize;
-        }
-        
-        // Stereo XY Setup
-        if (!analyserX) {
-            analyserX = audioCtx.createAnalyser();
-            analyserX.fftSize = CONFIG.fftSize;
-            analyserY = audioCtx.createAnalyser();
-            analyserY.fftSize = CONFIG.fftSize;
-            splitter = audioCtx.createChannelSplitter(2);
-            splitter.connect(analyserX, 0); 
-            splitter.connect(analyserY, 1); 
-        }
+        await initAudioGraph();
 
         const devId = document.getElementById('device-select').value;
         const constraints = { 
             audio: { 
                 deviceId: devId ? {exact: devId} : undefined,
-                channelCount: 2, // Request Stereo
                 echoCancellation: false,
                 noiseSuppression: false,
                 autoGainControl: false
@@ -116,12 +108,10 @@ async function startEngine() {
         if (micSource) try { micSource.disconnect(); } catch(e){}
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser); // Mono Mix
-        micSource.connect(splitter); // Stereo Split
         
         if (masterGain) {
             try { 
                 masterGain.connect(analyser); 
-                masterGain.connect(splitter);
             } catch(e){}
         }
 
@@ -144,12 +134,6 @@ async function startEngine() {
         recNode.connect(mute);
         mute.connect(audioCtx.destination);
 
-        const len = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(len);
-        waveArray = new Float32Array(len);
-        waveArrayX = new Float32Array(len);
-        waveArrayY = new Float32Array(len);
-
         isRunning = true;
         document.getElementById('mic-status').innerText = "LIVE";
         document.getElementById('mic-status').className = "status-badge success";
@@ -168,18 +152,10 @@ function loop() {
     if (!isRunning) return;
     requestAnimationFrame(loop);
     
-    // Check XY Mode
-    const xyCheckbox = document.getElementById('scope-xy-mode');
-    xyMode = xyCheckbox ? xyCheckbox.checked : false;
-
     analyser.getByteFrequencyData(dataArray);
     
     if (!scopePaused) {
         analyser.getFloatTimeDomainData(waveArray);
-        if (xyMode && analyserX && analyserY) {
-            analyserX.getFloatTimeDomainData(waveArrayX);
-            analyserY.getFloatTimeDomainData(waveArrayY);
-        }
     }
     
     drawSpectrum();
@@ -314,70 +290,72 @@ function drawScope() {
     const w = c.width, h = c.height;
     const rate = audioCtx ? audioCtx.sampleRate : 48000;
 
-    // XY MODE PLOT
-    if (xyMode && waveArrayX && waveArrayY) {
-        ctx.fillStyle = '#0b0b0b'; 
-        ctx.fillRect(0,0,w,h);
-        
-        // Grid (Crosshair)
-        ctx.strokeStyle = '#444'; ctx.beginPath();
-        ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
-        ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
-        ctx.stroke();
-        
-        ctx.lineWidth = 2; 
-        ctx.strokeStyle = '#00ff00'; // Green for XY
-        ctx.beginPath();
-        
-        const yStep = h / 8;
-        const pxPerVolt = yStep / scopeSettings.voltsPerDiv;
-        const count = waveArrayX.length;
-        
-        for (let i = 0; i < count; i++) {
-            const xVal = waveArrayX[i];
-            const yVal = waveArrayY[i];
-            
-            const px = (w/2) + (xVal * pxPerVolt);
-            const py = (h/2) - (yVal * pxPerVolt);
-            
-            if (i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-        }
-        ctx.stroke();
-        
-        ctx.fillStyle = '#fff'; ctx.font = "11px monospace";
-        ctx.fillText("XY Mode", 5, 12);
-        return;
-    }
-
-    // NORMAL TIME DOMAIN
+    // 1. CLEAR & GRID
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
-    const xStep = w / 10; const yStep = h / 8;
+    
+    // Grid (10 horizontal divisions, 8 vertical)
+    const xStep = w / 10;
+    const yStep = h / 8;
     ctx.strokeStyle = '#222'; ctx.lineWidth = 1; ctx.beginPath();
     for(let i=1; i<10; i++) { ctx.moveTo(i*xStep, 0); ctx.lineTo(i*xStep, h); }
     for(let i=1; i<8; i++) { ctx.moveTo(0, i*yStep); ctx.lineTo(w, i*yStep); }
     ctx.stroke();
-    ctx.strokeStyle = '#444'; ctx.beginPath();
-    ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
 
+    // Center Crosshair
+    ctx.strokeStyle = '#444'; ctx.beginPath();
+    ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
+    ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
+    ctx.stroke();
+
+    // 2. LOGIC
+    // Total time on screen = 10 divs * timePerDiv
     const totalTime = 10 * scopeSettings.timePerDiv;
     const samplesNeeded = Math.floor(totalTime * rate);
+    
+    // Triggering (Rising Edge at 0)
     let triggerIdx = 0;
+    // Simple edge finder
     for(let i=1; i<waveArray.length - samplesNeeded; i++) {
-        if(waveArray[i-1] < 0 && waveArray[i] >= 0) { triggerIdx = i; break; }
+        if(waveArray[i-1] < 0 && waveArray[i] >= 0) {
+            triggerIdx = i;
+            break;
+        }
     }
+    
+    // Apply Horizontal Offset (pixels -> samples)
+    // Map w/2 (center) to triggerIdx. 
+    // hOffset is in "divs". Positive = shift wave right (view left)
     const offsetSamples = Math.floor(scopeSettings.hOffset * scopeSettings.timePerDiv * rate);
     let startSample = triggerIdx - offsetSamples; 
-    ctx.lineWidth = 2; ctx.strokeStyle = THEME.accent; ctx.beginPath();
+    
+    // 3. WAVEFORM
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = THEME.accent;
+    ctx.beginPath();
+
     const pixelsPerSample = w / samplesNeeded;
+    
     for(let i=0; i<samplesNeeded; i++) {
         const bufIdx = startSample + i;
         if(bufIdx < 0 || bufIdx >= waveArray.length) continue;
-        const val = (waveArray[bufIdx] + scopeSettings.vOffset);
+        
+        const rawY = waveArray[bufIdx];
+        // Apply Vertical Offset & Gain
+        
+        const val = (rawY + scopeSettings.vOffset);
+        // Normalize: val / voltsPerDiv = number of divisions deflection
+        const divsDeflection = val / scopeSettings.voltsPerDiv;
+        const pxDeflection = divsDeflection * yStep;
+        
         const plotX = i * pixelsPerSample;
-        const plotY = (h/2) - ((val / scopeSettings.voltsPerDiv) * yStep);
-        if (i===0) ctx.moveTo(plotX, plotY); else ctx.lineTo(plotX, plotY);
+        const plotY = (h/2) - pxDeflection; // Invert Y for canvas
+
+        if (i===0) ctx.moveTo(plotX, plotY);
+        else ctx.lineTo(plotX, plotY);
     }
     ctx.stroke();
+    
+    // 4. READOUTS
     ctx.fillStyle = '#fff'; ctx.font = "11px monospace";
     ctx.fillText(`T: ${scopeSettings.timePerDiv*1000 < 1 ? (scopeSettings.timePerDiv*1000000).toFixed(0)+'µs' : (scopeSettings.timePerDiv*1000).toFixed(1)+'ms'}/div`, 5, 12);
     ctx.fillText(`V: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
