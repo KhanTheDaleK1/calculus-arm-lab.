@@ -35,16 +35,28 @@ window.onload = () => {
     initCanvas('scope-canvas');
     initCanvas('history-canvas');
 
-    navigator.mediaDevices.enumerateDevices().then(devs => {
-        const sel = document.getElementById('device-select');
-        sel.innerHTML = '';
-        devs.filter(d => d.kind === 'audioinput').forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d.deviceId;
-            opt.text = d.label || `Mic ${sel.length+1}`;
-            sel.appendChild(opt);
-        });
-    });
+    // Robust Device Detection
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        navigator.mediaDevices.enumerateDevices().then(devs => {
+            const sel = document.getElementById('device-select');
+            if (sel) {
+                sel.innerHTML = '';
+                const mics = devs.filter(d => d.kind === 'audioinput');
+                if (mics.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.text = "No Mics / Permission Needed";
+                    sel.appendChild(opt);
+                } else {
+                    mics.forEach((d, i) => {
+                        const opt = document.createElement('option');
+                        opt.value = d.deviceId;
+                        opt.text = d.label || `Microphone ${i + 1}`;
+                        sel.appendChild(opt);
+                    });
+                }
+            }
+        }).catch(err => console.error("Device Enumeration Error:", err));
+    }
 
     document.getElementById('btn-start').onclick = startEngine;
     document.getElementById('btn-stop').onclick = stopEngine;
