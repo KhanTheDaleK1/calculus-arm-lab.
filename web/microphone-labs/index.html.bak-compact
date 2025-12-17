@@ -132,44 +132,6 @@
             .controls select { flex-grow: 1; }
         }
     </style>
-    <style>
-        /* 7040 SMART FIT PATCH */
-        
-        /* 1. SCROLL FALLBACK: Allow scrolling if content is too tall */
-        body { overflow-y: auto !important; height: 100vh; }
-        .app-container { height: auto !important; min-height: 100vh; }
-        
-        /* 2. COMPACT LAYOUT: Shrink gaps to fit 1080p screens */
-        .bento-grid { 
-            gap: 10px !important; 
-            padding: 10px !important; 
-            /* Subtract header height to calculate ideal fit */
-            height: calc(100vh - 60px) !important; 
-            min-height: 600px; /* Don't squash too much */
-        }
-
-        /* 3. CARD SIZING: Make Scope flexy, Tone fixed */
-        .col-left, .col-center, .col-right { gap: 10px !important; }
-        .card { padding: 10px !important; }
-        
-        /* The scope card should shrink to let Tone B fit */
-        .scope-card { 
-            flex: 1 1 auto !important; /* Grow and Shrink */
-            min-height: 250px;         /* Minimum usable height */
-        }
-        
-        /* Tone card shouldn't squash */
-        /* Use a broader selector if :has isn't supported everywhere, but it's fine for modern labs */
-        .card:has(#tone-vol) { flex: 0 0 auto !important; }
-
-        /* 4. COMPACT CONTROLS: Save vertical space */
-        h2 { margin-bottom: 5px !important; font-size: 0.85rem !important; }
-        .inline-controls { gap: 5px !important; }
-        button, select, input { padding: 4px 8px !important; font-size: 0.85rem !important; }
-        
-        /* Canvas should fill available space */
-        canvas { height: 100% !important; }
-    </style>
 </head>
 <body>
 
