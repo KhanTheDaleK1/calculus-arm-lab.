@@ -15,7 +15,7 @@
             --accent: #d05ce3;
         }
         body { 
-            overflow-y: auto; 
+            overflow: hidden; 
             background-color: var(--bg);
             color: #e0e0e0;
         } 
@@ -23,8 +23,8 @@
         .app-container {
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
-            height: auto;
+            height: 100vh;
+            max-height: 100vh;
         }
 
         /* HEADER & CONTROLS */
@@ -64,14 +64,14 @@
             gap: 15px; 
             padding: 15px;
             flex-grow: 1;
-            overflow: visible; 
+            overflow: hidden; /* Desktop: prevent body scroll */
         }
         
         .col-left, .col-center, .col-right { 
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
-            height: auto; 
+            height: 100%; 
             min-width: 0; /* Important for flex/grid children */
             transition: all 0.1s ease;
         }
