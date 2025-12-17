@@ -655,3 +655,14 @@ function exportRecording() {
     a.click();
     URL.revokeObjectURL(url);
 }
+
+// --- AUTO-RESIZE FIX ---
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        initCanvas('spectrum-canvas');
+        initCanvas('scope-canvas');
+        initCanvas('history-canvas');
+    }, 100);
+});
