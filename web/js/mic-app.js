@@ -76,9 +76,16 @@ function initCanvas(id) {
 async function startEngine() {
     if (isRunning) return;
     try {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = CONFIG.fftSize;
+        // Reuse existing context or create new
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        
+        // Re-create Analyser if needed (or reuse? Better to recreate to be safe with stream)
+        // Actually, if we reuse context, we can reuse analyser.
+        if (!analyser) {
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = CONFIG.fftSize;
+        }
 
         const devId = document.getElementById('device-select').value;
         const constraints = { 
@@ -91,10 +98,14 @@ async function startEngine() {
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         
+        // Disconnect old mic source if any?
+        if (micSource) try { micSource.disconnect(); } catch(e){}
+        
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
         
         // Loopback: Connect Tone if active
+        // This works because audioCtx is shared!
         if (masterGain) {
             try { masterGain.connect(analyser); } catch(e){}
         }
@@ -103,6 +114,9 @@ async function startEngine() {
         const recLen = audioCtx.sampleRate * REC_SEC;
         recBuffer = new Float32Array(recLen);
         recHead = 0;
+        
+        // Reuse recNode? ScriptProcessor is deprecated, better recreate.
+        if (recNode) try { recNode.disconnect(); } catch(e){}
         
         recNode = audioCtx.createScriptProcessor(4096, 1, 1);
         recNode.onaudioprocess = (e) => {
@@ -287,8 +301,17 @@ function updateDoppler(freq) {
 }
 
 async function toggleTone() {
+    console.log("Toggle Tone Clicked");
     const btn = document.getElementById('btn-tone-toggle');
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Ensure Context
+    if (!audioCtx) {
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) {
+            return alert("Audio Context Error: " + e);
+        }
+    }
     
     if (toneOsc1) {
         // STOP
@@ -300,6 +323,7 @@ async function toggleTone() {
             toneOsc2.stop(); toneOsc2.disconnect();
         } catch(e){ console.warn(e); }
         
+        // Disconnect Loopback to clean up graph
         if (masterGain && analyser) {
             try { masterGain.disconnect(analyser); } catch(e){}
         }
@@ -310,38 +334,39 @@ async function toggleTone() {
     } else {
         // START
         console.log("Starting Tone...");
+        
+        // Resume if needed
         if (audioCtx.state === 'suspended') {
             console.log("Resuming AudioContext...");
             await audioCtx.resume();
         }
         
+        // Master Gain
         if (!masterGain) {
              masterGain = audioCtx.createGain();
              masterGain.connect(audioCtx.destination);
         }
         
+        // Loopback: Feed Tone to Scope
         if (analyser) {
             try { masterGain.connect(analyser); } catch(e){}
         }
         
         // Osc 1
         toneOsc1 = audioCtx.createOscillator();
-        toneOsc1.type = document.getElementById('tone-type-a').value || 'sine';
         toneGain1 = audioCtx.createGain();
-        toneGain1.gain.value = 0.5; 
         toneOsc1.connect(toneGain1);
         toneGain1.connect(masterGain);
         
         // Osc 2
         toneOsc2 = audioCtx.createOscillator();
-        toneOsc2.type = document.getElementById('tone-type-b').value || 'sine';
         toneGain2 = audioCtx.createGain();
-        toneGain2.gain.value = 0.5;
         toneOsc2.connect(toneGain2);
         toneGain2.connect(masterGain);
         
+        // Apply Settings from UI
         try {
-            updateTone();
+            updateTone(); // This will set type and gain
         } catch(e) {
             console.error("Update Tone Failed:", e);
         }
@@ -355,20 +380,30 @@ async function toggleTone() {
 }
 
 function updateTone(e) {
-    const vol = parseFloat(document.getElementById('tone-vol').value);
-    document.getElementById('tone-vol-val').innerText = Math.round(vol*100);
-    if(masterGain) masterGain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    // Volume
+    const volEl = document.getElementById('tone-vol');
+    if (volEl && masterGain) {
+        const vol = parseFloat(volEl.value);
+        document.getElementById('tone-vol-val').innerText = Math.round(vol*100);
+        masterGain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    }
 
+    // Frequencies and Types
     const elA = document.getElementById('tone-freq-a');
     const elB = document.getElementById('tone-freq-b');
     const elLink = document.getElementById('tone-link');
+    const typeASelect = document.getElementById('tone-type-a');
+    const typeBSelect = document.getElementById('tone-type-b');
     
-    if (!elA || !elB) return; 
+    if (!elA || !elB || !typeASelect || !typeBSelect) return; // Safety
     
     let freqA = parseInt(elA.value) || 440;
     let freqB = parseInt(elB.value) || 440;
+    const typeA = typeASelect.value;
+    const typeB = typeBSelect.value;
     const linked = elLink ? elLink.checked : false;
 
+    // Link Logic
     if (e && e.target.id === 'tone-freq-a') {
         if (linked) {
             freqB = freqA + toneDelta;
@@ -385,13 +420,31 @@ function updateTone(e) {
     document.getElementById('tone-freq-a-val').innerText = freqA;
     document.getElementById('tone-freq-b-val').innerText = freqB;
     
+    // Determine individual tone gains based on 'Off' selection
+    let gainA = 0.5;
+    let gainB = 0.5;
+
+    if (typeA === 'none' && typeB !== 'none') {
+        gainA = 0;
+        gainB = 1.0; 
+    } else if (typeB === 'none' && typeA !== 'none') {
+        gainB = 0;
+        gainA = 1.0; 
+    } else if (typeA === 'none' && typeB === 'none') {
+        gainA = 0;
+        gainB = 0; 
+    }
+
+    // Update Oscillators
     if (toneOsc1) {
         toneOsc1.frequency.setValueAtTime(freqA, audioCtx.currentTime);
-        toneOsc1.type = document.getElementById('tone-type-a').value;
+        toneOsc1.type = typeA === 'none' ? 'sine' : typeA; // Default to sine if 'off'
+        toneGain1.gain.setValueAtTime(gainA, audioCtx.currentTime);
     }
     if (toneOsc2) {
         toneOsc2.frequency.setValueAtTime(freqB, audioCtx.currentTime);
-        toneOsc2.type = document.getElementById('tone-type-b').value;
+        toneOsc2.type = typeB === 'none' ? 'sine' : typeB; // Default to sine if 'off'
+        toneGain2.gain.setValueAtTime(gainB, audioCtx.currentTime);
     }
 }
 
