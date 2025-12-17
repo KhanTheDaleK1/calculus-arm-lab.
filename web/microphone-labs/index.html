@@ -170,48 +170,6 @@
         /* Canvas should fill available space */
         canvas { height: 100% !important; }
     </style>
-    <style>
-        /* 7040 VERTICAL BALANCE PATCH */
-        
-        /* 1. CLAMP TOP ROW HEIGHT */
-        /* Forces these specific cards to be shorter, removing the gap in the right column */
-        /* Left Column: Spectrum Card (First child of col-left) */
-        .col-left > .card:first-child {
-            height: 380px !important;
-            flex: 0 0 auto !important;
-        }
-        
-        /* Center Column: Scope Card */
-        .scope-card {
-            height: 380px !important;
-            flex: 0 0 auto !important;
-        }
-
-        /* Right Column: Speed of Sound Card (First child of col-right) */
-        /* We set this to auto so it collapses the empty space exactly to its content */
-        .col-right > .card:first-child {
-            height: auto !important;
-            min-height: 380px !important; /* Keep alignment with neighbors */
-            flex: 0 0 auto !important;
-        }
-
-        /* 2. ENSURE CANVAS FITS */
-        /* Allow canvases inside these shrunk cards to resize properly */
-        .col-left > .card:first-child canvas,
-        .scope-card canvas {
-            height: 100% !important;
-            min-height: 0 !important;
-        }
-
-        /* 3. ALLOW BOTTOM ROW TO FILL REMAINDER */
-        /* Tone Gen, History, and Pitch cards get the rest of the screen space */
-        .col-left > .card:nth-child(2), /* Pitch */
-        .col-center > .card:last-child, /* Tone Gen */
-        .col-right > .card:last-child   /* History */
-        {
-            flex: 1 1 auto !important;
-        }
-    </style>
 </head>
 <body>
 
