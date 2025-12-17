@@ -59,12 +59,13 @@
         /* GRID LAYOUT */
         .bento-grid { 
             display: grid; 
-            grid-template-columns: 22% 1fr 22%;
+            grid-template-columns: minmax(150px, 1fr) minmax(300px, 2fr) minmax(150px, 1fr);
             grid-template-rows: 1fr;
             gap: 15px; 
             padding: 15px;
             flex-grow: 1;
-            overflow: hidden; /* Desktop: prevent body scroll */
+            /* overflow: visible; previous fix attempted */
+            /* Default to 3 columns, then go to 1 column at smaller size */
         }
         
         .col-left, .col-center, .col-right { 
