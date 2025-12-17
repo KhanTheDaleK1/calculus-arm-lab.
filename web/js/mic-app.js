@@ -193,15 +193,118 @@ function drawSpectrum() {
     const c = document.getElementById('spectrum-canvas');
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
-    const barW = (w / dataArray.length) * 2.5;
-    let x = 0;
+
+    // 1. Clear
+    ctx.fillStyle = '#000'; 
+    ctx.fillRect(0,0,w,h);
+    
+    // Constants
+    const minF = 20;
+    const maxF = 20000;
+    const logMin = Math.log10(minF);
+    const logMax = Math.log10(maxF);
+    const scale = w / (logMax - logMin);
+    
+    function freqToX(f) {
+        if (f < minF) return 0;
+        if (f > maxF) return w;
+        return (Math.log10(f) - logMin) * scale;
+    }
+
+    // 2. Draw Log Grid
+    ctx.lineWidth = 1;
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    
+    // Major Decades: 100, 1k, 10k
+    const majors = [100, 1000, 10000];
+    const labels = ["100", "1k", "10k"];
+    
+    // Minor subdivisions
+    ctx.strokeStyle = '#222';
+    ctx.beginPath();
+    for (let d = 1; d < 5; d++) { // decades 10^1 to 10^4
+        const start = Math.pow(10, d);
+        for (let m = 2; m < 10; m++) {
+            const f = start * m;
+            if (f > maxF) break;
+            if (f < minF) continue;
+            const x = freqToX(f);
+            ctx.moveTo(x, 0); ctx.lineTo(x, h);
+        }
+    }
+    ctx.stroke();
+
+    // Major Lines & Labels
+    ctx.strokeStyle = '#444';
+    ctx.fillStyle = '#888';
+    ctx.beginPath();
+    for (let i=0; i<majors.length; i++) {
+        const f = majors[i];
+        const x = freqToX(f);
+        ctx.moveTo(x, 0); ctx.lineTo(x, h);
+        ctx.fillText(labels[i], x, h - 5);
+    }
+    ctx.stroke();
+
+    // 3. Draw Data (Log Mapped Path)
+    const nyquist = audioCtx ? audioCtx.sampleRate / 2 : 24000;
+    
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    
+    for(let i = 0; i < dataArray.length; i++) {
+        const freq = i * (nyquist / dataArray.length);
+        if (freq < minF) continue;
+        if (freq > maxF) break;
+        
+        const x = freqToX(freq);
+        const val = dataArray[i];
+        const y = h - ((val / 255) * h);
+        
+        ctx.lineTo(x, y);
+    }
+    // Close path for fill
+    ctx.lineTo(freqToX(maxF), h);
+    ctx.lineTo(0, h);
+    
+    // Gradient Fill
+    const grad = ctx.createLinearGradient(0, h, 0, 0);
+    grad.addColorStop(0, 'rgba(208, 92, 227, 0.2)'); // THEME.accent low alpha
+    grad.addColorStop(1, 'rgba(208, 92, 227, 0.8)'); // THEME.accent high alpha
+    ctx.fillStyle = grad;
+    ctx.fill();
+    
+    // Stroke Line on top
+    ctx.strokeStyle = '#d05ce3';
+    ctx.stroke();
+    
+    // Peak Indicator (Log Aware)
+    let maxVal = -1;
+    let maxIdx = -1;
     for(let i=0; i<dataArray.length; i++) {
-        const barH = (dataArray[i]/255) * h;
-        const pct = i/dataArray.length;
-        ctx.fillStyle = `hsl(${280 + (pct*60)}, 100%, ${50 + (barH/h)*20}%)`; 
-        ctx.fillRect(x, h-barH, barW, barH);
-        x += barW + 1;
+        if (dataArray[i] > maxVal) {
+            maxVal = dataArray[i];
+            maxIdx = i;
+        }
+    }
+    
+    if (maxVal > 30) {
+        const peakFreq = maxIdx * (nyquist / dataArray.length);
+        if (peakFreq >= minF && peakFreq <= maxF) {
+            const peakX = freqToX(peakFreq);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(peakX, 0); ctx.lineTo(peakX, h);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = (peakX > w - 80) ? 'right' : 'left';
+            ctx.fillText(peakFreq.toFixed(1) + " Hz", peakX + (peakX > w - 80 ? -5 : 5), 20);
+        }
     }
 }
 
