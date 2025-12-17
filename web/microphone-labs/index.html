@@ -15,17 +15,19 @@
             --accent: #d05ce3;
         }
         body { 
-            overflow-y: auto; 
+            overflow-y: auto; /* Enable vertical scroll */
+            overflow-x: hidden; /* Prevent horizontal scroll unless truly needed */
             background-color: var(--bg);
             color: #e0e0e0;
+            height: auto; /* Allow body to grow */
         } 
         
         .app-container {
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
-            height: auto;
-            max-height: none;
+            min-height: 100vh; /* Ensure it covers at least viewport height */
+            height: auto; /* Allow it to grow beyond 100vh */
+            max-height: none; /* Remove any previous max-height restrictions */
         }
 
         /* HEADER & CONTROLS */
@@ -65,15 +67,16 @@
             gap: 15px; 
             padding: 15px;
             flex-grow: 1;
-            /* overflow: visible; */
+            height: auto; /* Allow grid to grow */
+            overflow: visible; /* Allow content to overflow grid cells if needed */
         }
         
         .col-left, .col-center, .col-right { 
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
-            height: auto; 
-            min-width: 0; /* Important for flex/grid children */
+            height: auto; /* Allow content to define height */
+            min-width: 0; 
             transition: all 0.1s ease;
         }
         
