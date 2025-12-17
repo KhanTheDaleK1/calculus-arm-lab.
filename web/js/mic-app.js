@@ -58,43 +58,42 @@ window.onload = () => {
         }).catch(err => console.error("Device Enumeration Error:", err));
     }
 
-    document.getElementById('btn-start').onclick = startEngine;
-    document.getElementById('btn-stop').onclick = stopEngine;
-    document.getElementById('btn-copy-spectrum').onclick = copySpectrum;
-    if(document.getElementById('btn-rec-export')) 
-        document.getElementById('btn-rec-export').onclick = exportRecording;
+    // Safety Binder
+    const bind = (id, event, handler) => {
+        const el = document.getElementById(id);
+        if (el) el[event] = handler;
+        else console.warn(`Element ${id} not found. Event ${event} for ${handler.name || handler} not bound.`);
+    };
+
+    bind('btn-start', 'onclick', startEngine);
+    bind('btn-stop', 'onclick', stopEngine);
+    bind('btn-copy-spectrum', 'onclick', copySpectrum);
+    bind('btn-rec-export', 'onclick', exportRecording);
 
     // Pro Scope Controls
-    if(document.getElementById('scope-tdiv')) 
-        document.getElementById('scope-tdiv').onchange = (e) => scopeSettings.timePerDiv = parseFloat(e.target.value);
-    if(document.getElementById('scope-vdiv'))
-        document.getElementById('scope-vdiv').onchange = (e) => scopeSettings.voltsPerDiv = parseFloat(e.target.value);
-    if(document.getElementById('scope-v-offset'))
-        document.getElementById('scope-v-offset').oninput = (e) => scopeSettings.vOffset = parseFloat(e.target.value);
-    if(document.getElementById('scope-h-offset'))
-        document.getElementById('scope-h-offset').oninput = (e) => scopeSettings.hOffset = parseFloat(e.target.value);
-    document.getElementById('btn-scope-pause').onclick = toggleScopePause;
+    bind('scope-tdiv', 'onchange', (e) => scopeSettings.timePerDiv = parseFloat(e.target.value));
+    bind('scope-vdiv', 'onchange', (e) => scopeSettings.voltsPerDiv = parseFloat(e.target.value));
+    bind('scope-v-offset', 'oninput', (e) => scopeSettings.vOffset = parseFloat(e.target.value));
+    bind('scope-h-offset', 'oninput', (e) => scopeSettings.hOffset = parseFloat(e.target.value));
+    bind('btn-scope-pause', 'onclick', toggleScopePause);
 
     // Pro Tone Controls
-    document.getElementById('btn-tone-toggle').onclick = toggleTone;
-    document.getElementById('tone-freq-a').oninput = updateTone;
-    document.getElementById('tone-freq-b').oninput = updateTone;
-    document.getElementById('tone-link').onchange = updateTone;
-    document.getElementById('tone-vol').oninput = updateTone;
-    document.getElementById('tone-type-a').onchange = updateTone;
-    document.getElementById('tone-type-b').onchange = updateTone;
+    bind('btn-tone-toggle', 'onclick', toggleTone);
+    bind('tone-freq-a', 'oninput', updateTone);
+    bind('tone-freq-b', 'oninput', updateTone);
+    bind('tone-link', 'onchange', updateTone);
+    bind('tone-vol', 'oninput', updateTone);
+    bind('tone-type-a', 'onchange', updateTone);
+    bind('tone-type-b', 'onchange', updateTone);
 
-    document.getElementById('btn-speed-start').onclick = armStopwatch;
+    bind('btn-speed-start', 'onclick', armStopwatch);
     
     // Spectrum Modal
-    if(document.getElementById('spectrum-canvas'))
-        document.getElementById('spectrum-canvas').onclick = openSpectrumModal;
-    if(document.getElementById('btn-close-modal'))
-        document.getElementById('btn-close-modal').onclick = closeSpectrumModal;
-    if(document.getElementById('spectrum-modal'))
-        document.getElementById('spectrum-modal').onclick = (e) => {
-            if (e.target.id === 'spectrum-modal') closeSpectrumModal();
-        };
+    bind('spectrum-canvas', 'onclick', openSpectrumModal);
+    bind('btn-close-modal', 'onclick', closeSpectrumModal);
+    bind('spectrum-modal', 'onclick', (e) => {
+        if (e.target.id === 'spectrum-modal') closeSpectrumModal();
+    });
 };
 
 function openSpectrumModal() {

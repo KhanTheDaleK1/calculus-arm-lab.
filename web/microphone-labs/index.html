@@ -15,7 +15,7 @@
             --accent: #d05ce3;
         }
         body { 
-            overflow: hidden; 
+            overflow-y: auto; 
             background-color: var(--bg);
             color: #e0e0e0;
         } 
@@ -23,8 +23,9 @@
         .app-container {
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            max-height: 100vh;
+            min-height: 100vh;
+            height: auto;
+            max-height: none;
         }
 
         /* HEADER & CONTROLS */
@@ -64,15 +65,14 @@
             gap: 15px; 
             padding: 15px;
             flex-grow: 1;
-            /* overflow: visible; previous fix attempted */
-            /* Default to 3 columns, then go to 1 column at smaller size */
+            /* overflow: visible; */
         }
         
         .col-left, .col-center, .col-right { 
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
-            height: 100%; 
+            height: auto; 
             min-width: 0; /* Important for flex/grid children */
             transition: all 0.1s ease;
         }
