@@ -8,20 +8,126 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        body { overflow: hidden; } 
+        :root {
+            --bg: #141414;
+            --surface: #1f1f1f;
+            --border: #333;
+            --accent: #d05ce3;
+        }
+        body { 
+            overflow: hidden; 
+            background-color: var(--bg);
+            color: #e0e0e0;
+        } 
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-height: 100vh;
+        }
+
+        /* HEADER & CONTROLS */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header-left h1 { margin: 0; font-size: 1.5rem; }
+        .controls { 
+            display: flex; 
+            gap: 8px; 
+            align-items: center; 
+            flex-wrap: wrap; 
+        }
+        .controls select, .controls button {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: #2a2a2a;
+            color: white;
+            cursor: pointer;
+        }
+        .controls button.primary { background: var(--accent); color: black; font-weight: bold; border: none; }
+        .controls button.action { background: #333; }
+        
+        /* GRID LAYOUT */
         .bento-grid { 
             display: grid; 
-            grid-template-columns: 25% 50% 25%; 
+            grid-template-columns: 300px minmax(0, 1fr) 300px; 
+            grid-template-rows: 1fr;
             gap: 15px; 
-            height: calc(100vh - 100px); /* Fill remaining height */
+            padding: 15px;
+            flex-grow: 1;
+            overflow: hidden; /* Desktop: prevent body scroll */
         }
-        .col-left, .col-center, .col-right { display: flex; flex-direction: column; gap: 15px; height: 100%; }
-        .card { flex: 1; display: flex; flex-direction: column; }
-        .scope-card { flex: 2; } /* Center scope is bigger */
-        canvas { flex-grow: 1; width: 100%; background: #000; border-radius: 4px;}
-        @media (max-width: 900px) {
-            .bento-grid { grid-template-columns: 1fr; height: auto; }
+        
+        .col-left, .col-center, .col-right { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            height: 100%; 
+            min-width: 0; /* Important for flex/grid children */
+        }
+        
+        /* CARDS */
+        .card { 
+            background: var(--surface); 
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex; 
+            flex-direction: column; 
+            flex: 1;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            min-height: 0; /* Allow shrinking */
+        }
+        
+        .card h2 {
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        }
+
+        /* Specific Sizing */
+        .scope-card { flex: 2; } 
+        canvas { 
+            flex-grow: 1; 
+            width: 100%; 
+            height: 100%; 
+            background: #000; 
+            border-radius: 4px; 
+        }
+
+        /* RESPONSIVE BREAKPOINTS */
+        @media (max-width: 1100px) {
             body { overflow: auto; }
+            .app-container { height: auto; max-height: none; }
+            .bento-grid { 
+                display: flex;
+                flex-direction: column;
+                height: auto;
+                overflow: visible;
+            }
+            .col-left, .col-center, .col-right { height: auto; }
+            
+            .scope-card { height: 400px; min-height: 400px; }
+            .card { min-height: auto; }
+            canvas { min-height: 200px; }
+            
+            header { flex-direction: column; align-items: stretch; text-align: center; }
+            .controls { justify-content: center; }
+            .controls select { flex-grow: 1; }
         }
     </style>
 </head>
