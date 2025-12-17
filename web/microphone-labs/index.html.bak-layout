@@ -268,54 +268,48 @@
             <div class="panel card" style="flex: 0 0 auto;">
                 <h2>Tone Gen (Superposition) 🔊</h2>
                 <div style="display:flex; flex-direction:column; gap:8px;">
-                    
-                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                        <button id="btn-tone-toggle" class="btn action" style="flex:1; padding:8px; min-width:60px;">PLAY</button>
-                        <div style="flex:2; min-width:120px;">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <button id="btn-tone-toggle" class="btn action" style="flex:1; padding:8px;">PLAY</button>
+                        <div style="flex:2;">
                             <label style="display:flex; justify-content:space-between; font-size:0.8rem;">Master Vol: <span id="tone-vol-val">50</span>%</label>
                             <input type="range" id="tone-vol" min="0" max="1" step="0.01" value="0.5" style="width:100%">
                         </div>
                     </div>
                     
-                    <div style="background:#222; padding:8px; border-radius:6px; border-left: 3px solid var(--accent);">
-                        <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px; margin-bottom:6px;">
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <strong style="font-size:0.8rem; color:var(--accent);">Tone A</strong>
-                                <select id="tone-type-a" style="padding:2px; font-size:0.75rem; background:#000; color:#fff; border:1px solid #444; border-radius:3px; width:70px;">
-                                    <option value="sine">Sine</option>
-                                    <option value="square">Square</option>
-                                    <option value="sawtooth">Saw</option>
-                                    <option value="triangle">Tri</option>
-                                    <option value="none">Off</option>
-                                </select>
-                            </div>
-                            <span id="tone-freq-a-val" style="font-size:0.8rem; font-family:monospace; min-width:30px; text-align:right;">440 Hz</span>
+                    <!-- Tone A -->
+                    <div style="background:#222; padding:6px; border-radius:4px; border-left: 3px solid var(--accent);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label style="font-size:0.8rem; color:var(--accent); font-weight:bold;">Tone A</label>
+                            <select id="tone-type-a" style="padding:2px; font-size:0.75rem; background:#333; color:white; border:none; border-radius:2px;">
+                                <option value="sine">Sine</option>
+                                <option value="square">Square</option>
+                                <option value="sawtooth">Saw</option>
+                                <option value="triangle">Tri</option>
+                                <option value="none">Off</option>
+                            </select>
+                            <span id="tone-freq-a-val" style="font-size:0.8rem; font-family:monospace;">440 Hz</span>
                         </div>
-                        <input type="range" id="tone-freq-a" min="50" max="1000" value="440" style="width:100%; display:block;">
+                        <input type="range" id="tone-freq-a" min="50" max="1000" value="440" style="width:100%">
                     </div>
 
-                    <div style="background:#222; padding:8px; border-radius:6px; border-left: 3px solid #4facfe;">
-                        <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px; margin-bottom:6px;">
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <strong style="font-size:0.8rem; color:#4facfe;">Tone B</strong>
-                                <select id="tone-type-b" style="padding:2px; font-size:0.75rem; background:#000; color:#fff; border:1px solid #444; border-radius:3px; width:70px;">
-                                    <option value="sine">Sine</option>
-                                    <option value="square">Square</option>
-                                    <option value="sawtooth">Saw</option>
-                                    <option value="triangle">Tri</option>
-                                    <option value="none">Off</option>
-                                </select>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <label style="font-size:0.7rem; color:#aaa; display:flex; align-items:center; gap:3px; cursor:pointer; background:#333; padding:2px 5px; border-radius:3px;">
-                                    <input type="checkbox" id="tone-link" checked> Link
-                                </label>
-                                <span id="tone-freq-b-val" style="font-size:0.8rem; font-family:monospace; min-width:30px; text-align:right;">442 Hz</span>
-                            </div>
+                    <!-- Tone B -->
+                    <div style="background:#222; padding:6px; border-radius:4px; border-left: 3px solid #4facfe;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label style="font-size:0.8rem; color:#4facfe; font-weight:bold;">Tone B</label>
+                            <label style="font-size:0.7rem; display:flex; align-items:center; gap:4px; cursor:pointer; color:#ccc;">
+                                <input type="checkbox" id="tone-link" checked> Link
+                            </label>
+                            <select id="tone-type-b" style="padding:2px; font-size:0.75rem; background:#333; color:white; border:none; border-radius:2px;">
+                                <option value="sine">Sine</option>
+                                <option value="square">Square</option>
+                                <option value="sawtooth">Saw</option>
+                                <option value="triangle">Tri</option>
+                                <option value="none">Off</option>
+                            </select>
+                            <span id="tone-freq-b-val" style="font-size:0.8rem; font-family:monospace;">442 Hz</span>
                         </div>
-                        <input type="range" id="tone-freq-b" min="50" max="1000" value="442" style="width:100%; display:block;">
+                        <input type="range" id="tone-freq-b" min="50" max="1000" value="442" style="width:100%">
                     </div>
-
                 </div>
             </div>
         </div>

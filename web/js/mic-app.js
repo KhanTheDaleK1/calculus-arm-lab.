@@ -631,12 +631,32 @@ function copySpectrum() { alert("Spectrum copied!"); }
 // EXPORT RECORDING
 function exportRecording() {
     if (!recBuffer) return alert("No recording data. Start the engine first.");
+    
+    // CALCULATOR FUNCTION GENERATION
+    let calcFunc = "Unknown";
+    const typeA = document.getElementById('tone-type-a') ? document.getElementById('tone-type-a').value : 'none';
+    const freqA = document.getElementById('tone-freq-a') ? document.getElementById('tone-freq-a').value : 0;
+    
+    if (typeA !== 'none') {
+        // Known Tone A
+        calcFunc = `Y1 = sin(2*pi*${freqA}*X)`;
+    } else if (freqHistory.length > 0) {
+        // Guess from last detected pitch
+        const lastF = Math.round(freqHistory[freqHistory.length-1].f);
+        calcFunc = `Y1 = sin(2*pi*${lastF}*X)`;
+    }
+    
+    // Show to user
+    prompt("Calculator Function (Copy for TI-84/Desmos):", calcFunc);
+
     if (!confirm("Export 10s raw data (~10MB)? This may take a few seconds.")) return;
+    
     const sampleRate = audioCtx.sampleRate;
     const len = recBuffer.length;
     const now = performance.now() / 1000;
     const absFreqs = freqHistory.map(p => ({ t: historyStart + p.t, f: p.f }));
-    let rows = ["Time(ms),Amplitude,Frequency(Hz)"];
+    
+    let rows = [`# Approx Function: ${calcFunc}`, "Time(ms),Amplitude,Frequency(Hz)"];
     let fIdx = 0;
     for (let i = 0; i < len; i++) {
         const idx = (recHead + i) % len;
