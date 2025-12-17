@@ -12,15 +12,21 @@ let historyStart = null;
 let scopePaused = false;
 let toneDelta = 2;
 
-// SCOPE SETTINGS (Professional)
+// SCOPE SETTINGS
 let scopeSettings = {
-    timePerDiv: 0.001, // 1ms default
-    voltsPerDiv: 1.0,  // 1V default (assuming +/-1.0 float = +/-1V)
+    timePerDiv: 0.001,
+    voltsPerDiv: 1.0,
     vOffset: 0.0,
     hOffset: 0.0
 };
 
-// STOPWATCH STATE
+// DATA BUFFER
+const REC_SEC = 10;
+let recBuffer = null;
+let recHead = 0;
+let recNode = null;
+
+// STOPWATCH
 let clapState = 'IDLE'; 
 let clapStart = 0;
 
@@ -40,27 +46,23 @@ window.onload = () => {
         });
     });
 
-    // LISTENERS
     document.getElementById('btn-start').onclick = startEngine;
     document.getElementById('btn-stop').onclick = stopEngine;
     document.getElementById('btn-copy-spectrum').onclick = copySpectrum;
     document.getElementById('btn-rec-export').onclick = exportRecording;
 
-    // SCOPE CONTROLS
     document.getElementById('scope-tdiv').onchange = (e) => scopeSettings.timePerDiv = parseFloat(e.target.value);
     document.getElementById('scope-vdiv').onchange = (e) => scopeSettings.voltsPerDiv = parseFloat(e.target.value);
     document.getElementById('scope-v-offset').oninput = (e) => scopeSettings.vOffset = parseFloat(e.target.value);
     document.getElementById('scope-h-offset').oninput = (e) => scopeSettings.hOffset = parseFloat(e.target.value);
     document.getElementById('btn-scope-pause').onclick = toggleScopePause;
 
-    // TONE CONTROLS
     document.getElementById('btn-tone-toggle').onclick = toggleTone;
     document.getElementById('tone-freq-a').oninput = updateTone;
     document.getElementById('tone-freq-b').oninput = updateTone;
     document.getElementById('tone-link').onchange = updateTone;
     document.getElementById('tone-vol').oninput = updateTone;
 
-    // STOPWATCH
     document.getElementById('btn-speed-start').onclick = armStopwatch;
 };
 
@@ -80,6 +82,25 @@ async function startEngine() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: devId ? {exact: devId} : undefined } });
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
+
+        // DATA BUFFER
+        const recLen = audioCtx.sampleRate * REC_SEC;
+        recBuffer = new Float32Array(recLen);
+        recHead = 0;
+        
+        recNode = audioCtx.createScriptProcessor(4096, 1, 1);
+        recNode.onaudioprocess = (e) => {
+            const input = e.inputBuffer.getChannelData(0);
+            for(let i=0; i<input.length; i++) {
+                recBuffer[recHead++] = input[i];
+                if(recHead >= recLen) recHead = 0;
+            }
+        };
+        const mute = audioCtx.createGain();
+        mute.gain.value = 0;
+        micSource.connect(recNode);
+        recNode.connect(mute);
+        mute.connect(audioCtx.destination);
 
         const len = analyser.frequencyBinCount;
         dataArray = new Uint8Array(len);
@@ -102,10 +123,8 @@ function stopEngine() {
 function loop() {
     if (!isRunning) return;
     requestAnimationFrame(loop);
-
     analyser.getByteFrequencyData(dataArray);
     if (!scopePaused) analyser.getFloatTimeDomainData(waveArray);
-
     drawSpectrum();
     drawScope();
     analyze();
@@ -113,12 +132,10 @@ function loop() {
     processStopwatch();
 }
 
-// --- DRAWING ---
 function drawSpectrum() {
     const c = document.getElementById('spectrum-canvas');
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
-
     ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
     const barW = (w / dataArray.length) * 2.5;
     let x = 0;
@@ -136,101 +153,51 @@ function drawScope() {
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
     const rate = audioCtx ? audioCtx.sampleRate : 48000;
-
-    // 1. CLEAR & GRID
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
-    
-    // Grid (10 horizontal divisions, 8 vertical)
-    const xStep = w / 10;
-    const yStep = h / 8;
-    ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
-    ctx.beginPath();
-    
-    // Vert lines (Time)
+    const xStep = w / 10; const yStep = h / 8;
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 1; ctx.beginPath();
     for(let i=1; i<10; i++) { ctx.moveTo(i*xStep, 0); ctx.lineTo(i*xStep, h); }
-    // Horiz lines (Volts)
     for(let i=1; i<8; i++) { ctx.moveTo(0, i*yStep); ctx.lineTo(w, i*yStep); }
     ctx.stroke();
-
-    // Center Crosshair
     ctx.strokeStyle = '#444'; ctx.beginPath();
-    ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
-    ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
-    ctx.stroke();
+    ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
 
-    // 2. LOGIC
-    // Total time on screen = 10 divs * timePerDiv
     const totalTime = 10 * scopeSettings.timePerDiv;
     const samplesNeeded = Math.floor(totalTime * rate);
-    
-    // Triggering (Rising Edge at 0)
     let triggerIdx = 0;
-    // Simple edge finder
     for(let i=1; i<waveArray.length - samplesNeeded; i++) {
-        if(waveArray[i-1] < 0 && waveArray[i] >= 0) {
-            triggerIdx = i;
-            break;
-        }
+        if(waveArray[i-1] < 0 && waveArray[i] >= 0) { triggerIdx = i; break; }
     }
-    
-    // Apply Horizontal Offset (pixels -> samples)
-    // Map w/2 (center) to triggerIdx. 
-    // hOffset is in "divs". Positive = shift wave right (view left)
     const offsetSamples = Math.floor(scopeSettings.hOffset * scopeSettings.timePerDiv * rate);
     let startSample = triggerIdx - offsetSamples; 
-    
-    // 3. WAVEFORM
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = THEME.accent;
-    ctx.beginPath();
-
+    ctx.lineWidth = 2; ctx.strokeStyle = THEME.accent; ctx.beginPath();
     const pixelsPerSample = w / samplesNeeded;
-    
     for(let i=0; i<samplesNeeded; i++) {
         const bufIdx = startSample + i;
         if(bufIdx < 0 || bufIdx >= waveArray.length) continue;
-        
-        const rawY = waveArray[bufIdx];
-        // Apply Vertical Offset & Gain
-        // Screen Y = Center - (Value + Offset)/VoltsPerDiv * (Height/8 divisions)
-        // Note: typically 1V is 1 division. If voltsPerDiv is 1, 1.0 = 1 div (yStep).
-        // Wait, standard scope: 1V/div means 1.0 signal spans 1 division. 
-        // Our float is +/- 1.0. If div is 1V, then 1.0 is 1 grid box height.
-        
-        const val = (rawY + scopeSettings.vOffset);
-        // Normalize: val / voltsPerDiv = number of divisions deflection
-        const divsDeflection = val / scopeSettings.voltsPerDiv;
-        const pxDeflection = divsDeflection * yStep;
-        
+        const val = (waveArray[bufIdx] + scopeSettings.vOffset);
         const plotX = i * pixelsPerSample;
-        const plotY = (h/2) - pxDeflection; // Invert Y for canvas
-
-        if (i===0) ctx.moveTo(plotX, plotY);
-        else ctx.lineTo(plotX, plotY);
+        const plotY = (h/2) - ((val / scopeSettings.voltsPerDiv) * yStep);
+        if (i===0) ctx.moveTo(plotX, plotY); else ctx.lineTo(plotX, plotY);
     }
     ctx.stroke();
-    
-    // 4. READOUTS
     ctx.fillStyle = '#fff'; ctx.font = "11px monospace";
     ctx.fillText(`T: ${scopeSettings.timePerDiv*1000 < 1 ? (scopeSettings.timePerDiv*1000000).toFixed(0)+'µs' : (scopeSettings.timePerDiv*1000).toFixed(1)+'ms'}/div`, 5, 12);
     ctx.fillText(`V: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
 }
 
 function analyze() {
-    let sum=0;
-    for(let i=0; i<waveArray.length; i++) sum += waveArray[i]*waveArray[i];
+    let sum=0; for(let i=0; i<waveArray.length; i++) sum += waveArray[i]*waveArray[i];
     const rms = Math.sqrt(sum/waveArray.length);
     document.getElementById('amp-rms').innerText = rms.toFixed(3);
     const db = rms > 0 ? (20*Math.log10(rms)) : -100;
     document.getElementById('amp-db').innerText = db.toFixed(1);
-
     if (rms < CONFIG.silenceThresh) {
         document.getElementById('freq-fundamental').innerText = "-- Hz";
         document.getElementById('freq-confidence').innerText = "Low Signal";
         document.getElementById('scope-input-freq').innerText = "Freq: --";
         return;
     }
-    
     const pitch = autoCorrelate(waveArray, audioCtx.sampleRate);
     if (pitch === -1) {
         document.getElementById('freq-fundamental').innerText = "-- Hz";
@@ -251,7 +218,6 @@ function autoCorrelate(buf, rate) {
     let bestOffset = -1; let bestCorr = 0;
     const MAX_SAMPLES = Math.floor(rate/50);
     const MIN_SAMPLES = Math.floor(rate/2000);
-
     for (let offset = MIN_SAMPLES; offset < MAX_SAMPLES && offset < SIZE/2; offset++) {
         let corr = 0;
         for (let i=0; i<SIZE-offset; i++) corr += Math.abs(buf[i] - buf[i+offset]);
@@ -307,7 +273,6 @@ function updateDoppler(freq) {
 async function toggleTone() {
     const btn = document.getElementById('btn-tone-toggle');
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
     if (toneOsc1) {
         try { toneOsc1.stop(); toneOsc1.disconnect(); } catch(e){}
         try { toneOsc2.stop(); toneOsc2.disconnect(); } catch(e){}
@@ -319,11 +284,9 @@ async function toggleTone() {
         toneOsc1 = audioCtx.createOscillator(); toneOsc1.type = 'sine';
         toneGain1 = audioCtx.createGain(); toneGain1.gain.value = 0.5; 
         toneOsc1.connect(toneGain1); toneGain1.connect(masterGain);
-        
         toneOsc2 = audioCtx.createOscillator(); toneOsc2.type = 'sine';
         toneGain2 = audioCtx.createGain(); toneGain2.gain.value = 0.5;
         toneOsc2.connect(toneGain2); toneGain2.connect(masterGain);
-        
         updateTone();
         toneOsc1.start(); toneOsc2.start();
         btn.classList.add('active'); btn.innerText = "Stop Tone";
@@ -334,23 +297,18 @@ function updateTone(e) {
     const vol = parseFloat(document.getElementById('tone-vol').value);
     document.getElementById('tone-vol-val').innerText = Math.round(vol*100);
     if(masterGain) masterGain.gain.setValueAtTime(vol, audioCtx.currentTime);
-
     const elA = document.getElementById('tone-freq-a');
     const elB = document.getElementById('tone-freq-b');
     const elLink = document.getElementById('tone-link');
     if (!elA || !elB) return;
-    
     let freqA = parseInt(elA.value) || 440;
     let freqB = parseInt(elB.value) || 440;
     const linked = elLink ? elLink.checked : false;
-
     if (e && e.target.id === 'tone-freq-a' && linked) {
-        freqB = freqA + toneDelta;
-        elB.value = freqB;
+        freqB = freqA + toneDelta; elB.value = freqB;
     } else if (e && (e.target.id === 'tone-freq-b' || e.target.id === 'tone-link') && linked) {
          toneDelta = freqB - freqA;
     }
-    
     document.getElementById('tone-freq-a-val').innerText = freqA;
     document.getElementById('tone-freq-b-val').innerText = freqB;
     if (toneOsc1) toneOsc1.frequency.setValueAtTime(freqA, audioCtx.currentTime);
@@ -387,15 +345,37 @@ function toggleScopePause() {
     if (btn) btn.textContent = scopePaused ? "Resume" : "Pause";
 }
 
-function copySpectrum() {
-    // Basic CSV export logic would go here
-    alert("Spectrum copied!");
-}
+function copySpectrum() { alert("Spectrum copied!"); }
+
+// EXPORT RECORDING
 function exportRecording() {
-    alert("Export feature placeholder.");
+    if (!recBuffer) return alert("No recording data. Start the engine first.");
+    if (!confirm("Export 10s raw data (~10MB)? This may take a few seconds.")) return;
+    const sampleRate = audioCtx.sampleRate;
+    const len = recBuffer.length;
+    const now = performance.now() / 1000;
+    const absFreqs = freqHistory.map(p => ({ t: historyStart + p.t, f: p.f }));
+    let rows = ["Time(ms),Amplitude,Frequency(Hz)"];
+    let fIdx = 0;
+    for (let i = 0; i < len; i++) {
+        const idx = (recHead + i) % len;
+        const amp = recBuffer[idx];
+        const t_ms = (i / sampleRate) * 1000;
+        const t_abs = now - ((len - 1 - i) / sampleRate);
+        while(fIdx < absFreqs.length - 1 && absFreqs[fIdx+1].t <= t_abs) fIdx++;
+        let freq = "";
+        if (absFreqs.length > 0 && Math.abs(t_abs - absFreqs[fIdx].t) < 0.2) {
+            freq = Math.round(absFreqs[fIdx].f);
+        }
+        rows.push(`${t_ms.toFixed(2)},${amp.toFixed(4)},${freq}`);
+    }
+    const blob = new Blob([rows.join('\n')], {type: 'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'mic_lab_data.csv'; a.click();
+    URL.revokeObjectURL(url);
 }
 
-// Auto-Resize
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
