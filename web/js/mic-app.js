@@ -91,6 +91,11 @@ async function startEngine() {
         
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
+        
+        // Loopback: Connect Tone if active
+        if (masterGain) {
+            try { masterGain.connect(analyser); } catch(e){}
+        }
 
         // DATA BUFFER
         const recLen = audioCtx.sampleRate * REC_SEC;
@@ -283,14 +288,45 @@ async function toggleTone() {
     const btn = document.getElementById('btn-tone-toggle');
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (toneOsc1) {
-        try { toneOsc1.stop(); toneOsc1.disconnect(); } catch(e){}
-        try { toneOsc2.stop(); toneOsc2.disconnect(); } catch(e){}
-        toneOsc1 = null; toneOsc2 = null;
+        // STOP
+        console.log("Stopping Tone...");
+        try { 
+            toneOsc1.stop(); toneOsc1.disconnect(); 
+        } catch(e){ console.warn(e); }
+        try { 
+            toneOsc2.stop(); toneOsc2.disconnect();
+        } catch(e){ console.warn(e); }
+        
+        // Disconnect Loopback to clean up graph
+        if (masterGain && analyser) {
+            try { masterGain.disconnect(analyser); } catch(e){}
+        }
+        
+        toneOsc1 = null;
+        toneOsc2 = null;
         btn.classList.remove('active'); btn.innerText = "Play Tone";
     } else {
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
-        if (!masterGain) { masterGain = audioCtx.createGain(); masterGain.connect(audioCtx.destination); }
-        toneOsc1 = audioCtx.createOscillator(); toneOsc1.type = 'sine';
+        // START
+        console.log("Starting Tone...");
+        
+        // Resume if needed
+        if (audioCtx.state === 'suspended') {
+            console.log("Resuming AudioContext...");
+            await audioCtx.resume();
+        }
+        
+        // Master Gain
+        if (!masterGain) {
+             masterGain = audioCtx.createGain();
+             masterGain.connect(audioCtx.destination);
+        }
+        
+        // Loopback: Feed Tone to Scope
+        if (analyser) {
+            try { masterGain.connect(analyser); } catch(e){}
+        }
+        
+        // Osc 1
         toneGain1 = audioCtx.createGain(); toneGain1.gain.value = 0.5; 
         toneOsc1.connect(toneGain1); toneGain1.connect(masterGain);
         toneOsc2 = audioCtx.createOscillator(); toneOsc2.type = 'sine';
