@@ -62,6 +62,8 @@ window.onload = () => {
     document.getElementById('tone-freq-b').oninput = updateTone;
     document.getElementById('tone-link').onchange = updateTone;
     document.getElementById('tone-vol').oninput = updateTone;
+    document.getElementById('tone-type-a').onchange = updateTone;
+    document.getElementById('tone-type-b').onchange = updateTone;
 
     document.getElementById('btn-speed-start').onclick = armStopwatch;
 };
@@ -287,6 +289,7 @@ function updateDoppler(freq) {
 async function toggleTone() {
     const btn = document.getElementById('btn-tone-toggle');
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
     if (toneOsc1) {
         // STOP
         console.log("Stopping Tone...");
@@ -297,7 +300,6 @@ async function toggleTone() {
             toneOsc2.stop(); toneOsc2.disconnect();
         } catch(e){ console.warn(e); }
         
-        // Disconnect Loopback to clean up graph
         if (masterGain && analyser) {
             try { masterGain.disconnect(analyser); } catch(e){}
         }
@@ -308,32 +310,46 @@ async function toggleTone() {
     } else {
         // START
         console.log("Starting Tone...");
-        
-        // Resume if needed
         if (audioCtx.state === 'suspended') {
             console.log("Resuming AudioContext...");
             await audioCtx.resume();
         }
         
-        // Master Gain
         if (!masterGain) {
              masterGain = audioCtx.createGain();
              masterGain.connect(audioCtx.destination);
         }
         
-        // Loopback: Feed Tone to Scope
         if (analyser) {
             try { masterGain.connect(analyser); } catch(e){}
         }
         
         // Osc 1
-        toneGain1 = audioCtx.createGain(); toneGain1.gain.value = 0.5; 
-        toneOsc1.connect(toneGain1); toneGain1.connect(masterGain);
-        toneOsc2 = audioCtx.createOscillator(); toneOsc2.type = 'sine';
-        toneGain2 = audioCtx.createGain(); toneGain2.gain.value = 0.5;
-        toneOsc2.connect(toneGain2); toneGain2.connect(masterGain);
-        updateTone();
-        toneOsc1.start(); toneOsc2.start();
+        toneOsc1 = audioCtx.createOscillator();
+        toneOsc1.type = document.getElementById('tone-type-a').value || 'sine';
+        toneGain1 = audioCtx.createGain();
+        toneGain1.gain.value = 0.5; 
+        toneOsc1.connect(toneGain1);
+        toneGain1.connect(masterGain);
+        
+        // Osc 2
+        toneOsc2 = audioCtx.createOscillator();
+        toneOsc2.type = document.getElementById('tone-type-b').value || 'sine';
+        toneGain2 = audioCtx.createGain();
+        toneGain2.gain.value = 0.5;
+        toneOsc2.connect(toneGain2);
+        toneGain2.connect(masterGain);
+        
+        try {
+            updateTone();
+        } catch(e) {
+            console.error("Update Tone Failed:", e);
+        }
+        
+        toneOsc1.start();
+        toneOsc2.start();
+        console.log("Oscillators Started");
+        
         btn.classList.add('active'); btn.innerText = "Stop Tone";
     }
 }
@@ -342,22 +358,41 @@ function updateTone(e) {
     const vol = parseFloat(document.getElementById('tone-vol').value);
     document.getElementById('tone-vol-val').innerText = Math.round(vol*100);
     if(masterGain) masterGain.gain.setValueAtTime(vol, audioCtx.currentTime);
+
     const elA = document.getElementById('tone-freq-a');
     const elB = document.getElementById('tone-freq-b');
     const elLink = document.getElementById('tone-link');
-    if (!elA || !elB) return;
+    
+    if (!elA || !elB) return; 
+    
     let freqA = parseInt(elA.value) || 440;
     let freqB = parseInt(elB.value) || 440;
     const linked = elLink ? elLink.checked : false;
-    if (e && e.target.id === 'tone-freq-a' && linked) {
-        freqB = freqA + toneDelta; elB.value = freqB;
-    } else if (e && (e.target.id === 'tone-freq-b' || e.target.id === 'tone-link') && linked) {
-         toneDelta = freqB - freqA;
+
+    if (e && e.target.id === 'tone-freq-a') {
+        if (linked) {
+            freqB = freqA + toneDelta;
+            if (freqB > 1000) freqB = 1000;
+            if (freqB < 50) freqB = 50;
+            elB.value = freqB;
+        }
+    } else if (e && (e.target.id === 'tone-freq-b' || e.target.id === 'tone-link')) {
+         if (linked) {
+             toneDelta = freqB - freqA;
+         }
     }
+    
     document.getElementById('tone-freq-a-val').innerText = freqA;
     document.getElementById('tone-freq-b-val').innerText = freqB;
-    if (toneOsc1) toneOsc1.frequency.setValueAtTime(freqA, audioCtx.currentTime);
-    if (toneOsc2) toneOsc2.frequency.setValueAtTime(freqB, audioCtx.currentTime);
+    
+    if (toneOsc1) {
+        toneOsc1.frequency.setValueAtTime(freqA, audioCtx.currentTime);
+        toneOsc1.type = document.getElementById('tone-type-a').value;
+    }
+    if (toneOsc2) {
+        toneOsc2.frequency.setValueAtTime(freqB, audioCtx.currentTime);
+        toneOsc2.type = document.getElementById('tone-type-b').value;
+    }
 }
 
 function armStopwatch() {

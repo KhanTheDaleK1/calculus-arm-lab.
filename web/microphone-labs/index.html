@@ -277,20 +277,36 @@
                     </div>
                     
                     <!-- Tone A -->
-                    <div style="background:#222; padding:6px; border-radius:4px;">
-                        <label style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--accent);">Tone A: <span id="tone-freq-a-val">440</span> Hz</label>
+                    <div style="background:#222; padding:6px; border-radius:4px; border-left: 3px solid var(--accent);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label style="font-size:0.8rem; color:var(--accent); font-weight:bold;">Tone A</label>
+                            <select id="tone-type-a" style="padding:2px; font-size:0.75rem; background:#333; color:white; border:none; border-radius:2px;">
+                                <option value="sine">Sine</option>
+                                <option value="square">Square</option>
+                                <option value="sawtooth">Saw</option>
+                                <option value="triangle">Tri</option>
+                            </select>
+                            <span id="tone-freq-a-val" style="font-size:0.8rem; font-family:monospace;">440 Hz</span>
+                        </div>
                         <input type="range" id="tone-freq-a" min="50" max="1000" value="440" style="width:100%">
                     </div>
 
                     <!-- Tone B -->
-                    <div style="background:#222; padding:6px; border-radius:4px;">
-                        <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:5px;">
-                            <label style="font-size:0.8rem; color:#4facfe;">Tone B: <span id="tone-freq-b-val">442</span> Hz</label>
-                            <label style="font-size:0.75rem; display:flex; align-items:center; gap:4px; cursor:pointer; color:#ccc; background:#333; padding:2px 6px; border-radius:4px;">
-                                <input type="checkbox" id="tone-link" checked> Link (A+δ)
+                    <div style="background:#222; padding:6px; border-radius:4px; border-left: 3px solid #4facfe;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label style="font-size:0.8rem; color:#4facfe; font-weight:bold;">Tone B</label>
+                            <label style="font-size:0.7rem; display:flex; align-items:center; gap:4px; cursor:pointer; color:#ccc;">
+                                <input type="checkbox" id="tone-link" checked> Link
                             </label>
+                            <select id="tone-type-b" style="padding:2px; font-size:0.75rem; background:#333; color:white; border:none; border-radius:2px;">
+                                <option value="sine">Sine</option>
+                                <option value="square">Square</option>
+                                <option value="sawtooth">Saw</option>
+                                <option value="triangle">Tri</option>
+                            </select>
+                            <span id="tone-freq-b-val" style="font-size:0.8rem; font-family:monospace;">442 Hz</span>
                         </div>
-                        <input type="range" id="tone-freq-b" min="50" max="1000" value="442" style="width:100%; margin-top:5px;">
+                        <input type="range" id="tone-freq-b" min="50" max="1000" value="442" style="width:100%">
                     </div>
                 </div>
             </div>
