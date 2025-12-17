@@ -2,7 +2,9 @@ import serial
 import time
 
 try:
+    # // TODO: Make serial port configurable via CLI argument.
     ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+    # // HACK: Wait for Arduino auto-reset/reboot after serial connection.
     time.sleep(2) # Wait for reboot
     
     print("Sending Forward Command...")
