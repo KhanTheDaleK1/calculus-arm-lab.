@@ -505,10 +505,16 @@ async function toggleTone() {
     if (toneOsc1) {
         // STOP
         console.log("Stopping Tone...");
-        try { toneOsc1.stop(); toneOsc1.disconnect(); } catch(e){}
-        try { toneOsc2.stop(); toneOsc2.disconnect(); } catch(e){}
-        if (masterGain && analyser) try { masterGain.disconnect(analyser); } catch(e){}
-        if (masterGain && splitter) try { masterGain.disconnect(splitter); } catch(e){}
+        try { toneOsc1.stop(); toneOsc1.disconnect(); } catch(e){ console.warn(e); }
+        try { toneOsc2.stop(); toneOsc2.disconnect(); } catch(e){ console.warn(e); }
+        
+        // Disconnect Loopback to clean up graph
+        if (masterGain && analyser) {
+            try { masterGain.disconnect(analyser); } catch(e){}
+        }
+        if (masterGain && splitter) {
+            try { masterGain.disconnect(splitter); } catch(e){}
+        }
         
         toneOsc1 = null;
         toneOsc2 = null;
@@ -528,14 +534,12 @@ async function toggleTone() {
         
         // Osc 1
         toneOsc1 = audioCtx.createOscillator();
-        toneOsc1.type = 'sine'; // Default
         toneGain1 = audioCtx.createGain();
         toneOsc1.connect(toneGain1);
         toneGain1.connect(masterGain);
         
         // Osc 2
         toneOsc2 = audioCtx.createOscillator();
-        toneOsc2.type = 'sine'; // Default
         toneGain2 = audioCtx.createGain();
         toneOsc2.connect(toneGain2);
         toneGain2.connect(masterGain);
@@ -564,11 +568,15 @@ function updateTone(e) {
     const elA = document.getElementById('tone-freq-a');
     const elB = document.getElementById('tone-freq-b');
     const elLink = document.getElementById('tone-link');
+    const typeASelect = document.getElementById('tone-type-a');
+    const typeBSelect = document.getElementById('tone-type-b');
     
-    if (!elA || !elB) return; 
+    if (!elA || !elB || !typeASelect || !typeBSelect) return; 
     
     let freqA = parseInt(elA.value) || 440;
     let freqB = parseInt(elB.value) || 440;
+    const typeA = typeASelect.value;
+    const typeB = typeBSelect.value;
     const linked = elLink ? elLink.checked : false;
 
     // Link Logic
@@ -588,18 +596,32 @@ function updateTone(e) {
     document.getElementById('tone-freq-a-val').innerText = freqA;
     document.getElementById('tone-freq-b-val').innerText = freqB;
     
-    // Fixed Gain (0.5 each) since Off button removed
+    // Determine individual tone gains based on 'Off' selection
     let gainA = 0.5;
     let gainB = 0.5;
 
+    if (typeA === 'none' && typeB !== 'none') {
+        gainA = 0;
+        gainB = 1.0; 
+    } else if (typeB === 'none' && typeA !== 'none') {
+        gainB = 0;
+        gainA = 1.0; 
+    } else if (typeA === 'none' && typeB === 'none') {
+        gainA = 0;
+        gainB = 0; 
+    }
+
+    // Update Oscillators
     if (toneOsc1) {
         toneOsc1.frequency.setValueAtTime(freqA, audioCtx.currentTime);
-        toneOsc1.type = 'sine'; // Default
+        // Set type if valid (not 'none')
+        if (typeA !== 'none') toneOsc1.type = typeA;
         toneGain1.gain.setValueAtTime(gainA, audioCtx.currentTime);
     }
     if (toneOsc2) {
         toneOsc2.frequency.setValueAtTime(freqB, audioCtx.currentTime);
-        toneOsc2.type = 'sine'; // Default
+        // Set type if valid (not 'none')
+        if (typeB !== 'none') toneOsc2.type = typeB;
         toneGain2.gain.setValueAtTime(gainB, audioCtx.currentTime);
     }
 }
