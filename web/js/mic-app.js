@@ -54,7 +54,7 @@ window.onload = () => {
     
     // Copy Buttons: export CSVs
     document.getElementById('btn-copy-spectrum').onclick = copySpectrum;
-    document.getElementById('btn-copy-scope').onclick = copyScope;
+    // document.getElementById('btn-copy-scope').onclick = copyScope; // Element removed
 
     // Tone generator controls
     document.getElementById('btn-tone-toggle').onclick = toggleTone;
