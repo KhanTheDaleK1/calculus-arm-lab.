@@ -61,30 +61,46 @@ window.onload = () => {
     document.getElementById('btn-start').onclick = startEngine;
     document.getElementById('btn-stop').onclick = stopEngine;
     document.getElementById('btn-copy-spectrum').onclick = copySpectrum;
-    document.getElementById('btn-rec-export').onclick = exportRecording;
+    if(document.getElementById('btn-rec-export')) 
+        document.getElementById('btn-rec-export').onclick = exportRecording;
 
-    document.getElementById('scope-tdiv').onchange = (e) => scopeSettings.timePerDiv = parseFloat(e.target.value);
-    document.getElementById('scope-vdiv').onchange = (e) => scopeSettings.voltsPerDiv = parseFloat(e.target.value);
-    document.getElementById('scope-v-offset').oninput = (e) => scopeSettings.vOffset = parseFloat(e.target.value);
-    document.getElementById('scope-h-offset').oninput = (e) => scopeSettings.hOffset = parseFloat(e.target.value);
+    // Simple Scope Controls Mapped to Pro Settings
+    if(document.getElementById('scope-timebase')) {
+        document.getElementById('scope-timebase').oninput = (e) => {
+            // Map 1..10 to 1ms..10ms/div
+            scopeSettings.timePerDiv = parseInt(e.target.value) * 0.001;
+        };
+    }
+    if(document.getElementById('scope-gain')) {
+        document.getElementById('scope-gain').oninput = (e) => {
+            // Map 1..10 to Gain (1V/div .. 0.1V/div)
+            const val = parseFloat(e.target.value);
+            scopeSettings.voltsPerDiv = 1.0 / val; 
+        };
+    }
     document.getElementById('btn-scope-pause').onclick = toggleScopePause;
 
     document.getElementById('btn-tone-toggle').onclick = toggleTone;
     document.getElementById('tone-freq-a').oninput = updateTone;
-    document.getElementById('tone-freq-b').oninput = updateTone;
-    document.getElementById('tone-link').onchange = updateTone;
+    if(document.getElementById('tone-freq-b')) 
+        document.getElementById('tone-freq-b').oninput = updateTone;
+    if(document.getElementById('tone-link'))
+        document.getElementById('tone-link').onchange = updateTone;
     document.getElementById('tone-vol').oninput = updateTone;
-    document.getElementById('tone-type-a').onchange = updateTone;
-    document.getElementById('tone-type-b').onchange = updateTone;
+    
+    // Type selectors removed from HTML, so no listeners needed
 
     document.getElementById('btn-speed-start').onclick = armStopwatch;
     
     // Spectrum Modal
-    document.getElementById('spectrum-canvas').onclick = openSpectrumModal;
-    document.getElementById('btn-close-modal').onclick = closeSpectrumModal;
-    document.getElementById('spectrum-modal').onclick = (e) => {
-        if (e.target.id === 'spectrum-modal') closeSpectrumModal();
-    };
+    if(document.getElementById('spectrum-canvas'))
+        document.getElementById('spectrum-canvas').onclick = openSpectrumModal;
+    if(document.getElementById('btn-close-modal'))
+        document.getElementById('btn-close-modal').onclick = closeSpectrumModal;
+    if(document.getElementById('spectrum-modal'))
+        document.getElementById('spectrum-modal').onclick = (e) => {
+            if (e.target.id === 'spectrum-modal') closeSpectrumModal();
+        };
 };
 
 function openSpectrumModal() {
@@ -490,28 +506,19 @@ async function toggleTone() {
     const btn = document.getElementById('btn-tone-toggle');
     
     // Ensure Context
-    if (!audioCtx) {
-        try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        } catch(e) {
-            return alert("Audio Context Error: " + e);
-        }
+    try {
+        await initAudioGraph();
+    } catch(e) {
+        return alert("Audio Init Error: " + e);
     }
     
     if (toneOsc1) {
         // STOP
         console.log("Stopping Tone...");
-        try { 
-            toneOsc1.stop(); toneOsc1.disconnect(); 
-        } catch(e){ console.warn(e); }
-        try { 
-            toneOsc2.stop(); toneOsc2.disconnect();
-        } catch(e){ console.warn(e); }
-        
-        // Disconnect Loopback to clean up graph
-        if (masterGain && analyser) {
-            try { masterGain.disconnect(analyser); } catch(e){}
-        }
+        try { toneOsc1.stop(); toneOsc1.disconnect(); } catch(e){}
+        try { toneOsc2.stop(); toneOsc2.disconnect(); } catch(e){}
+        if (masterGain && analyser) try { masterGain.disconnect(analyser); } catch(e){}
+        if (masterGain && splitter) try { masterGain.disconnect(splitter); } catch(e){}
         
         toneOsc1 = null;
         toneOsc2 = null;
@@ -520,52 +527,43 @@ async function toggleTone() {
         // START
         console.log("Starting Tone...");
         
-        // Resume if needed
-        if (audioCtx.state === 'suspended') {
-            console.log("Resuming AudioContext...");
-            await audioCtx.resume();
-        }
-        
-        // Master Gain
         if (!masterGain) {
              masterGain = audioCtx.createGain();
              masterGain.connect(audioCtx.destination);
         }
         
-        // Loopback: Feed Tone to Scope
-        if (analyser) {
-            try { masterGain.connect(analyser); } catch(e){}
-        }
+        // Loopback
+        if (analyser) try { masterGain.connect(analyser); } catch(e){}
+        if (splitter) try { masterGain.connect(splitter); } catch(e){}
         
         // Osc 1
         toneOsc1 = audioCtx.createOscillator();
+        toneOsc1.type = 'sine'; // Default
         toneGain1 = audioCtx.createGain();
         toneOsc1.connect(toneGain1);
         toneGain1.connect(masterGain);
         
         // Osc 2
         toneOsc2 = audioCtx.createOscillator();
+        toneOsc2.type = 'sine'; // Default
         toneGain2 = audioCtx.createGain();
         toneOsc2.connect(toneGain2);
         toneGain2.connect(masterGain);
         
-        // Apply Settings from UI
         try {
-            updateTone(); // This will set type and gain
+            updateTone();
         } catch(e) {
             console.error("Update Tone Failed:", e);
         }
         
         toneOsc1.start();
         toneOsc2.start();
-        console.log("Oscillators Started");
         
         btn.classList.add('active'); btn.innerText = "Stop Tone";
     }
 }
 
 function updateTone(e) {
-    // Volume
     const volEl = document.getElementById('tone-vol');
     if (volEl && masterGain) {
         const vol = parseFloat(volEl.value);
@@ -573,19 +571,14 @@ function updateTone(e) {
         masterGain.gain.setValueAtTime(vol, audioCtx.currentTime);
     }
 
-    // Frequencies and Types
     const elA = document.getElementById('tone-freq-a');
     const elB = document.getElementById('tone-freq-b');
     const elLink = document.getElementById('tone-link');
-    const typeASelect = document.getElementById('tone-type-a');
-    const typeBSelect = document.getElementById('tone-type-b');
     
-    if (!elA || !elB || !typeASelect || !typeBSelect) return; // Safety
+    if (!elA || !elB) return; 
     
     let freqA = parseInt(elA.value) || 440;
     let freqB = parseInt(elB.value) || 440;
-    const typeA = typeASelect.value;
-    const typeB = typeBSelect.value;
     const linked = elLink ? elLink.checked : false;
 
     // Link Logic
@@ -605,30 +598,16 @@ function updateTone(e) {
     document.getElementById('tone-freq-a-val').innerText = freqA;
     document.getElementById('tone-freq-b-val').innerText = freqB;
     
-    // Determine individual tone gains based on 'Off' selection
+    // Fixed Gain (0.5 each) since Off button removed
     let gainA = 0.5;
     let gainB = 0.5;
 
-    if (typeA === 'none' && typeB !== 'none') {
-        gainA = 0;
-        gainB = 1.0; 
-    } else if (typeB === 'none' && typeA !== 'none') {
-        gainB = 0;
-        gainA = 1.0; 
-    } else if (typeA === 'none' && typeB === 'none') {
-        gainA = 0;
-        gainB = 0; 
-    }
-
-    // Update Oscillators
     if (toneOsc1) {
         toneOsc1.frequency.setValueAtTime(freqA, audioCtx.currentTime);
-        toneOsc1.type = typeA === 'none' ? 'sine' : typeA; // Default to sine if 'off'
         toneGain1.gain.setValueAtTime(gainA, audioCtx.currentTime);
     }
     if (toneOsc2) {
         toneOsc2.frequency.setValueAtTime(freqB, audioCtx.currentTime);
-        toneOsc2.type = typeB === 'none' ? 'sine' : typeB; // Default to sine if 'off'
         toneGain2.gain.setValueAtTime(gainB, audioCtx.currentTime);
     }
 }
