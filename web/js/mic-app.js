@@ -12,6 +12,12 @@ let historyStart = null;
 let scopePaused = false;
 let toneDelta = 2;
 
+// XY MODE
+let xyMode = false;
+let splitter;
+let analyserX, analyserY;
+let waveArrayX, waveArrayY;
+
 // SCOPE SETTINGS
 let scopeSettings = {
     timePerDiv: 0.001,
@@ -76,21 +82,30 @@ function initCanvas(id) {
 async function startEngine() {
     if (isRunning) return;
     try {
-        // Reuse existing context or create new
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') await audioCtx.resume();
         
-        // Re-create Analyser if needed (or reuse? Better to recreate to be safe with stream)
-        // Actually, if we reuse context, we can reuse analyser.
         if (!analyser) {
             analyser = audioCtx.createAnalyser();
             analyser.fftSize = CONFIG.fftSize;
+        }
+        
+        // Stereo XY Setup
+        if (!analyserX) {
+            analyserX = audioCtx.createAnalyser();
+            analyserX.fftSize = CONFIG.fftSize;
+            analyserY = audioCtx.createAnalyser();
+            analyserY.fftSize = CONFIG.fftSize;
+            splitter = audioCtx.createChannelSplitter(2);
+            splitter.connect(analyserX, 0); 
+            splitter.connect(analyserY, 1); 
         }
 
         const devId = document.getElementById('device-select').value;
         const constraints = { 
             audio: { 
                 deviceId: devId ? {exact: devId} : undefined,
+                channelCount: 2, // Request Stereo
                 echoCancellation: false,
                 noiseSuppression: false,
                 autoGainControl: false
@@ -98,26 +113,23 @@ async function startEngine() {
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         
-        // Disconnect old mic source if any?
         if (micSource) try { micSource.disconnect(); } catch(e){}
-        
         micSource = audioCtx.createMediaStreamSource(stream);
-        micSource.connect(analyser);
+        micSource.connect(analyser); // Mono Mix
+        micSource.connect(splitter); // Stereo Split
         
-        // Loopback: Connect Tone if active
-        // This works because audioCtx is shared!
         if (masterGain) {
-            try { masterGain.connect(analyser); } catch(e){}
+            try { 
+                masterGain.connect(analyser); 
+                masterGain.connect(splitter);
+            } catch(e){}
         }
 
-        // DATA BUFFER
         const recLen = audioCtx.sampleRate * REC_SEC;
         recBuffer = new Float32Array(recLen);
         recHead = 0;
         
-        // Reuse recNode? ScriptProcessor is deprecated, better recreate.
         if (recNode) try { recNode.disconnect(); } catch(e){}
-        
         recNode = audioCtx.createScriptProcessor(4096, 1, 1);
         recNode.onaudioprocess = (e) => {
             const input = e.inputBuffer.getChannelData(0);
@@ -135,6 +147,8 @@ async function startEngine() {
         const len = analyser.frequencyBinCount;
         dataArray = new Uint8Array(len);
         waveArray = new Float32Array(len);
+        waveArrayX = new Float32Array(len);
+        waveArrayY = new Float32Array(len);
 
         isRunning = true;
         document.getElementById('mic-status').innerText = "LIVE";
@@ -153,8 +167,21 @@ function stopEngine() {
 function loop() {
     if (!isRunning) return;
     requestAnimationFrame(loop);
+    
+    // Check XY Mode
+    const xyCheckbox = document.getElementById('scope-xy-mode');
+    xyMode = xyCheckbox ? xyCheckbox.checked : false;
+
     analyser.getByteFrequencyData(dataArray);
-    if (!scopePaused) analyser.getFloatTimeDomainData(waveArray);
+    
+    if (!scopePaused) {
+        analyser.getFloatTimeDomainData(waveArray);
+        if (xyMode && analyserX && analyserY) {
+            analyserX.getFloatTimeDomainData(waveArrayX);
+            analyserY.getFloatTimeDomainData(waveArrayY);
+        }
+    }
+    
     drawSpectrum();
     drawScope();
     analyze();
@@ -183,6 +210,43 @@ function drawScope() {
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
     const rate = audioCtx ? audioCtx.sampleRate : 48000;
+
+    // XY MODE PLOT
+    if (xyMode && waveArrayX && waveArrayY) {
+        ctx.fillStyle = '#0b0b0b'; 
+        ctx.fillRect(0,0,w,h);
+        
+        // Grid (Crosshair)
+        ctx.strokeStyle = '#444'; ctx.beginPath();
+        ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
+        ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
+        ctx.stroke();
+        
+        ctx.lineWidth = 2; 
+        ctx.strokeStyle = '#00ff00'; // Green for XY
+        ctx.beginPath();
+        
+        const yStep = h / 8;
+        const pxPerVolt = yStep / scopeSettings.voltsPerDiv;
+        const count = waveArrayX.length;
+        
+        for (let i = 0; i < count; i++) {
+            const xVal = waveArrayX[i];
+            const yVal = waveArrayY[i];
+            
+            const px = (w/2) + (xVal * pxPerVolt);
+            const py = (h/2) - (yVal * pxPerVolt);
+            
+            if (i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        
+        ctx.fillStyle = '#fff'; ctx.font = "11px monospace";
+        ctx.fillText("XY Mode", 5, 12);
+        return;
+    }
+
+    // NORMAL TIME DOMAIN
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
     const xStep = w / 10; const yStep = h / 8;
     ctx.strokeStyle = '#222'; ctx.lineWidth = 1; ctx.beginPath();
@@ -212,6 +276,9 @@ function drawScope() {
     }
     ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.font = "11px monospace";
+    ctx.fillText(`T: ${scopeSettings.timePerDiv*1000 < 1 ? (scopeSettings.timePerDiv*1000000).toFixed(0)+'µs' : (scopeSettings.timePerDiv*1000).toFixed(1)+'ms'}/div`, 5, 12);
+    ctx.fillText(`V: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
+}"11px monospace";
     ctx.fillText(`T: ${scopeSettings.timePerDiv*1000 < 1 ? (scopeSettings.timePerDiv*1000000).toFixed(0)+'µs' : (scopeSettings.timePerDiv*1000).toFixed(1)+'ms'}/div`, 5, 12);
     ctx.fillText(`V: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
 }
