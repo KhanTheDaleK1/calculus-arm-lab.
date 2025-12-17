@@ -534,12 +534,14 @@ async function toggleTone() {
         
         // Osc 1
         toneOsc1 = audioCtx.createOscillator();
+        toneOsc1.type = document.getElementById('tone-type-a').value || 'sine'; // Read from UI
         toneGain1 = audioCtx.createGain();
         toneOsc1.connect(toneGain1);
         toneGain1.connect(masterGain);
         
         // Osc 2
         toneOsc2 = audioCtx.createOscillator();
+        toneOsc2.type = document.getElementById('tone-type-b').value || 'sine'; // Read from UI
         toneGain2 = audioCtx.createGain();
         toneOsc2.connect(toneGain2);
         toneGain2.connect(masterGain);
