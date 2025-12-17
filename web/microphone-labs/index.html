@@ -15,7 +15,7 @@
             --accent: #d05ce3;
         }
         body { 
-            overflow-y: auto; 
+            overflow: hidden; 
             background-color: var(--bg);
             color: #e0e0e0;
         } 
@@ -23,8 +23,8 @@
         .app-container {
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
-            height: auto;
+            height: 100vh;
+            max-height: 100vh;
         }
 
         /* HEADER & CONTROLS */
@@ -64,14 +64,14 @@
             gap: 15px; 
             padding: 15px;
             flex-grow: 1;
-            overflow: visible; 
+            overflow: hidden; /* Desktop: prevent body scroll */
         }
         
         .col-left, .col-center, .col-right { 
             display: flex; 
             flex-direction: column; 
             gap: 15px; 
-            height: auto; 
+            height: 100%; 
             min-width: 0; /* Important for flex/grid children */
             transition: all 0.1s ease;
         }
@@ -132,98 +132,6 @@
             .controls select { flex-grow: 1; }
         }
     </style>
-    <style>
-        /* 7040 SMART FIT PATCH */
-        
-        /* 1. SCROLL FALLBACK: Allow scrolling if content is too tall */
-        body { overflow-y: auto !important; height: 100vh; }
-        .app-container { height: auto !important; min-height: 100vh; }
-        
-        /* 2. COMPACT LAYOUT: Shrink gaps to fit 1080p screens */
-        .bento-grid { 
-            gap: 10px !important; 
-            padding: 10px !important; 
-            /* Subtract header height to calculate ideal fit */
-            height: calc(100vh - 60px) !important; 
-            min-height: 600px; /* Don't squash too much */
-        }
-
-        /* 3. CARD SIZING: Make Scope flexy, Tone fixed */
-        .col-left, .col-center, .col-right { gap: 10px !important; }
-        .card { padding: 10px !important; }
-        
-        /* The scope card should shrink to let Tone B fit */
-        .scope-card { 
-            flex: 1 1 auto !important; /* Grow and Shrink */
-            min-height: 250px;         /* Minimum usable height */
-        }
-        
-        /* Tone card shouldn't squash */
-        /* Use a broader selector if :has isn't supported everywhere, but it's fine for modern labs */
-        .card:has(#tone-vol) { flex: 0 0 auto !important; }
-
-        /* 4. COMPACT CONTROLS: Save vertical space */
-        h2 { margin-bottom: 5px !important; font-size: 0.85rem !important; }
-        .inline-controls { gap: 5px !important; }
-        button, select, input { padding: 4px 8px !important; font-size: 0.85rem !important; }
-        
-        /* Canvas should fill available space */
-        canvas { height: 100% !important; }
-
-        /* MODAL STYLES */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
-        .modal-content { background: #141414; padding: 20px; border-radius: 8px; width: 90%; max-width: 900px; max-height: 95vh; overflow-y: auto; border: 1px solid #333; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .btn-close { background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; }
-        #spectrum-modal-canvas { width: 100%; height: 300px; background: black; border-radius: 4px; flex-shrink: 0; border: 1px solid #333; }
-        .modal-body { margin-top: 20px; color: #ccc; line-height: 1.6; font-size: 0.95rem; }
-        .modal-body h3 { color: var(--accent); margin-top: 0; }
-        .math-block { background: #0a0a0a; padding: 10px; border-radius: 4px; text-align: center; margin: 15px 0; border: 1px solid #222; font-family: 'Times New Roman', serif; font-size: 1.2rem; }
-    </style>
-    <style>
-        /* 7040 UI FIX PATCH */
-        
-        /* 1. Enable Global Scrolling (Fixes bottom clipping) */
-        body { 
-            overflow-y: auto !important; 
-            height: auto !important; 
-        }
-        
-        /* 2. Unlock Container Heights (Allows growth) */
-        .app-container {
-            height: auto !important;
-            max-height: none !important;
-            min-height: 100vh;
-        }
-        
-        /* 3. Unlock Grid Columns (Fixes side panel clipping) */
-        .bento-grid {
-            height: auto !important;
-            overflow: visible !important;
-            display: flex !important; /* Switch to flex on resize to prevent overlap */
-            flex-wrap: wrap !important;
-        }
-        
-        .col-left, .col-center, .col-right {
-            height: auto !important;
-            min-width: 280px !important; /* Prevent squashing */
-            flex: 1 1 auto !important;
-        }
-
-        /* 4. Padding & Spacing Fixes */
-        .card {
-            min-height: 0 !important; /* Reset rigid heights */
-            height: auto !important;
-            padding-bottom: 20px !important; /* Breathing room for bottom text */
-        }
-        
-        /* Fix Joke Text Overhang */
-        #mic-joke-text {
-            word-wrap: break-word;
-            white-space: normal;
-            padding-bottom: 5px;
-        }
-    </style>
 </head>
 <body>
 
@@ -273,103 +181,43 @@
 
         <div class="col-center">
             <div class="panel card scope-card">
-                <h2>Oscilloscope 〰️ <span id="scope-input-freq" style="color:var(--accent); font-size:0.8rem; margin-left:10px;">Freq: --</span></h2>
-                
-                <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:#000; padding:8px; border-radius:6px; margin-bottom:10px; font-size:0.8rem;">
-                    
-                    <label style="display:flex; flex-direction:column; gap:2px;">
-                        <span style="color:#888;">Sec/Div</span>
-                        <select id="scope-tdiv" style="width:80px; padding:2px; background:#222; color:white; border:1px solid #444;">
-                            <option value="0.00005">50 µs</option>
-                            <option value="0.0001">100 µs</option>
-                            <option value="0.0002">200 µs</option>
-                            <option value="0.0005">500 µs</option>
-                            <option value="0.001" selected>1 ms</option>
-                            <option value="0.002">2 ms</option>
-                            <option value="0.005">5 ms</option>
-                        </select>
-                    </label>
-
-                    <label style="display:flex; flex-direction:column; gap:2px;">
-                        <span style="color:#888;">Volts/Div</span>
-                        <select id="scope-vdiv" style="width:80px; padding:2px; background:#222; color:white; border:1px solid #444;">
-                            <option value="0.1">0.1 V</option>
-                            <option value="0.2">0.2 V</option>
-                            <option value="0.5">0.5 V</option>
-                            <option value="1.0" selected>1 V</option>
-                            <option value="2.0">2 V</option>
-                            <option value="5.0">5 V</option>
-                            <option value="10.0">10 V</option>
-                        </select>
-                    </label>
-
-                    <label style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:80px;">
-                        <span style="color:#888;">H-Offset</span>
-                        <input type="range" id="scope-h-offset" min="-5" max="5" step="0.1" value="0">
-                    </label>
-                    <label style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:80px;">
-                        <span style="color:#888;">V-Offset</span>
-                        <input type="range" id="scope-v-offset" min="-2" max="2" step="0.1" value="0">
-                    </label>
-
-                    <button class="btn action" id="btn-scope-pause" style="padding:4px 10px; height:32px;">Pause</button>
-                    <button class="btn action" id="btn-rec-export" style="padding:4px 10px; height:32px;">Export</button>
-                </div>
-
+                <h2>Oscilloscope 〰️ 
+                    <span style="float:right; font-size:0.8rem; display:flex; gap:10px; align-items:center;">
+                        <label>Zoom X <input type="range" id="scope-timebase" min="1" max="10" value="1"></label>
+                        <label>Gain Y <input type="range" id="scope-gain" min="1" max="10" value="1"></label>
+                        <button class="btn action" id="btn-rec-export" style="padding:4px 10px; font-size:0.75rem;">Export Lab Data</button>
+                        <button class="btn action" id="btn-scope-pause" style="padding:4px 10px; font-size:0.75rem;">Pause</button>
+                    </span>
+                </h2>
                 <canvas id="scope-canvas"></canvas>
             </div>
-            
             <div class="panel card" style="flex: 0 0 auto;">
                 <h2>Tone Gen (Superposition) 🔊</h2>
                 <div style="display:flex; flex-direction:column; gap:8px;">
-                    
-                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                        <button id="btn-tone-toggle" class="btn action" style="flex:1; padding:8px; min-width:60px;">PLAY</button>
-                        <div style="flex:2; min-width:120px;">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <button id="btn-tone-toggle" class="btn action" style="flex:1; padding:8px;">PLAY</button>
+                        <div style="flex:2;">
                             <label style="display:flex; justify-content:space-between; font-size:0.8rem;">Master Vol: <span id="tone-vol-val">50</span>%</label>
                             <input type="range" id="tone-vol" min="0" max="1" step="0.01" value="0.5" style="width:100%">
                         </div>
                     </div>
                     
-                    <div style="background:#222; padding:8px; border-radius:6px; border-left: 3px solid var(--accent);">
-                        <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px; margin-bottom:6px;">
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <strong style="font-size:0.8rem; color:var(--accent);">Tone A</strong>
-                                <select id="tone-type-a" style="padding:2px; font-size:0.75rem; background:#000; color:#fff; border:1px solid #444; border-radius:3px; width:70px;">
-                                    <option value="sine">Sine</option>
-                                    <option value="square">Square</option>
-                                    <option value="sawtooth">Saw</option>
-                                    <option value="triangle">Tri</option>
-                                    <option value="none">Off</option>
-                                </select>
-                            </div>
-                            <span id="tone-freq-a-val" style="font-size:0.8rem; font-family:monospace; min-width:30px; text-align:right;">440 Hz</span>
-                        </div>
-                        <input type="range" id="tone-freq-a" min="50" max="1000" value="440" style="width:100%; display:block;">
+                    <!-- Tone A -->
+                    <div style="background:#222; padding:6px; border-radius:4px;">
+                        <label style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--accent);">Tone A: <span id="tone-freq-a-val">440</span> Hz</label>
+                        <input type="range" id="tone-freq-a" min="50" max="1000" value="440" style="width:100%">
                     </div>
 
-                    <div style="background:#222; padding:8px; border-radius:6px; border-left: 3px solid #4facfe;">
-                        <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px; margin-bottom:6px;">
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <strong style="font-size:0.8rem; color:#4facfe;">Tone B</strong>
-                                <select id="tone-type-b" style="padding:2px; font-size:0.75rem; background:#000; color:#fff; border:1px solid #444; border-radius:3px; width:70px;">
-                                    <option value="sine">Sine</option>
-                                    <option value="square">Square</option>
-                                    <option value="sawtooth">Saw</option>
-                                    <option value="triangle">Tri</option>
-                                    <option value="none">Off</option>
-                                </select>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <label style="font-size:0.7rem; color:#aaa; display:flex; align-items:center; gap:3px; cursor:pointer; background:#333; padding:2px 5px; border-radius:3px;">
-                                    <input type="checkbox" id="tone-link" checked> Link
-                                </label>
-                                <span id="tone-freq-b-val" style="font-size:0.8rem; font-family:monospace; min-width:30px; text-align:right;">442 Hz</span>
-                            </div>
+                    <!-- Tone B -->
+                    <div style="background:#222; padding:6px; border-radius:4px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <label style="font-size:0.8rem; color:#4facfe;">Tone B: <span id="tone-freq-b-val">442</span> Hz</label>
+                            <label style="font-size:0.7rem; display:flex; align-items:center; gap:4px; cursor:pointer; color:#ccc;">
+                                <input type="checkbox" id="tone-link" checked> Link (A+δ)
+                            </label>
                         </div>
-                        <input type="range" id="tone-freq-b" min="50" max="1000" value="442" style="width:100%; display:block;">
+                        <input type="range" id="tone-freq-b" min="50" max="1000" value="442" style="width:100%">
                     </div>
-
                 </div>
             </div>
         </div>
@@ -400,30 +248,6 @@
                     <div id="mic-joke-text">Loading...</div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- Spectrum Explainer Modal -->
-<div id="spectrum-modal" class="modal-overlay">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 style="margin:0; color:#fff;">Spectrum Analysis & Calculus</h2>
-            <button class="btn-close" id="btn-close-modal">×</button>
-        </div>
-        <canvas id="spectrum-modal-canvas"></canvas>
-        <div class="modal-body">
-            <h3>1. The Logarithmic Scale</h3>
-            <p>Unlike a standard linear graph where grid lines are evenly spaced ($1, 2, 3...$), this graph uses a <strong>Logarithmic Scale</strong> (base 10). Notice how the distance from $100\text{Hz}$ to $200\text{Hz}$ is roughly the same as $1\text{kHz}$ to $2\text{kHz}$. This matches human hearing: we perceive pitch in <em>ratios</em> (octaves), not arithmetic differences.</p>
-            
-            <h3>2. The Calculus Connection: Fourier Series</h3>
-            <p>This graph visualizes the fundamental theorem of signal processing, rooted in Calculus. Any complex periodic function $f(t)$ (like your voice) can be decomposed into an infinite sum of simple sine and cosine waves:</p>
-            
-            <div class="math-block">
-                $$ f(t) = a_0 + \sum_{n=1}^{\infty} \left( a_n \cos(n\omega_0 t) + b_n \sin(n\omega_0 t) \right) $$
-            </div>
-            
-            <p>The <strong>Fast Fourier Transform (FFT)</strong> algorithm computes these coefficients ($a_n, b_n$) in real-time. The height of each bar on this graph represents the Amplitude ($\sqrt{a_n^2 + b_n^2}$) of that specific frequency component.</p>
         </div>
     </div>
 </div>
