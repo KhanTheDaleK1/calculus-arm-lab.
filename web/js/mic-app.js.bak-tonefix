@@ -494,7 +494,6 @@ function updateDoppler(freq) {
 async function toggleTone() {
     console.log("Toggle Tone Clicked");
     const btn = document.getElementById('btn-tone-toggle');
-    const status = document.getElementById('mic-status');
     
     // Ensure Context
     try {
@@ -509,22 +508,17 @@ async function toggleTone() {
         try { toneOsc1.stop(); toneOsc1.disconnect(); } catch(e){ console.warn(e); }
         try { toneOsc2.stop(); toneOsc2.disconnect(); } catch(e){ console.warn(e); }
         
-        // Disconnect Loopback
+        // Disconnect Loopback to clean up graph
         if (masterGain && analyser) {
             try { masterGain.disconnect(analyser); } catch(e){}
         }
-        // Removed splitter check
+        if (masterGain && splitter) {
+            try { masterGain.disconnect(splitter); } catch(e){}
+        }
         
         toneOsc1 = null;
         toneOsc2 = null;
         btn.classList.remove('active'); btn.innerText = "Play Tone";
-        
-        // If Mic is also off, stop the loop to save CPU
-        if (!micSource && isRunning) { // Check micSource to know if mic is running.
-            isRunning = false;
-            if(status) { status.innerText = "Idle"; status.className = "status-badge warn"; }
-        }
-        
     } else {
         // START
         console.log("Starting Tone...");
@@ -534,39 +528,34 @@ async function toggleTone() {
              masterGain.connect(audioCtx.destination);
         }
         
-        // Loopback (Send Tone to Visualizer)
+        // Loopback
         if (analyser) try { masterGain.connect(analyser); } catch(e){}
-        // Removed splitter check
+        if (splitter) try { masterGain.connect(splitter); } catch(e){}
         
         // Osc 1
         toneOsc1 = audioCtx.createOscillator();
-        const typeA = document.getElementById('tone-type-a').value;
-        toneOsc1.type = (typeA === 'none') ? 'sine' : typeA; 
+        toneOsc1.type = document.getElementById('tone-type-a').value || 'sine'; // Read from UI
         toneGain1 = audioCtx.createGain();
         toneOsc1.connect(toneGain1);
         toneGain1.connect(masterGain);
         
         // Osc 2
         toneOsc2 = audioCtx.createOscillator();
-        const typeB = document.getElementById('tone-type-b').value;
-        toneOsc2.type = (typeB === 'none') ? 'sine' : typeB;
+        toneOsc2.type = document.getElementById('tone-type-b').value || 'sine'; // Read from UI
         toneGain2 = audioCtx.createGain();
         toneOsc2.connect(toneGain2);
         toneGain2.connect(masterGain);
         
-        try { updateTone(); } catch(e) { console.error("Update Tone Failed:", e); }
+        try {
+            updateTone();
+        } catch(e) {
+            console.error("Update Tone Failed:", e);
+        }
         
         toneOsc1.start();
         toneOsc2.start();
         
         btn.classList.add('active'); btn.innerText = "Stop Tone";
-        
-        // --- FIX: FORCE START VISUALIZER LOOP ---
-        if (!isRunning) {
-            isRunning = true;
-            if(status) { status.innerText = "Tone Gen"; status.className = "status-badge success"; }
-            loop();
-        }
     }
 }
 
