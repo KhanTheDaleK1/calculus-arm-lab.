@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robotic Arm Lab 🐨</title>
+    <link rel="stylesheet" href="../css/style.css?v=1765837035">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <style>
+        body { overflow: hidden; background: radial-gradient(circle at center, #1a0b1a, #0d0d0d); }
+        .bento-grid { display: grid; grid-template-columns: 280px 1fr 320px; gap: 20px; height: calc(100vh - 100px); margin-top: 10px; }
+        .col-left, .col-center, .col-right { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+        .card { background: rgba(20,20,20,0.9); backdrop-filter: blur(10px); border: 1px solid #333; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; box-shadow: 0 8px 28px rgba(0,0,0,0.45); }
+        .card.hero { border-top: 3px solid #d05ce3; flex: 1; }
+        .card.controls { border-top: 3px solid #ff4757; }
+        .card.data { border-top: 3px solid #2ed573; }
+        .card.math { border-top: 3px solid #70a1ff; }
+        h2 { margin: 0 0 12px 0; font-size: 0.9rem; letter-spacing: 0.6px; color: #aaa; text-transform: uppercase; border: none; padding-bottom: 0; }
+        h3 { margin: 0 0 10px 0; color: #ddd; font-size: 1rem; }
+        .readout-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; font-family: 'Courier New', monospace; font-size: 0.95rem; }
+        .readout-grid div { background: #111; padding: 10px; border-radius: 10px; border: 1px solid #222; }
+        .readout-grid span { display: block; margin-top: 6px; font-weight: 700; }
+        .math-row { font-family: 'Consolas', monospace; font-size: 1rem; padding: 10px; background: rgba(0,0,0,0.35); border-radius: 8px; margin-bottom: 8px; }
+        .badge-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; background: #222; border: 1px solid #333; font-weight: 700; letter-spacing: 0.4px; }
+        .log-area { flex: 1; background: #000; border: 1px solid #333; border-radius: 10px; padding: 10px; font-family: monospace; font-size: 0.8rem; color: #aaa; overflow-y: auto; }
+        .log-entry { border-bottom: 1px solid #1a1a1a; padding: 4px 0; }
+        .slider-group { margin-bottom: 12px; }
+        .slider-group label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .plot-controls { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .sys-log-wrap { flex: 1; display: flex; flex-direction: column; }
+        @media (max-width: 900px) {
+            .bento-grid { grid-template-columns: 1fr; height: auto; }
+            .card.hero { min-height: 300px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="header-left">
+                <a href="../index.html" class="home-link"><h1>Robotic <span class="highlight">Arm</span></h1></a>
+            </div>
+            <div class="connection-status">
+                <select id="serial-port-list" class="port-dropdown"><option value="prompt">🔌 Add New Device...</option></select>
+                <button id="btn-open-port" class="btn primary">Connect</button>
+                <button id="btn-flash" class="btn action">⚡ Flash Firmware</button>
+                <span id="status-indicator" class="status-badge badge-pill warn">Disconnected</span>
+            </div>
+        </header>
+
+        <main class="bento-grid">
+            <div class="col-left">
+                <section class="card controls">
+                    <h2>System Link 🔌</h2>
+                    <p style="font-size:0.8rem; color:#888; margin-top:-4px;">q = [θ₁, θ₂, θ₃]<sup>T</sup></p>
+                    <div class="slider-group">
+                        <label>Base (θ₁) <span class="val-display"><span id="val-theta1-deg">90°</span> / <span id="val-theta1-rad" style="color:#d05ce3;">1.57rad</span></span></label>
+                        <input type="range" id="slider-theta1" min="0" max="180" value="90">
+                    </div>
+                    <div class="slider-group">
+                        <label>Shoulder (θ₂) <span class="val-display"><span id="val-theta2-deg">90°</span> / <span id="val-theta2-rad" style="color:#d05ce3;">1.57rad</span></span></label>
+                        <input type="range" id="slider-theta2" min="0" max="180" value="90">
+                    </div>
+                    <div class="slider-group">
+                        <label>Elbow (θ₃) <span class="val-display"><span id="val-theta3-deg">90°</span> / <span id="val-theta3-rad" style="color:#d05ce3;">1.57rad</span></span></label>
+                        <input type="range" id="slider-theta3" min="0" max="180" value="90">
+                    </div>
+                    <div class="help-box" style="margin-top:12px; font-size: 0.8rem; color: #888;">
+                        <p><strong>Note:</strong> Servo hardware operates in Degrees. Calculus uses Radians.</p>
+                    </div>
+                </section>
+
+                <section class="card" style="border-top:3px solid #ffa502;">
+                    <h2>How to Use</h2>
+                    <ul style="margin:0; padding-left:18px; color:#bbb; font-size:0.9rem; line-height:1.5;">
+                        <li>Connect board with “Add New Device…”, then Connect.</li>
+                        <li>Move sliders for θ1, θ2, θ3; positions update live.</li>
+                        <li>Hit “Record Motion” to log a run; “Clear Graph” to reset.</li>
+                        <li>Read position and velocity on the right; linear fit shows local trend.</li>
+                    </ul>
+                </section>
+
+            </div>
+
+            <div class="col-center">
+                <section class="card hero">
+                    <div class="panel-header">
+                        <h2>3D Motion Trajectory 🚀</h2>
+                        <div class="plot-controls">
+                            <button id="btn-record" class="btn action">🔴 Record Motion</button>
+                            <button id="btn-clear" class="btn action">🗑️ Clear Graph</button>
+                        </div>
+                    </div>
+                    <div id="plot-container" style="width:100%; flex:1; min-height:320px; border:1px solid #2a2a2a; border-radius:10px; background:#0c0c0c;"></div>
+                    <div id="math-joke-container" style="margin-top:10px; color:#888; flex-shrink:0;">
+                        <span id="math-joke-header">[Math Joke of the Session 🐨]</span><br>
+                        <span id="math-joke-text">Loading humor...</span>
+                    </div>
+                </section>
+            </div>
+
+            <div class="col-right">
+                <section class="card data">
+                    <h2>Position Vector x(t)</h2>
+                    <div class="readout-grid">
+                        <div>x<span id="out-x" style="color:#ff4757;">0.00</span></div>
+                        <div>y<span id="out-y" style="color:#2ed573;">0.00</span></div>
+                        <div>z<span id="out-z" style="color:#1e90ff;">0.00</span></div>
+                    </div>
+                </section>
+
+                <section class="card data">
+                    <h2>Velocity v(t)</h2>
+                    <div class="readout-grid">
+                        <div>vₓ<span id="vel-x">0.00</span></div>
+                        <div>v_y<span id="vel-y">0.00</span></div>
+                        <div>v_z<span id="vel-z">0.00</span></div>
+                    </div>
+                    <div style="margin-top:12px; text-align:center;">
+                        <span style="font-size:0.85rem; color:#888;">Speed |v|</span>
+                        <div id="math-speed" style="font-size:1.9rem; font-weight:700; color:#fff;">0.00 <span style="font-size:0.8rem; color:#aaa;">cm/s</span></div>
+                    </div>
+                </section>
+
+                <section class="card math">
+                    <h2>Local Linear Fit 📐</h2>
+                    <p style="font-size:0.78rem; color:#777; margin-top:-6px;">Δt ≈ 1s window, instantaneous slope</p>
+                    <div class="math-row" style="color:#ff6b81;"><span style="opacity:0.6;">x(t) ≈</span> <span id="func-x">--</span></div>
+                    <div class="math-row" style="color:#7bed9f;"><span style="opacity:0.6;">y(t) ≈</span> <span id="func-y">--</span></div>
+                    <div class="math-row" style="color:#70a1ff;"><span style="opacity:0.6;">z(t) ≈</span> <span id="func-z">--</span></div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <script src="js/app.js?v=1765837035"></script>
+    <script src="js/stk500.js?v=1765837035"></script>
+    <script src="js/jokes.js?v=1765837035"></script>
+</body>
+</html>

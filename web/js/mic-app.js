@@ -1,8 +1,8 @@
-// CONFIG
+// * CONFIG
 const CONFIG = { fftSize: 2048, silenceThresh: 0.02 };
 const THEME = { accent: '#d05ce3', bg: '#141414', grid: '#333' };
 
-// STATE
+// * STATE
 let audioCtx, analyser, micSource;
 let toneOsc1, toneGain1, toneOsc2, toneGain2, masterGain;
 let isRunning = false;
@@ -12,7 +12,7 @@ let historyStart = null;
 let scopePaused = false;
 let toneDelta = 2;
 
-// SCOPE SETTINGS
+// * SCOPE SETTINGS
 let scopeSettings = {
     timePerDiv: 0.001,
     voltsPerDiv: 1.0,
@@ -20,13 +20,13 @@ let scopeSettings = {
     hOffset: 0.0
 };
 
-// DATA BUFFER
+// * DATA BUFFER
 const REC_SEC = 10;
 let recBuffer = null;
 let recHead = 0;
 let recNode = null;
 
-// STOPWATCH
+// * STOPWATCH
 let clapState = 'IDLE'; 
 let clapStart = 0;
 
@@ -35,7 +35,7 @@ window.onload = () => {
     initCanvas('scope-canvas');
     initCanvas('history-canvas');
 
-    // Robust Device Detection
+    // ! Robust Device Detection
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
         navigator.mediaDevices.enumerateDevices().then(devs => {
             const sel = document.getElementById('device-select');
@@ -58,7 +58,7 @@ window.onload = () => {
         }).catch(err => console.error("Device Enumeration Error:", err));
     }
 
-    // Safety Binder
+    // * Safety Binder
     const bind = (id, event, handler) => {
         const el = document.getElementById(id);
         if (el) el[event] = handler;
@@ -70,14 +70,14 @@ window.onload = () => {
     bind('btn-copy-spectrum', 'onclick', copySpectrum);
     bind('btn-rec-export', 'onclick', exportRecording);
 
-    // Pro Scope Controls
+    // * Pro Scope Controls
     bind('scope-tdiv', 'onchange', (e) => scopeSettings.timePerDiv = parseFloat(e.target.value));
     bind('scope-vdiv', 'onchange', (e) => scopeSettings.voltsPerDiv = parseFloat(e.target.value));
     bind('scope-v-offset', 'oninput', (e) => scopeSettings.vOffset = parseFloat(e.target.value));
     bind('scope-h-offset', 'oninput', (e) => scopeSettings.hOffset = parseFloat(e.target.value));
     bind('btn-scope-pause', 'onclick', toggleScopePause);
 
-    // Pro Tone Controls
+    // * Pro Tone Controls
     bind('btn-tone-toggle', 'onclick', toggleTone);
     bind('tone-freq-a', 'oninput', updateTone);
     bind('tone-freq-b', 'oninput', updateTone);
@@ -88,7 +88,7 @@ window.onload = () => {
 
     bind('btn-speed-start', 'onclick', armStopwatch);
     
-    // Spectrum Modal
+    // * Spectrum Modal
     bind('spectrum-canvas', 'onclick', openSpectrumModal);
     bind('btn-close-modal', 'onclick', closeSpectrumModal);
     bind('spectrum-modal', 'onclick', (e) => {
@@ -114,13 +114,13 @@ async function initAudioGraph() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
     
-    // Main Analyser (Mono Mix)
+    // * Main Analyser (Mono Mix)
     if (!analyser) {
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = CONFIG.fftSize;
     }
     
-    // Arrays
+    // * Arrays
     const len = analyser.frequencyBinCount;
     if(!dataArray) dataArray = new Uint8Array(len);
     if(!waveArray) waveArray = new Float32Array(len);
@@ -216,10 +216,10 @@ function drawSpectrumToCanvas(id) {
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
 
-    // 1. CLEAR
+    // * 1. CLEAR
     ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
 
-    // 2. CONFIG LOGSCALE
+    // * 2. CONFIG LOGSCALE
     const minF = 20;
     const maxF = 20000;
     const logMin = Math.log10(minF);
@@ -232,12 +232,12 @@ function drawSpectrumToCanvas(id) {
         return (Math.log10(f) - logMin) * scale;
     }
 
-    // 3. DRAW GRID
+    // * 3. DRAW GRID
     ctx.lineWidth = 1;
     ctx.font = '10px monospace';
     ctx.textAlign = 'center';
 
-    // Minor Lines (Dim)
+    // ? Minor Lines (Dim)
     ctx.strokeStyle = '#222';
     ctx.beginPath();
     for (let d = 1; d < 5; d++) { // Decades 10^1..10^4
@@ -252,7 +252,7 @@ function drawSpectrumToCanvas(id) {
     }
     ctx.stroke();
 
-    // Major Lines (Bright)
+    // ? Major Lines (Bright)
     const majors = [100, 1000, 10000];
     const labels = ["100", "1k", "10k"];
     
@@ -267,7 +267,7 @@ function drawSpectrumToCanvas(id) {
     }
     ctx.stroke();
 
-    // 4. DRAW DATA (Log Mapped Path)
+    // * 4. DRAW DATA (Log Mapped Path)
     const nyquist = audioCtx ? audioCtx.sampleRate / 2 : 24000;
     
     ctx.beginPath();
@@ -301,7 +301,7 @@ function drawSpectrumToCanvas(id) {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // 5. PEAK INDICATOR
+    // * 5. PEAK INDICATOR
     // Find max bin
     let maxVal = -1;
     let maxIdx = -1;
@@ -336,7 +336,7 @@ function drawScope() {
     const w = c.width, h = c.height;
     const rate = audioCtx ? audioCtx.sampleRate : 48000;
 
-    // 1. CLEAR & GRID
+    // * 1. CLEAR & GRID
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
     
     // Grid (10 horizontal divisions, 8 vertical)
@@ -353,7 +353,7 @@ function drawScope() {
     ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
     ctx.stroke();
 
-    // 2. LOGIC
+    // * 2. LOGIC
     // Total time on screen = 10 divs * timePerDiv
     const totalTime = 10 * scopeSettings.timePerDiv;
     const samplesNeeded = Math.floor(totalTime * rate);
@@ -374,7 +374,7 @@ function drawScope() {
     const offsetSamples = Math.floor(scopeSettings.hOffset * scopeSettings.timePerDiv * rate);
     let startSample = triggerIdx - offsetSamples; 
     
-    // 3. WAVEFORM
+    // * 3. WAVEFORM
     ctx.lineWidth = 2;
     ctx.strokeStyle = THEME.accent;
     ctx.beginPath();
@@ -401,7 +401,7 @@ function drawScope() {
     }
     ctx.stroke();
     
-    // 4. READOUTS
+    // * 4. READOUTS
     ctx.fillStyle = '#fff'; ctx.font = "11px monospace";
     ctx.fillText(`T: ${scopeSettings.timePerDiv*1000 < 1 ? (scopeSettings.timePerDiv*1000000).toFixed(0)+'µs' : (scopeSettings.timePerDiv*1000).toFixed(1)+'ms'}/div`, 5, 12);
     ctx.fillText(`V: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
@@ -520,7 +520,7 @@ async function toggleTone() {
         btn.classList.remove('active'); btn.innerText = "Play Tone";
         
         // If Mic is also off, stop the loop to save CPU
-        if (!micSource && isRunning) { // Check micSource to know if mic is running.
+        if (!micSource && isRunning) { // Check micSource to know if mic is running. 
             isRunning = false;
             if(status) { status.innerText = "Idle"; status.className = "status-badge warn"; }
         }
@@ -561,7 +561,7 @@ async function toggleTone() {
         
         btn.classList.add('active'); btn.innerText = "Stop Tone";
         
-        // --- FIX: FORCE START VISUALIZER LOOP ---
+        // ! FIX: FORCE START VISUALIZER LOOP
         if (!isRunning) {
             isRunning = true;
             if(status) { status.innerText = "Tone Gen"; status.className = "status-badge success"; }
@@ -671,11 +671,11 @@ function toggleScopePause() {
 
 function copySpectrum() { alert("Spectrum copied!"); }
 
-// EXPORT RECORDING
+// * EXPORT RECORDING
 function exportRecording() {
     if (!recBuffer) return alert("No recording data. Start the engine first.");
     
-    // CALCULATOR FUNCTION GENERATION
+    // * CALCULATOR FUNCTION GENERATION
     let calcFunc = "Unknown";
     const typeA = document.getElementById('tone-type-a') ? document.getElementById('tone-type-a').value : 'none';
     const freqA = document.getElementById('tone-freq-a') ? document.getElementById('tone-freq-a').value : 0;
