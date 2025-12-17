@@ -180,50 +180,6 @@
         .modal-body h3 { color: var(--accent); margin-top: 0; }
         .math-block { background: #0a0a0a; padding: 10px; border-radius: 4px; text-align: center; margin: 15px 0; border: 1px solid #222; font-family: 'Times New Roman', serif; font-size: 1.2rem; }
     </style>
-    <style>
-        /* 7040 UI FIX PATCH */
-        
-        /* 1. Enable Global Scrolling (Fixes bottom clipping) */
-        body { 
-            overflow-y: auto !important; 
-            height: auto !important; 
-        }
-        
-        /* 2. Unlock Container Heights (Allows growth) */
-        .app-container {
-            height: auto !important;
-            max-height: none !important;
-            min-height: 100vh;
-        }
-        
-        /* 3. Unlock Grid Columns (Fixes side panel clipping) */
-        .bento-grid {
-            height: auto !important;
-            overflow: visible !important;
-            display: flex !important; /* Switch to flex on resize to prevent overlap */
-            flex-wrap: wrap !important;
-        }
-        
-        .col-left, .col-center, .col-right {
-            height: auto !important;
-            min-width: 280px !important; /* Prevent squashing */
-            flex: 1 1 auto !important;
-        }
-
-        /* 4. Padding & Spacing Fixes */
-        .card {
-            min-height: 0 !important; /* Reset rigid heights */
-            height: auto !important;
-            padding-bottom: 20px !important; /* Breathing room for bottom text */
-        }
-        
-        /* Fix Joke Text Overhang */
-        #mic-joke-text {
-            word-wrap: break-word;
-            white-space: normal;
-            padding-bottom: 5px;
-        }
-    </style>
 </head>
 <body>
 
