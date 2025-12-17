@@ -22,8 +22,8 @@
 
 // * State Variables
 char command = 'S';
-int speed = 150;
-int turnSpeed = 220; 
+int speed = 200;
+int turnSpeed = 230; 
 bool autoMode = false;
 
 // * Lab State

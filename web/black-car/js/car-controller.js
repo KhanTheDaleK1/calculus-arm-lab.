@@ -32,17 +32,29 @@ class CarController {
 
     // * Connect BLE
     async connectBLE() {
-        // Standard HM-10 / HC-05 UUIDs
-        // Service: 0000ffe0-0000-1000-8000-00805f9b34fb
-        // Characteristic: 0000ffe1-0000-1000-8000-00805f9b34fb
+        // Standard HM-10 / HC-05 / HC-08 UUIDs
+        // Service: 0000ffe0-0000-1000-8000-00805f9b34fb (0xFFE0)
+        // Characteristic: 0000ffe1-0000-1000-8000-00805f9b34fb (0xFFE1)
         
         try {
+            console.log("Requesting Bluetooth Device...");
             const device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: [0xFFE0] }] // HM-10 Default Service
+                filters: [{ services: [0xFFE0] }], // Standard Serial Service
+                optionalServices: [0xFFE0]
             });
             
+            device.addEventListener('gattserverdisconnected', () => {
+                this.isConnected = false;
+                this.updateStatus("Disconnected (BLE)");
+            });
+
+            console.log("Connecting to GATT Server...");
             const server = await device.gatt.connect();
+
+            console.log("Getting Service...");
             const service = await server.getPrimaryService(0xFFE0);
+
+            console.log("Getting Characteristic...");
             this.characteristic = await service.getCharacteristic(0xFFE1);
             
             // Notification for incoming data
