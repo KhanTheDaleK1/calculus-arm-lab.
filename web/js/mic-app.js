@@ -64,31 +64,25 @@ window.onload = () => {
     if(document.getElementById('btn-rec-export')) 
         document.getElementById('btn-rec-export').onclick = exportRecording;
 
-    // Simple Scope Controls Mapped to Pro Settings
-    if(document.getElementById('scope-timebase')) {
-        document.getElementById('scope-timebase').oninput = (e) => {
-            // Map 1..10 to 1ms..10ms/div
-            scopeSettings.timePerDiv = parseInt(e.target.value) * 0.001;
-        };
-    }
-    if(document.getElementById('scope-gain')) {
-        document.getElementById('scope-gain').oninput = (e) => {
-            // Map 1..10 to Gain (1V/div .. 0.1V/div)
-            const val = parseFloat(e.target.value);
-            scopeSettings.voltsPerDiv = 1.0 / val; 
-        };
-    }
+    // Pro Scope Controls
+    if(document.getElementById('scope-tdiv')) 
+        document.getElementById('scope-tdiv').onchange = (e) => scopeSettings.timePerDiv = parseFloat(e.target.value);
+    if(document.getElementById('scope-vdiv'))
+        document.getElementById('scope-vdiv').onchange = (e) => scopeSettings.voltsPerDiv = parseFloat(e.target.value);
+    if(document.getElementById('scope-v-offset'))
+        document.getElementById('scope-v-offset').oninput = (e) => scopeSettings.vOffset = parseFloat(e.target.value);
+    if(document.getElementById('scope-h-offset'))
+        document.getElementById('scope-h-offset').oninput = (e) => scopeSettings.hOffset = parseFloat(e.target.value);
     document.getElementById('btn-scope-pause').onclick = toggleScopePause;
 
+    // Pro Tone Controls
     document.getElementById('btn-tone-toggle').onclick = toggleTone;
     document.getElementById('tone-freq-a').oninput = updateTone;
-    if(document.getElementById('tone-freq-b')) 
-        document.getElementById('tone-freq-b').oninput = updateTone;
-    if(document.getElementById('tone-link'))
-        document.getElementById('tone-link').onchange = updateTone;
+    document.getElementById('tone-freq-b').oninput = updateTone;
+    document.getElementById('tone-link').onchange = updateTone;
     document.getElementById('tone-vol').oninput = updateTone;
-    
-    // Type selectors removed from HTML, so no listeners needed
+    document.getElementById('tone-type-a').onchange = updateTone;
+    document.getElementById('tone-type-b').onchange = updateTone;
 
     document.getElementById('btn-speed-start').onclick = armStopwatch;
     
@@ -226,7 +220,7 @@ function drawSpectrumToCanvas(id) {
     // 1. CLEAR
     ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
 
-    // 2. CONFIG LOG SCALE
+    // 2. CONFIG LOGSCALE
     const minF = 20;
     const maxF = 20000;
     const logMin = Math.log10(minF);
@@ -410,9 +404,6 @@ function drawScope() {
     
     // 4. READOUTS
     ctx.fillStyle = '#fff'; ctx.font = "11px monospace";
-    ctx.fillText(`T: ${scopeSettings.timePerDiv*1000 < 1 ? (scopeSettings.timePerDiv*1000000).toFixed(0)+'µs' : (scopeSettings.timePerDiv*1000).toFixed(1)+'ms'}/div`, 5, 12);
-    ctx.fillText(`V: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
-}"11px monospace";
     ctx.fillText(`T: ${scopeSettings.timePerDiv*1000 < 1 ? (scopeSettings.timePerDiv*1000000).toFixed(0)+'µs' : (scopeSettings.timePerDiv*1000).toFixed(1)+'ms'}/div`, 5, 12);
     ctx.fillText(`V: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
 }
@@ -604,10 +595,12 @@ function updateTone(e) {
 
     if (toneOsc1) {
         toneOsc1.frequency.setValueAtTime(freqA, audioCtx.currentTime);
+        toneOsc1.type = 'sine'; // Default
         toneGain1.gain.setValueAtTime(gainA, audioCtx.currentTime);
     }
     if (toneOsc2) {
         toneOsc2.frequency.setValueAtTime(freqB, audioCtx.currentTime);
+        toneOsc2.type = 'sine'; // Default
         toneGain2.gain.setValueAtTime(gainB, audioCtx.currentTime);
     }
 }
@@ -665,7 +658,7 @@ function exportRecording() {
     // Show to user
     prompt("Calculator Function (Copy for TI-84/Desmos):", calcFunc);
 
-    if (!confirm("Export 10s raw data (~10MB)? This may take a few seconds.")) return;
+    if (!confirm("Export 10s raw data (~10MB)? This may take a few seconds.")) return; 
     
     const sampleRate = audioCtx.sampleRate;
     const len = recBuffer.length;
