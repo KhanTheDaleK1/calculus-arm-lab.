@@ -66,7 +66,23 @@ window.onload = () => {
     document.getElementById('tone-type-b').onchange = updateTone;
 
     document.getElementById('btn-speed-start').onclick = armStopwatch;
+    
+    // Spectrum Modal
+    document.getElementById('spectrum-canvas').onclick = openSpectrumModal;
+    document.getElementById('btn-close-modal').onclick = closeSpectrumModal;
+    document.getElementById('spectrum-modal').onclick = (e) => {
+        if (e.target.id === 'spectrum-modal') closeSpectrumModal();
+    };
 };
+
+function openSpectrumModal() {
+    document.getElementById('spectrum-modal').style.display = 'flex';
+    initCanvas('spectrum-modal-canvas');
+}
+
+function closeSpectrumModal() {
+    document.getElementById('spectrum-modal').style.display = 'none';
+}
 
 function initCanvas(id) {
     const c = document.getElementById(id);
@@ -166,7 +182,16 @@ function loop() {
 }
 
 function drawSpectrum() {
-    const c = document.getElementById('spectrum-canvas');
+    drawSpectrumToCanvas('spectrum-canvas');
+    const modal = document.getElementById('spectrum-modal');
+    if (modal && modal.style.display === 'flex') {
+        drawSpectrumToCanvas('spectrum-modal-canvas');
+    }
+}
+
+function drawSpectrumToCanvas(id) {
+    const c = document.getElementById(id);
+    if (!c) return;
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
 

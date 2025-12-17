@@ -169,6 +169,16 @@
         
         /* Canvas should fill available space */
         canvas { height: 100% !important; }
+
+        /* MODAL STYLES */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .modal-content { background: #141414; padding: 20px; border-radius: 8px; width: 90%; max-width: 900px; max-height: 95vh; overflow-y: auto; border: 1px solid #333; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .btn-close { background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; }
+        #spectrum-modal-canvas { width: 100%; height: 300px; background: black; border-radius: 4px; flex-shrink: 0; border: 1px solid #333; }
+        .modal-body { margin-top: 20px; color: #ccc; line-height: 1.6; font-size: 0.95rem; }
+        .modal-body h3 { color: var(--accent); margin-top: 0; }
+        .math-block { background: #0a0a0a; padding: 10px; border-radius: 4px; text-align: center; margin: 15px 0; border: 1px solid #222; font-family: 'Times New Roman', serif; font-size: 1.2rem; }
     </style>
 </head>
 <body>
@@ -346,6 +356,30 @@
                     <div id="mic-joke-text">Loading...</div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Spectrum Explainer Modal -->
+<div id="spectrum-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 style="margin:0; color:#fff;">Spectrum Analysis & Calculus</h2>
+            <button class="btn-close" id="btn-close-modal">×</button>
+        </div>
+        <canvas id="spectrum-modal-canvas"></canvas>
+        <div class="modal-body">
+            <h3>1. The Logarithmic Scale</h3>
+            <p>Unlike a standard linear graph where grid lines are evenly spaced ($1, 2, 3...$), this graph uses a <strong>Logarithmic Scale</strong> (base 10). Notice how the distance from $100\text{Hz}$ to $200\text{Hz}$ is roughly the same as $1\text{kHz}$ to $2\text{kHz}$. This matches human hearing: we perceive pitch in <em>ratios</em> (octaves), not arithmetic differences.</p>
+            
+            <h3>2. The Calculus Connection: Fourier Series</h3>
+            <p>This graph visualizes the fundamental theorem of signal processing, rooted in Calculus. Any complex periodic function $f(t)$ (like your voice) can be decomposed into an infinite sum of simple sine and cosine waves:</p>
+            
+            <div class="math-block">
+                $$ f(t) = a_0 + \sum_{n=1}^{\infty} \left( a_n \cos(n\omega_0 t) + b_n \sin(n\omega_0 t) \right) $$
+            </div>
+            
+            <p>The <strong>Fast Fourier Transform (FFT)</strong> algorithm computes these coefficients ($a_n, b_n$) in real-time. The height of each bar on this graph represents the Amplitude ($\sqrt{a_n^2 + b_n^2}$) of that specific frequency component.</p>
         </div>
     </div>
 </div>
