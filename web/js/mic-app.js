@@ -425,31 +425,42 @@ function updateDoppler(freq) {
 
 // --- TONE (Superposition Engine) ---
 async function toggleTone() {
+    console.log("Toggle Tone Clicked");
     const btn = document.getElementById('btn-tone-toggle');
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Ensure Context
+    if (!audioCtx) {
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) {
+            return alert("Audio Context Error: " + e);
+        }
+    }
     
     if (toneOsc1) {
         // STOP
+        console.log("Stopping Tone...");
         try { 
-            toneOsc1.stop(); 
-            toneOsc1.disconnect(); 
-        } catch(e){}
+            toneOsc1.stop(); toneOsc1.disconnect(); 
+        } catch(e){ console.warn(e); }
         try { 
-            toneOsc2.stop(); 
-            toneOsc2.disconnect();
-        } catch(e){}
+            toneOsc2.stop(); toneOsc2.disconnect();
+        } catch(e){ console.warn(e); }
+        
         toneOsc1 = null;
         toneOsc2 = null;
         btn.classList.remove('active'); btn.innerText = "Play Tone";
     } else {
         // START
-        try {
-            if (audioCtx.state === 'suspended') await audioCtx.resume();
-        } catch (e) {
-            console.error("Audio Context Resume Failed", e);
+        console.log("Starting Tone...");
+        
+        // Resume if needed
+        if (audioCtx.state === 'suspended') {
+            console.log("Resuming AudioContext...");
+            await audioCtx.resume();
         }
         
-        // Architecture: Osc1(0.5) + Osc2(0.5) -> Master -> Dest
+        // Master Gain
         if (!masterGain) {
              masterGain = audioCtx.createGain();
              masterGain.connect(audioCtx.destination);
@@ -459,7 +470,7 @@ async function toggleTone() {
         toneOsc1 = audioCtx.createOscillator();
         toneOsc1.type = 'sine';
         toneGain1 = audioCtx.createGain();
-        toneGain1.gain.value = 0.5; // Mixing Ratio
+        toneGain1.gain.value = 0.5; 
         toneOsc1.connect(toneGain1);
         toneGain1.connect(masterGain);
         
@@ -467,37 +478,49 @@ async function toggleTone() {
         toneOsc2 = audioCtx.createOscillator();
         toneOsc2.type = 'sine';
         toneGain2 = audioCtx.createGain();
-        toneGain2.gain.value = 0.5; // Mixing Ratio
+        toneGain2.gain.value = 0.5;
         toneOsc2.connect(toneGain2);
         toneGain2.connect(masterGain);
         
-        updateTone();
+        // Apply Settings
+        try {
+            updateTone();
+        } catch(e) {
+            console.error("Update Tone Failed:", e);
+        }
         
         toneOsc1.start();
         toneOsc2.start();
+        console.log("Oscillators Started");
         
         btn.classList.add('active'); btn.innerText = "Stop Tone";
     }
 }
 
 function updateTone(e) {
-    const vol = document.getElementById('tone-vol').value;
-    document.getElementById('tone-vol-val').innerText = Math.round(vol*100);
-    if(masterGain) masterGain.gain.value = vol;
+    // Volume
+    const volEl = document.getElementById('tone-vol');
+    if (volEl && masterGain) {
+        const vol = parseFloat(volEl.value);
+        document.getElementById('tone-vol-val').innerText = Math.round(vol*100);
+        masterGain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    }
 
+    // Frequencies
     const elA = document.getElementById('tone-freq-a');
     const elB = document.getElementById('tone-freq-b');
     const elLink = document.getElementById('tone-link');
     
-    let freqA = parseInt(elA.value);
-    let freqB = parseInt(elB.value);
-    const linked = elLink.checked;
+    if (!elA || !elB) return; // Safety
+    
+    let freqA = parseInt(elA.value) || 440;
+    let freqB = parseInt(elB.value) || 440;
+    const linked = elLink ? elLink.checked : false;
 
-    // Link Logic: Lock B to A + Delta
+    // Link Logic
     if (e && e.target.id === 'tone-freq-a') {
         if (linked) {
             freqB = freqA + toneDelta;
-            // Clamp
             if (freqB > 1000) freqB = 1000;
             if (freqB < 50) freqB = 50;
             elB.value = freqB;
@@ -512,8 +535,8 @@ function updateTone(e) {
     document.getElementById('tone-freq-b-val').innerText = freqB;
     
     // Update Oscillators
-    if (toneOsc1) toneOsc1.frequency.value = freqA;
-    if (toneOsc2) toneOsc2.frequency.value = freqB;
+    if (toneOsc1) toneOsc1.frequency.setValueAtTime(freqA, audioCtx.currentTime);
+    if (toneOsc2) toneOsc2.frequency.setValueAtTime(freqB, audioCtx.currentTime);
 }
 
 // --- STOPWATCH ---
