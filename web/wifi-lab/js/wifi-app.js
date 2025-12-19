@@ -126,91 +126,123 @@ class CostasLoop {
 
 class Receiver {
     constructor() {
-        this.bits = [];
+        this.bitsBuffer = []; // Raw incoming bits
         this.text = "";
         
         // State Machine
-        this.state = 'IDLE'; // 'IDLE' | 'SYNC'
+        this.state = 'IDLE'; // IDLE, READ_DATA, STOP_CHECK
+        this.byteBuffer = []; // Bits for the current character
+        
+        // Timing for sampling
         this.startTime = 0;
         this.lastSampleTime = 0;
         this.symbolDuration = 0;
-        
-        // Thresholds
-        this.powerThreshold = 0.05; // Signal must be this loud to trigger
+        this.powerThreshold = 0.05;
     }
 
     clear() {
-        this.bits = [];
+        this.bitsBuffer = [];
+        this.byteBuffer = [];
         this.text = "";
         this.state = 'IDLE';
+        document.getElementById('rx-text').innerText = "";
     }
 
-    // Called every frame (60fps) with the current Average I/Q of the room
+    // Called every frame (60fps) to sample symbols
     update(currentI, currentQ, baudRate) {
-        const now = performance.now() / 1000; // Time in seconds
+        const now = performance.now() / 1000;
         const power = Math.sqrt(currentI**2 + currentQ**2);
         this.symbolDuration = 1.0 / baudRate;
 
-        // 1. IDLE STATE: Look for energy
-        if (this.state === 'IDLE') {
-            if (power > this.powerThreshold) {
-                console.log("Signal Detected! Syncing Clock...");
-                this.state = 'SYNC';
-                // Align clock: We assume the signal just started.
-                // We want to sample in the MIDDLE of the symbol.
-                this.startTime = now;
-                this.lastSampleTime = now - (this.symbolDuration * 0.5); 
-                this.bits = [];
-                this.text = "";
-            }
-            return []; // No bits yet
+        // Simple energy detection to align clock initially or keep it alive
+        // In this new framing model, 'update' mainly serves to pump bits into 'processSymbol'
+        // by returning sampled symbols at the correct rate.
+        
+        // If we are not sampling yet, wait for energy
+        if (this.lastSampleTime === 0) {
+             if (power > this.powerThreshold) {
+                console.log("Energy Detected. Starting Clock.");
+                this.lastSampleTime = now - (this.symbolDuration * 0.5);
+             } else {
+                 return [];
+             }
         }
 
-        // 2. SYNC STATE: Wait for the clock tick
-        if (this.state === 'SYNC') {
-            // If signal dies, go back to IDLE
-            if (power < this.powerThreshold * 0.5) {
-                // Debounce: Only quit if silence persists (simplified here)
-                 // console.log("Signal Lost.");
-                 // this.state = 'IDLE';
-            }
-
-            // CHECK CLOCK: Is it time to sample?
-            if (now - this.lastSampleTime >= this.symbolDuration) {
-                this.lastSampleTime += this.symbolDuration; // Advance clock
-                
-                // RETURN THE SYMBOL TO BE SLICED
-                return [{i_raw: currentI, q_raw: currentQ}];
-            }
+        // Clock Tick
+        if (now - this.lastSampleTime >= this.symbolDuration) {
+            this.lastSampleTime += this.symbolDuration;
+            // Return this symbol to be sliced and fed to processSymbol
+            return [{i_raw: currentI, q_raw: currentQ}];
         }
         
-        return []; // Waiting for next clock tick
+        return [];
     }
 
-    processSymbol(bits) {
-        if (!bits.length) return;
-        this.bits.push(...bits);
-        
-        // Display raw bits for debug
-        const bitStr = this.bits.slice(-16).join('');
-        document.getElementById('rx-bits').innerText = "..." + bitStr;
+    // This is called every time your loop demodulates new bits
+    processSymbol(newBits) {
+        // Add new bits to our processing queue
+        this.bitsBuffer.push(...newBits);
 
-        // Assemble Bytes
-        while (this.bits.length >= 8) {
-            const byte = this.bits.splice(0, 8);
-            const charCode = parseInt(byte.join(''), 2);
-            // Filtering: Only print printable ASCII to avoid garbage
-            if (charCode >= 32 && charCode <= 126) {
-                this.text += String.fromCharCode(charCode);
-                // Auto-scroll
-                const textBox = document.getElementById('rx-text');
-                textBox.innerText = this.text;
-                textBox.scrollTop = textBox.scrollHeight;
+        // Process the queue based on state
+        while (this.bitsBuffer.length > 0) {
+            
+            // 1. IDLE STATE: Hunt for the START BIT (0)
+            if (this.state === 'IDLE') {
+                const bit = this.bitsBuffer.shift(); // Consume bit
+                if (bit === 0) {
+                    // Found Start Bit! Transition to reading.
+                    this.state = 'READ_DATA';
+                    this.byteBuffer = []; 
+                }
+                // If bit is 1, we ignore it (Idle line)
+            }
+
+            // 2. READ DATA: Collect 8 bits
+            else if (this.state === 'READ_DATA') {
+                if (this.bitsBuffer.length > 0) {
+                    const bit = this.bitsBuffer.shift();
+                    this.byteBuffer.push(bit);
+
+                    if (this.byteBuffer.length === 8) {
+                        // We have a full byte. Now check for Stop Bit.
+                        this.state = 'STOP_CHECK';
+                    }
+                } else {
+                    break; // Wait for more bits
+                }
+            }
+
+            // 3. STOP CHECK: Verify the STOP BIT (1)
+            else if (this.state === 'STOP_CHECK') {
+                const stopBit = this.bitsBuffer.shift();
+                
+                if (stopBit === 1) {
+                    // VALID FRAME! Decode the byte.
+                    const charCode = parseInt(this.byteBuffer.join(''), 2);
+                    
+                    // Filter for printable ASCII only (prevent weird glyphs)
+                    if (charCode >= 32 && charCode <= 126) {
+                        this.text += String.fromCharCode(charCode);
+                        this.updateUI();
+                    }
+                } else {
+                    // FRAMING ERROR: We expected a 1 but got 0.
+                    // The signal is garbage. Reset to IDLE to resync.
+                    console.warn("Framing Error (Bit Slip)");
+                }
+                
+                // Regardless of success/fail, go back to hunting for next char
+                this.state = 'IDLE';
             }
         }
     }
     
-    // ... getSlicer() remains the same ...
+    updateUI() {
+        const el = document.getElementById('rx-text');
+        el.innerText = this.text;
+        el.scrollTop = el.scrollHeight; // Auto-scroll
+    }
+
     getSlicer(type) {
         if (type === 'BPSK') return (i, q) => [i > 0 ? 1 : 0];
         if (type === 'QPSK') return (i, q) => [i > 0 ? 1 : 0, q > 0 ? 1 : 0];
@@ -467,10 +499,29 @@ class ModemEngine {
 // NOTE: For brevity, the ModemEngine's unchanged methods are omitted, but they are part of the file.
 ModemEngine.prototype.stringToBits = function(text) {
     const bits = [];
+    
+    // 1. Leader / Preamble (Idle High for a moment to wake up AGC)
+    bits.push(...[1, 1, 1, 1, 1, 1, 1, 1]); 
+
     for (let i = 0; i < text.length; i++) {
         const charCode = text.charCodeAt(i);
-        for (let j = 7; j >= 0; j--) { bits.push((charCode >> j) & 1); }
+        
+        // 2. START BIT (Logic 0) - Signals "Here comes data"
+        bits.push(0); 
+
+        // 3. DATA BITS (8 bits, MSB First)
+        for (let j = 7; j >= 0; j--) {
+            bits.push((charCode >> j) & 1);
+        }
+
+        // 4. STOP BIT (Logic 1) - Signals "End of byte"
+        // We add two stop bits for extra safety/separation in this noisy audio link
+        bits.push(1); 
+        bits.push(1); 
     }
+    
+    // Trailer
+    bits.push(...[1, 1, 1]); 
     return bits;
 }
 ModemEngine.prototype.generateWaveform = function(text, type, baud) {
