@@ -398,16 +398,23 @@ function drawConstellation(symbols, isGhost = false) {
     if (!symbols || symbols.length === 0) return;
     
     // Set color based on whether it's a ghost or a sampled point
-    // Ghost is now a nice translucent purple
-    ctx.fillStyle = isGhost ? 'rgba(208, 92, 227, 0.6)' : THEME.accent;
+    // High visibility: solid color + glow
+    ctx.fillStyle = isGhost ? '#e084f3' : THEME.accent; // Brighter purple for ghost
     
+    // Add Neon Glow
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = THEME.accent;
+
     symbols.forEach(s => {
         const px = (w/2) + (s.i_raw * (w/2) * scale);
         const py = (h/2) - (s.q_raw * (h/2) * scale);
         ctx.beginPath();
-        ctx.arc(px, py, isGhost ? 4 : 5, 0, Math.PI*2);
+        ctx.arc(px, py, isGhost ? 8 : 10, 0, Math.PI*2); // Much larger dots
         ctx.fill();
     });
+
+    // Reset shadow for next frame
+    ctx.shadowBlur = 0;
 }
 
 function getIdealPoints(type) {
