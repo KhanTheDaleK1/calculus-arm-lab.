@@ -16,6 +16,17 @@ This project turns a 3-Axis Robotic Arm (MeArm) and a Smart Robot Car into a tan
 *   **Hardware Loop:** High-speed Serial communication with Arduino via Web Serial API.
 *   **Browser-Based Flashing:** Flash Arduino firmware directly from the browser (Chrome/Edge).
 
+## ✨ New Features
+
+*   **Wi-Fi Lab Enhancements:**
+    *   **UART-Style Framing:** Implemented Start/Stop bits for more reliable sound-based data transmission, preventing bit slips.
+    *   **State-Machine Receiver:** A new robust receiver logic that synchronizes to the preamble and validates incoming frames.
+    *   **High-Visibility Constellation:** Enhanced visualization with neon glow effects and larger, bright purple indicators for real-time signal tracking.
+*   **Improved UI/UX:**
+    *   **TI-84 Quick Connect:** New dedicated UI controls for upcoming direct graphing calculator integration.
+    *   **Enhanced Code Documentation:** All core logic now uses "Better Comments" formatting for improved developer readability (`// !`, `// TODO`, `// FIXME`).
+    *   **Streamlined Controls:** Reorganized header layout for more intuitive lab operation.
+
 ## 🌐 Live Hosting (GitHub Pages)
 The repo includes a GitHub Pages workflow (`.github/workflows/deploy-pages.yml`) that publishes the static site from `web/` on every push to `main`.
 

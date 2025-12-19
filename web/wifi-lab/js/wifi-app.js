@@ -1,8 +1,8 @@
-// CONFIG
+// ! CONFIG
 const THEME = { accent: '#d05ce3', bg: '#141414', grid: '#333' };
 const CARRIER_FREQ = 1000;
 
-// STATE
+// ! STATE
 let audioCtx, analyser, micSource;
 let masterGain;
 let isRunning = false;
@@ -13,7 +13,7 @@ function initCanvas(id) {
     if(c) { c.width = c.clientWidth; c.height = c.clientHeight; }
 }
 
-// RX/TX STATE
+// ! RX/TX STATE
 let modemEngine;
 let modemBufferSource = null;
 let costasLoop, agc, receiver;
@@ -23,32 +23,33 @@ window.onload = () => {
     initCanvas('constellation-canvas');
     initCanvas('scope-canvas');
 
-    // Init DSP objects
+    // ! Init DSP objects
     costasLoop = new CostasLoop();
     agc = new AGC();
     receiver = new Receiver();
 
-    // Populate Mic list on load
+    // ! Populate Mic list on load
     populateMics();
 
-    // Bindings
+    // ! Bindings
     document.getElementById('btn-start').onclick = startReceiver;
     document.getElementById('btn-stop').onclick = stopReceiver;
     document.getElementById('btn-modem-send').onclick = transmitModemData;
     document.getElementById('modem-type').onchange = () => {
-        drawConstellation([], true); // Redraw grid on change
+        drawConstellation([], true); // ! Redraw grid on change
     };
     document.getElementById('btn-rx-clear').onclick = () => {
         receiver.clear();
         document.getElementById('rx-text').innerText = "Cleared.";
     };
     document.getElementById('btn-connect-ti84').onclick = () => {
+        // TODO: Implement actual Serial/USB connection for TI-84
         alert("TI-84 Connection feature coming soon!");
         console.log("Connect TI-84 clicked");
     };
 
 
-    drawConstellation([], true); // Draw initial grid
+    drawConstellation([], true); // ! Draw initial grid
 };
 
 function populateMics() {
@@ -95,18 +96,18 @@ function populateMics() {
 class AGC {
     constructor() {
         this.gain = 1.0;
-        this.alpha = 0.01; // How fast to adjust
+        this.alpha = 0.01; // ! How fast to adjust
     }
     process(buffer) {
         let max = 0;
         for (let i = 0; i < buffer.length; i++) {
             if (Math.abs(buffer[i]) > max) max = Math.abs(buffer[i]);
         }
-        // If signal is present, adjust gain towards target=1.0
+        // ! If signal is present, adjust gain towards target=1.0
         if (max > 0.01) {
             this.gain += (1.0 - max) * this.alpha;
         }
-        // Apply gain
+        // ! Apply gain
         for (let i = 0; i < buffer.length; i++) {
             buffer[i] *= this.gain;
         }
@@ -129,14 +130,14 @@ class CostasLoop {
 
 class Receiver {
     constructor() {
-        this.bitsBuffer = []; // Raw incoming bits
+        this.bitsBuffer = []; // ! Raw incoming bits
         this.text = "";
         
-        // State Machine
-        this.state = 'IDLE'; // IDLE, READ_DATA, STOP_CHECK
-        this.byteBuffer = []; // Bits for the current character
+        // ! State Machine
+        this.state = 'IDLE'; // ! IDLE, READ_DATA, STOP_CHECK
+        this.byteBuffer = []; // ! Bits for the current character
         
-        // Timing for sampling
+        // ! Timing for sampling
         this.startTime = 0;
         this.lastSampleTime = 0;
         this.symbolDuration = 0;
@@ -151,17 +152,17 @@ class Receiver {
         document.getElementById('rx-text').innerText = "";
     }
 
-    // Called every frame (60fps) to sample symbols
+    // ! Called every frame (60fps) to sample symbols
     update(currentI, currentQ, baudRate) {
         const now = performance.now() / 1000;
         const power = Math.sqrt(currentI**2 + currentQ**2);
         this.symbolDuration = 1.0 / baudRate;
 
-        // Simple energy detection to align clock initially or keep it alive
-        // In this new framing model, 'update' mainly serves to pump bits into 'processSymbol'
-        // by returning sampled symbols at the correct rate.
+        // ? Simple energy detection to align clock initially or keep it alive
+        // ? In this new framing model, 'update' mainly serves to pump bits into 'processSymbol'
+        // ? by returning sampled symbols at the correct rate.
         
-        // If we are not sampling yet, wait for energy
+        // ! If we are not sampling yet, wait for energy
         if (this.lastSampleTime === 0) {
              if (power > this.powerThreshold) {
                 console.log("Energy Detected. Starting Clock.");
@@ -171,70 +172,70 @@ class Receiver {
              }
         }
 
-        // Clock Tick
+        // ! Clock Tick
         if (now - this.lastSampleTime >= this.symbolDuration) {
             this.lastSampleTime += this.symbolDuration;
-            // Return this symbol to be sliced and fed to processSymbol
+            // ! Return this symbol to be sliced and fed to processSymbol
             return [{i_raw: currentI, q_raw: currentQ}];
         }
         
         return [];
     }
 
-    // This is called every time your loop demodulates new bits
+    // ! This is called every time your loop demodulates new bits
     processSymbol(newBits) {
-        // Add new bits to our processing queue
+        // ! Add new bits to our processing queue
         this.bitsBuffer.push(...newBits);
 
-        // Process the queue based on state
+        // ! Process the queue based on state
         while (this.bitsBuffer.length > 0) {
             
-            // 1. IDLE STATE: Hunt for the START BIT (0)
+            // ! 1. IDLE STATE: Hunt for the START BIT (0)
             if (this.state === 'IDLE') {
-                const bit = this.bitsBuffer.shift(); // Consume bit
+                const bit = this.bitsBuffer.shift(); // ! Consume bit
                 if (bit === 0) {
-                    // Found Start Bit! Transition to reading.
+                    // ! Found Start Bit! Transition to reading.
                     this.state = 'READ_DATA';
                     this.byteBuffer = []; 
                 }
-                // If bit is 1, we ignore it (Idle line)
+                // ! If bit is 1, we ignore it (Idle line)
             }
 
-            // 2. READ DATA: Collect 8 bits
+            // ! 2. READ DATA: Collect 8 bits
             else if (this.state === 'READ_DATA') {
                 if (this.bitsBuffer.length > 0) {
                     const bit = this.bitsBuffer.shift();
                     this.byteBuffer.push(bit);
 
                     if (this.byteBuffer.length === 8) {
-                        // We have a full byte. Now check for Stop Bit.
+                        // ! We have a full byte. Now check for Stop Bit.
                         this.state = 'STOP_CHECK';
                     }
                 } else {
-                    break; // Wait for more bits
+                    break; // ! Wait for more bits
                 }
             }
 
-            // 3. STOP CHECK: Verify the STOP BIT (1)
+            // ! 3. STOP CHECK: Verify the STOP BIT (1)
             else if (this.state === 'STOP_CHECK') {
                 const stopBit = this.bitsBuffer.shift();
                 
                 if (stopBit === 1) {
-                    // VALID FRAME! Decode the byte.
+                    // ! VALID FRAME! Decode the byte.
                     const charCode = parseInt(this.byteBuffer.join(''), 2);
                     
-                    // Filter for printable ASCII only (prevent weird glyphs)
+                    // ! Filter for printable ASCII only (prevent weird glyphs)
                     if (charCode >= 32 && charCode <= 126) {
                         this.text += String.fromCharCode(charCode);
                         this.updateUI();
                     }
                 } else {
-                    // FRAMING ERROR: We expected a 1 but got 0.
-                    // The signal is garbage. Reset to IDLE to resync.
+                    // FIXME: FRAMING ERROR: We expected a 1 but got 0.
+                    // FIXME: The signal is garbage. Reset to IDLE to resync.
                     console.warn("Framing Error (Bit Slip)");
                 }
                 
-                // Regardless of success/fail, go back to hunting for next char
+                // ! Regardless of success/fail, go back to hunting for next char
                 this.state = 'IDLE';
             }
         }
@@ -243,7 +244,7 @@ class Receiver {
     updateUI() {
         const el = document.getElementById('rx-text');
         el.innerText = this.text;
-        el.scrollTop = el.scrollHeight; // Auto-scroll
+        el.scrollTop = el.scrollHeight; // ! Auto-scroll
     }
 
     getSlicer(type) {
@@ -256,8 +257,8 @@ class Receiver {
             return [...i_bit, ...q_bit];
         };
         if (type === 'QAM64') return (i, q) => {
-             // Simply map 64QAM roughly for now
-             return [i>0?1:0, q>0?1:0, 0,0,0,0]; // Placeholder for brevity
+             // ? Simply map 64QAM roughly for now
+             return [i>0?1:0, q>0?1:0, 0,0,0,0]; // ! Placeholder for brevity
         };
         return (i, q) => [];
     }
@@ -326,33 +327,33 @@ function loop() {
     
     analyser.getFloatTimeDomainData(waveArray);
     
-    // 1. Draw Scope (Physics)
+    // ! 1. Draw Scope (Physics)
     drawScope(waveArray);
     
-    // 2. Get Current I/Q (Physics)
-    // We treat the buffer as a single point in time
+    // ! 2. Get Current I/Q (Physics)
+    // ? We treat the buffer as a single point in time
     const rawIQ = getInstantaneousIQ(waveArray);
     
-    // 3. AGC / PLL
+    // ! 3. AGC / PLL
     if (document.getElementById('rx-pll-enable').checked) {
-        // Simple AGC
+        // ! Simple AGC
         const mag = Math.sqrt(rawIQ.i**2 + rawIQ.q**2);
         if (mag > 0.001) {
             rawIQ.i /= mag; 
             rawIQ.q /= mag;
         }
-        // PLL (Optional, can rely on raw for low baud)
+        // ? PLL (Optional, can rely on raw for low baud)
         // const locked = costasLoop.process(rawIQ.i, rawIQ.q);
         // rawIQ.i = locked.i; rawIQ.q = locked.q;
     }
 
-    // 4. Update Receiver Logic (Computer Science)
+    // ! 4. Update Receiver Logic (Computer Science)
     const baud = parseInt(document.getElementById('modem-baud').value);
     
-    // This now returns an array ONLY if the clock ticked
+    // ! This now returns an array ONLY if the clock ticked
     const sampledSymbols = receiver.update(rawIQ.i, rawIQ.q, baud);
     
-    // 5. Slice & Process ONLY if we sampled
+    // ! 5. Slice & Process ONLY if we sampled
     if (sampledSymbols.length > 0) {
         const type = document.getElementById('modem-type').value;
         const slicer = receiver.getSlicer(type);
@@ -362,11 +363,11 @@ function loop() {
             receiver.processSymbol(bits);
         });
         
-        // Flash the constellation to show we sampled
+        // ! Flash the constellation to show we sampled
         drawConstellation([sampledSymbols[0]]); 
     } else {
-        // Draw the "Ghost" cursor (Realtime feedback)
-        // Pass a flag to draw it faintly
+        // ! Draw the "Ghost" cursor (Realtime feedback)
+        // ! Pass a flag to draw it faintly
         drawConstellation([{i_raw: rawIQ.i, q_raw: rawIQ.q}], true);
     }
 }
@@ -378,15 +379,15 @@ function getInstantaneousIQ(buffer) {
     let i_sum = 0;
     let q_sum = 0;
     
-    // Integrate over the whole visualizer buffer to get current state
+    // ! Integrate over the whole visualizer buffer to get current state
     for (let i = 0; i < buffer.length; i++) {
-        const t = i / rate; // Relative time in buffer
+        const t = i / rate; // ! Relative time in buffer
         i_sum += buffer[i] * Math.cos(omega * t);
         q_sum += buffer[i] * -Math.sin(omega * t);
     }
     
-    // Normalize
-    const i_avg = (i_sum / buffer.length) * 4.0; // *4 gain for visibility
+    // ! Normalize
+    const i_avg = (i_sum / buffer.length) * 4.0; // ! *4 gain for visibility
     const q_avg = (q_sum / buffer.length) * 4.0;
     
     return { i: i_avg, q: q_avg };
@@ -398,14 +399,14 @@ function drawConstellation(symbols, isGhost = false) {
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
 
-    // Clear with a fade effect only if we're not drawing a ghost
-    // or if the ghost is the only thing on screen.
+    // ! Clear with a fade effect only if we're not drawing a ghost
+    // ! or if the ghost is the only thing on screen.
     if (!isGhost) {
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.fillRect(0, 0, w, h);
     } else {
-        // For the ghost, we need to redraw the whole static scene.
-        ctx.fillStyle = '#0b0b0b'; // Background color
+        // ! For the ghost, we need to redraw the whole static scene.
+        ctx.fillStyle = '#0b0b0b'; // ! Background color
         ctx.fillRect(0,0,w,h);
     }
 
@@ -418,7 +419,7 @@ function drawConstellation(symbols, isGhost = false) {
     const type = document.getElementById('modem-type').value;
     const idealPoints = getIdealPoints(type);
     
-    // Plot Ideal Points (Reference pattern)
+    // ! Plot Ideal Points (Reference pattern)
     ctx.fillStyle = '#888';
     const scale = 0.85;
     for(let p of idealPoints) {
@@ -429,14 +430,14 @@ function drawConstellation(symbols, isGhost = false) {
         ctx.fill();
     }
     
-    // Plot Received Symbols
+    // ! Plot Received Symbols
     if (!symbols || symbols.length === 0) return;
     
-    // Set color based on whether it's a ghost or a sampled point
-    // High visibility: solid color + glow
-    ctx.fillStyle = isGhost ? '#e084f3' : THEME.accent; // Brighter purple for ghost
+    // ! Set color based on whether it's a ghost or a sampled point
+    // ! High visibility: solid color + glow
+    ctx.fillStyle = isGhost ? '#e084f3' : THEME.accent; // ! Brighter purple for ghost
     
-    // Add Neon Glow
+    // ! Add Neon Glow
     ctx.shadowBlur = 15;
     ctx.shadowColor = THEME.accent;
 
@@ -444,11 +445,11 @@ function drawConstellation(symbols, isGhost = false) {
         const px = (w/2) + (s.i_raw * (w/2) * scale);
         const py = (h/2) - (s.q_raw * (h/2) * scale);
         ctx.beginPath();
-        ctx.arc(px, py, isGhost ? 8 : 10, 0, Math.PI*2); // Much larger dots
+        ctx.arc(px, py, isGhost ? 8 : 10, 0, Math.PI*2); // ! Much larger dots
         ctx.fill();
     });
 
-    // Reset shadow for next frame
+    // ! Reset shadow for next frame
     ctx.shadowBlur = 0;
 }
 
@@ -499,31 +500,31 @@ class ModemEngine {
     stringToBits(text) { /* ... same as before ... */ }
     generateWaveform(text, type, baud) { /* ... same as before ... */ }
 }
-// NOTE: For brevity, the ModemEngine's unchanged methods are omitted, but they are part of the file.
+// ! NOTE: For brevity, the ModemEngine's unchanged methods are omitted, but they are part of the file.
 ModemEngine.prototype.stringToBits = function(text) {
     const bits = [];
     
-    // 1. Leader / Preamble (Idle High for a moment to wake up AGC)
+    // ! 1. Leader / Preamble (Idle High for a moment to wake up AGC)
     bits.push(...[1, 1, 1, 1, 1, 1, 1, 1]); 
 
     for (let i = 0; i < text.length; i++) {
         const charCode = text.charCodeAt(i);
         
-        // 2. START BIT (Logic 0) - Signals "Here comes data"
+        // ! 2. START BIT (Logic 0) - Signals "Here comes data"
         bits.push(0); 
 
-        // 3. DATA BITS (8 bits, MSB First)
+        // ! 3. DATA BITS (8 bits, MSB First)
         for (let j = 7; j >= 0; j--) {
             bits.push((charCode >> j) & 1);
         }
 
-        // 4. STOP BIT (Logic 1) - Signals "End of byte"
-        // We add two stop bits for extra safety/separation in this noisy audio link
+        // ! 4. STOP BIT (Logic 1) - Signals "End of byte"
+        // ! We add two stop bits for extra safety/separation in this noisy audio link
         bits.push(1); 
         bits.push(1); 
     }
     
-    // Trailer
+    // ! Trailer
     bits.push(...[1, 1, 1]); 
     return bits;
 }
@@ -539,14 +540,14 @@ ModemEngine.prototype.generateWaveform = function(text, type, baud) {
     let symbols = [];
     for(let i=0; i<bits.length; i+=bitsPerSymbol) {
         const chunk = bits.slice(i, i+bitsPerSymbol);
-        // This is a naive lookup, a gray-coded map would be better
+        // ? This is a naive lookup, a gray-coded map would be better
         const point_idx = parseInt(chunk.join(''), 2); 
         if(point_idx < idealPoints.length) {
             symbols.push(idealPoints[point_idx]);
         }
     }
     
-    // Sync Header (Alternating Phase)
+    // ! Sync Header (Alternating Phase)
     const preamble = [{I:1,Q:0}, {I:-1,Q:0},{I:1,Q:0}, {I:-1,Q:0}];
     const fullSymbols = [...preamble, ...symbols];
 
@@ -586,9 +587,10 @@ async function transmitModemData() {
 }
 
 function drawModemBits(symbols) {
-    // ... same as before ...
+    // ? Draw the logic levels for the bitstream
 }
 function exportEVM() {
+    // TODO: Implement EVM export logic
     let csv = "I_raw,Q_raw\n";
     rxHistory.forEach(s => { csv += `${s.i_raw.toFixed(4)},${s.q_raw.toFixed(4)}\n` });
     const blob = new Blob([csv], {type: 'text/csv'});
@@ -598,7 +600,7 @@ function exportEVM() {
     URL.revokeObjectURL(url);
 }
 
-// Window Resize
+// ! Window Resize
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
