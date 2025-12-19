@@ -156,7 +156,7 @@ function drawScope() {
         if(idx >= waveArray.length) break;
         
         const v = waveArray[idx];
-        const y = (h/2) - (v * h/2 * 2); // 2x gain for visibility
+        const y = (h/2) - (v * h/2 * 0.9); // 0.9x gain to prevent clipping
 
         if(i===0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
