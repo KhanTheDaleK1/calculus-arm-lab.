@@ -50,9 +50,7 @@ window.onload = () => {
     document.getElementById('modem-baud').onchange = (e) => {
         const newBaud = parseInt(e.target.value);
         if (receiver) {
-            receiver.baud = newBaud;
-            receiver.samplesPerSymbol = receiver.sampleRate / newBaud;
-            console.log("Receiver baud rate updated to:", newBaud);
+            receiver.updateBaud(newBaud);
         }
     };
     
@@ -139,14 +137,19 @@ class CostasLoopReceiver {
         this.lpfAlpha = 0.1; 
         
         // Decoding State
-        this.baud = baud;
-        this.samplesPerSymbol = sampleRate / baud;
+        this.updateBaud(baud);
         this.symbolCounter = 0;
         this.isSyncing = false;
         this.bitBuffer = [];
         this.message = "";
-        this.state = 'IDLE'; // IDLE, DATA
+        this.state = 'IDLE'; 
         this.byteBuffer = [];
+    }
+
+    updateBaud(newBaud) {
+        this.baud = newBaud;
+        this.samplesPerSymbol = this.sampleRate / newBaud;
+        console.log("Receiver updated to", newBaud, "Baud");
     }
 
     clear() {
@@ -164,8 +167,6 @@ class CostasLoopReceiver {
         for(let s of inputBuffer) energySum += s*s;
         const rms = Math.sqrt(energySum / inputBuffer.length);
         
-        const uiText = document.getElementById('rx-text');
-
         for (let i = 0; i < inputBuffer.length; i++) {
             const sample = inputBuffer[i];
             const loI = Math.cos(this.phase);
@@ -186,13 +187,12 @@ class CostasLoopReceiver {
             if (rms > CONFIG.squelch) {
                 if (!this.isSyncing) {
                     this.isSyncing = true;
-                    this.symbolCounter = Math.floor(this.samplesPerSymbol / 2); // Sample at middle
+                    this.symbolCounter = Math.floor(this.samplesPerSymbol / 2); 
                 }
                 
                 this.symbolCounter--;
                 if (this.symbolCounter <= 0) {
                     this.symbolCounter = this.samplesPerSymbol;
-                    // We just hit a symbol center!
                     const bits = this.slice(this.lpfI, this.lpfQ, modulationType);
                     this.processBits(bits);
                     points.push({ i: this.lpfI, q: this.lpfQ });
@@ -206,14 +206,38 @@ class CostasLoopReceiver {
     }
 
     slice(I, Q, type) {
-        if (type === 'BPSK') return [I > 0 ? 1 : 0];
-        if (type === 'QPSK') return [I > 0 ? 1 : 0, Q > 0 ? 1 : 0];
+        const gain = 2.5; // Gain applied in visualization to help slicing
+        const sI = I * gain;
+        const sQ = Q * gain;
+
+        if (type === 'BPSK') return [sI > 0 ? 1 : 0];
+        if (type === 'QPSK') return [sI > 0 ? 1 : 0, sQ > 0 ? 1 : 0];
+        
         if (type === 'QAM16') {
-            const i_bit = I < -0.4 ? [0,0] : I < 0 ? [0,1] : I < 0.4 ? [1,1] : [1,0];
-            const q_bit = Q < -0.4 ? [0,0] : Q < 0 ? [0,1] : Q < 0.4 ? [1,1] : [1,0];
-            return [...i_bit, ...q_bit];
+            const slice_line = (val) => {
+                if (val < -0.66) return [0,0];
+                if (val < 0) return [0,1];
+                if (val < 0.66) return [1,1];
+                return [1,0];
+            };
+            return [...slice_line(sI), ...slice_line(sQ)];
         }
-        return [I > 0 ? 1 : 0]; // Default
+        
+        if (type === 'QAM64') {
+            const slice_line = (val) => {
+                if (val < -0.85) return [0,0,0];
+                if (val < -0.57) return [0,0,1];
+                if (val < -0.28) return [0,1,1];
+                if (val < 0) return [0,1,0];
+                if (val < 0.28) return [1,1,0];
+                if (val < 0.57) return [1,1,1];
+                if (val < 0.85) return [1,0,1];
+                return [1,0,0];
+            };
+            return [...slice_line(sI), ...slice_line(sQ)];
+        }
+        
+        return [sI > 0 ? 1 : 0]; 
     }
 
     processBits(newBits) {
@@ -221,7 +245,6 @@ class CostasLoopReceiver {
 
         while (this.bitBuffer.length >= 1) {
             if (this.state === 'IDLE') {
-                // Hunt for START bit (0)
                 if (this.bitBuffer.shift() === 0) {
                     this.state = 'DATA';
                     this.byteBuffer = [];
@@ -234,7 +257,7 @@ class CostasLoopReceiver {
                         this.message += String.fromCharCode(charCode);
                         document.getElementById('rx-text').innerText = this.message;
                     }
-                    this.state = 'IDLE'; // Back to hunting
+                    this.state = 'IDLE'; 
                 } else {
                     break; 
                 }
@@ -252,15 +275,13 @@ class ModemEngine {
 
     generateAudioBuffer(text, type, ctx) {
         let bits = [];
-        
-        // Preamble for AGC/PLL
-        bits.push(...new Array(16).fill(1));
+        bits.push(...new Array(16).fill(1)); // Preamble
 
         for (let i = 0; i < text.length; i++) {
             const charCode = text.charCodeAt(i);
-            bits.push(0); // START BIT
+            bits.push(0); // START
             for (let b = 7; b >= 0; b--) bits.push((charCode >> b) & 1);
-            bits.push(1); // STOP BIT
+            bits.push(1); // STOP
         }
 
         const idealPoints = getIdealPoints(type);
@@ -351,7 +372,6 @@ function loop() {
 }
 
 async function startCalibration() {
-    // Shared calibration logic as before
     const s = document.getElementById('status-badge');
     s.innerText = "Calibrating...";
     await initAudioGraph();
@@ -383,11 +403,15 @@ function drawConstellation(points, clear = false) {
 
     if (!points) return;
     ctx.fillStyle = THEME.accent;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = THEME.accent;
     points.forEach(p => {
-        const x = (p.i*2+1)*w/2;
-        const y = (-p.q*2+1)*h/2;
+        const x = (p.i*2.5*0.8+1)*w/2;
+        const y = (-p.q*2.5*0.8+1)*h/2;
+        if (x < 0 || x > w || y < 0 || y > h) continue;
         ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill();
     });
+    ctx.shadowBlur = 0;
 }
 
 function drawScope(buffer) {
@@ -396,9 +420,10 @@ function drawScope(buffer) {
     const w = c.width, h = c.height;
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
     ctx.strokeStyle = THEME.accent; ctx.beginPath();
-    for(let i=0; i<w; i++) {
+    const step = w / buffer.length;
+    for(let i=0; i<w; i+=2) {
         const v = buffer[Math.floor(i/w*buffer.length)];
-        const y = (h/2) - (v*h/2);
+        const y = (h/2) - (v*h/2*2);
         if(i===0) ctx.moveTo(i,y); else ctx.lineTo(i,y);
     }
     ctx.stroke();
@@ -428,17 +453,9 @@ async function transmitModemData() {
             sendBtn.disabled = false;
         };
     }
-
     modemBufferSource.start();
-    
-    if (!isRunning) {
-        isRunning = true;
-        loop();
-        setTimeout(() => { if(isRunning && !micSource) isRunning = false; }, 3000);
-    }
 }
 
-// ! Resize handling
 window.addEventListener('resize', () => {
     initCanvas('modem-bit-canvas');
     initCanvas('constellation-canvas');
