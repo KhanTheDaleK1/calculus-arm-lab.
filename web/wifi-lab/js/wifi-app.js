@@ -719,5 +719,4 @@ window.addEventListener('resize', () => {
         initCanvas('scope-canvas');
     }, 100);
 }); // Close setTimeout
-}); // Close window.addEventListener
 
