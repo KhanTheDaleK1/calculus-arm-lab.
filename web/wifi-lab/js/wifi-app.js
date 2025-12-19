@@ -1,6 +1,6 @@
 
 // CONFIG
-const THEME = { accent: '#4facfe', bg: '#141414', grid: '#333' };
+const THEME = { accent: '#d05ce3', bg: '#141414', grid: '#333' };
 
 // STATE
 let audioCtx, analyser, micSource;
@@ -295,7 +295,9 @@ class ModemEngine {
 }
 
 async function transmitModemData() {
-    const text = document.getElementById('modem-input').value || "HI";
+    let text = document.getElementById('modem-input').value || "HI";
+    if (text.length > 200) text = text.slice(0, 200); // Enforce max length
+    
     const type = document.getElementById('modem-type').value;
     const baud = parseInt(document.getElementById('modem-baud').value);
 
