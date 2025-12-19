@@ -13,6 +13,11 @@ let modemEngine;
 let modemBufferSource = null;
 let costasLoop, agc, receiver;
 
+function initCanvas(id) {
+    const c = document.getElementById(id);
+    if(c) { c.width = c.clientWidth; c.height = c.clientHeight; }
+}
+
 window.onload = () => {
     initCanvas('modem-bit-canvas');
     initCanvas('constellation-canvas');
@@ -44,47 +49,32 @@ window.onload = () => {
 };
 
 function populateMics() {
-    console.log("Attempting to populate microphones...");
     const startBtn = document.getElementById('btn-start');
     const sel = document.getElementById('device-select');
-    if (!sel || !startBtn) {
-        console.error("UI elements for mic selection not found.");
-        return;
-    }
+    if (!sel || !startBtn) return;
     
     startBtn.disabled = true;
     sel.innerHTML = '<option>Detecting...</option>';
 
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-        console.log("Requesting user media for permission...");
         navigator.mediaDevices.getUserMedia({audio:true})
         .then(stream => {
-            console.log("Permission granted. Stream received.");
-            // IMPORTANT: Stop the dummy stream used for getting permissions.
             stream.getTracks().forEach(track => track.stop());
-            
-            console.log("Enumerating devices...");
             return navigator.mediaDevices.enumerateDevices();
         })
         .then(devs => {
-            console.log(`Found ${devs.length} total devices.`);
             sel.innerHTML = '';
             const mics = devs.filter(d => d.kind === 'audioinput');
-            console.log(`Found ${mics.length} audio input devices.`);
-
             if (mics.length === 0) {
                 sel.innerHTML = '<option>No mics found</option>';
-                console.warn("No microphones found after enumeration.");
             } else {
                 mics.forEach((d, i) => {
                     const opt = document.createElement('option');
                     opt.value = d.deviceId;
                     opt.text = d.label || `Mic ${i + 1}`;
-                    console.log(`- Adding mic: ${opt.text} (ID: ${opt.value})`);
                     sel.appendChild(opt);
                 });
-                startBtn.disabled = false; // Enable start button
-                console.log("Start button enabled.");
+                startBtn.disabled = false;
             }
         }).catch(err => {
             console.error("An error occurred during mic detection:", err.name, err.message);
@@ -253,17 +243,11 @@ async function initAudioGraph() {
 }
 
 async function startReceiver() {
-    if (isRunning) {
-        console.warn("startReceiver called while already running.");
-        return;
-    }
-    console.log("Starting receiver...");
+    if (isRunning) return;
     try {
         await initAudioGraph();
         
         const selectedDeviceId = document.getElementById('device-select').value;
-        console.log(`Attempting to start stream with deviceId: ${selectedDeviceId}`);
-
         const stream = await navigator.mediaDevices.getUserMedia({ 
             audio: { 
                 deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined, 
@@ -274,8 +258,6 @@ async function startReceiver() {
             }
         });
         
-        console.log("Successfully created audio stream.");
-
         if (micSource) try { micSource.disconnect(); } catch(e){}
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
@@ -284,7 +266,6 @@ async function startReceiver() {
         const s = document.getElementById('status-badge');
         s.innerText = "Receiving";
         s.className = "status-badge success";
-        console.log("Receiver is now running.");
         loop();
 
     } catch(e) { 
