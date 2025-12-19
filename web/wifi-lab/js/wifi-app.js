@@ -46,6 +46,15 @@ window.onload = () => {
     document.getElementById('modem-type').onchange = () => {
         drawConstellation([], true); 
     };
+
+    document.getElementById('modem-baud').onchange = (e) => {
+        const newBaud = parseInt(e.target.value);
+        if (receiver) {
+            receiver.baud = newBaud;
+            receiver.samplesPerSymbol = receiver.sampleRate / newBaud;
+            console.log("Receiver baud rate updated to:", newBaud);
+        }
+    };
     
     document.getElementById('btn-rx-clear').onclick = () => {
         if (receiver) receiver.clear();
@@ -399,14 +408,34 @@ async function transmitModemData() {
     const text = document.getElementById('modem-input').value || "HI";
     const type = document.getElementById('modem-type').value;
     const baud = parseInt(document.getElementById('modem-baud').value);
+    const sendBtn = document.getElementById('btn-modem-send');
+
     await initAudioGraph();
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
     const buffer = engine.generateAudioBuffer(text, type, audioCtx);
-    const source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(masterGain);
-    if(analyser) source.connect(analyser);
-    source.start();
+    
+    if (modemBufferSource) try { modemBufferSource.stop(); } catch(e){}
+    modemBufferSource = audioCtx.createBufferSource();
+    modemBufferSource.buffer = buffer;
+    modemBufferSource.connect(masterGain);
+    if(analyser) modemBufferSource.connect(analyser);
+    
+    if (sendBtn) {
+        sendBtn.innerText = "SENDING...";
+        sendBtn.disabled = true;
+        modemBufferSource.onended = () => {
+            sendBtn.innerText = "SEND";
+            sendBtn.disabled = false;
+        };
+    }
+
+    modemBufferSource.start();
+    
+    if (!isRunning) {
+        isRunning = true;
+        loop();
+        setTimeout(() => { if(isRunning && !micSource) isRunning = false; }, 3000);
+    }
 }
 
 // ! Resize handling
