@@ -386,12 +386,12 @@ function drawConstellation(points, clear = false) {
     ctx.fillStyle = THEME.accent;
     ctx.shadowBlur = 10;
     ctx.shadowColor = THEME.accent;
-    points.forEach(p => {
+    for (let p of points) {
         const x = (p.i*2.5*0.8+1)*w/2;
         const y = (-p.q*2.5*0.8+1)*h/2;
         if (x < 0 || x > w || y < 0 || y > h) continue;
         ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill();
-    });
+    }
     ctx.shadowBlur = 0;
 }
 
