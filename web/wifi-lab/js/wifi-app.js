@@ -248,43 +248,70 @@ function loop() {
     
     analyser.getFloatTimeDomainData(waveArray);
     
-    // Apply AGC
-    const usePll = document.getElementById('rx-pll-enable').checked;
-    if (usePll) {
-        waveArray = agc.process(waveArray);
-    }
-
+    // 1. Draw Scope (Physics)
     drawScope(waveArray);
     
-    // Demodulate and Draw
-    const type = document.getElementById('modem-type').value;
-    const baud = parseInt(document.getElementById('modem-baud').value);
-    const samplesPerSymbol = audioCtx.sampleRate / baud;
+    // 2. Get Current I/Q (Physics)
+    // We treat the buffer as a single point in time
+    const rawIQ = getInstantaneousIQ(waveArray);
     
-    const symbols = demodulate(waveArray, samplesPerSymbol);
-    drawConstellation(symbols);
+    // 3. AGC / PLL
+    if (document.getElementById('rx-pll-enable').checked) {
+        // Simple AGC
+        const mag = Math.sqrt(rawIQ.i**2 + rawIQ.q**2);
+        if (mag > 0.001) {
+            rawIQ.i /= mag; 
+            rawIQ.q /= mag;
+        }
+        // PLL (Optional, can rely on raw for low baud)
+        // const locked = costasLoop.process(rawIQ.i, rawIQ.q);
+        // rawIQ.i = locked.i; rawIQ.q = locked.q;
+    }
+
+    // 4. Update Receiver Logic (Computer Science)
+    const baud = parseInt(document.getElementById('modem-baud').value);
+    
+    // This now returns an array ONLY if the clock ticked
+    const sampledSymbols = receiver.update(rawIQ.i, rawIQ.q, baud);
+    
+    // 5. Slice & Process ONLY if we sampled
+    if (sampledSymbols.length > 0) {
+        const type = document.getElementById('modem-type').value;
+        const slicer = receiver.getSlicer(type);
+        
+        sampledSymbols.forEach(s => {
+            const bits = slicer(s.i_raw, s.q_raw);
+            receiver.processSymbol(bits);
+        });
+        
+        // Flash the constellation to show we sampled
+        drawConstellation([sampledSymbols[0]]); 
+    } else {
+        // Draw the "Ghost" cursor (Realtime feedback)
+        // Pass a flag to draw it faintly
+        drawConstellation([{i_raw: rawIQ.i, q_raw: rawIQ.q}], true);
+    }
 }
 
-function demodulate(buffer, samplesPerSymbol) {
+function getInstantaneousIQ(buffer) {
     const omega = 2 * Math.PI * CARRIER_FREQ;
     const rate = audioCtx.sampleRate;
-    const symbols = [];
-
-    for (let i = 0; i < buffer.length - samplesPerSymbol; i += samplesPerSymbol) {
-        let i_sum = 0, q_sum = 0;
-        for (let j = 0; j < samplesPerSymbol; j++) {
-            const t = (i + j) / rate;
-            const val = buffer[i + j];
-            i_sum += val * Math.cos(omega * t);
-            q_sum += val * -Math.sin(omega * t);
-        }
-        // Average the integration
-        let i_raw = (i_sum / samplesPerSymbol) * 2;
-        let q_raw = (q_sum / samplesPerSymbol) * 2;
-        
-        symbols.push({i_raw, q_raw});
+    
+    let i_sum = 0;
+    let q_sum = 0;
+    
+    // Integrate over the whole visualizer buffer to get current state
+    for (let i = 0; i < buffer.length; i++) {
+        const t = i / rate; // Relative time in buffer
+        i_sum += buffer[i] * Math.cos(omega * t);
+        q_sum += buffer[i] * -Math.sin(omega * t);
     }
-    return symbols;
+    
+    // Normalize
+    const i_avg = (i_sum / buffer.length) * 4.0; // *4 gain for visibility
+    const q_avg = (q_sum / buffer.length) * 4.0;
+    
+    return { i: i_avg, q: q_avg };
 }
 
 function drawConstellation(symbols) {
