@@ -15,6 +15,12 @@ let isRunning = false;
 let waveArray;
 let calibrationScale = 1.0; 
 
+// ! SCOPE HISTORY STATE
+let isScopePaused = false;
+let scopeHistory = [];
+const MAX_SCOPE_HISTORY = 300; // ~7 seconds at 44.1kHz and 1024 buffer
+let scopeHistoryOffset = 0; 
+
 function initCanvas(id) {
     const c = document.getElementById(id);
     if(c) { c.width = c.clientWidth; c.height = c.clientHeight; }
@@ -74,6 +80,44 @@ window.onload = () => {
 
     const exportConstBtn = document.getElementById('btn-export-evm');
     if (exportConstBtn) exportConstBtn.onclick = exportConstellation;
+
+    // Scope Controls
+    const pauseBtn = document.getElementById('btn-scope-pause');
+    const historyControls = document.getElementById('scope-history-controls');
+    const historyRange = document.getElementById('scope-history-range');
+    const historyTime = document.getElementById('scope-history-time');
+
+    if (pauseBtn) {
+        pauseBtn.onclick = () => {
+            isScopePaused = !isScopePaused;
+            pauseBtn.innerHTML = isScopePaused ? `<i class="fas fa-play"></i> Resume` : `<i class="fas fa-pause"></i> Pause`;
+            if (isScopePaused) {
+                historyControls.style.display = 'flex';
+                historyRange.max = scopeHistory.length - 1;
+                historyRange.value = 0;
+                scopeHistoryOffset = 0;
+                updateScopeHistoryLabel();
+            } else {
+                historyControls.style.display = 'none';
+            }
+        };
+    }
+
+    if (historyRange) {
+        historyRange.oninput = (e) => {
+            scopeHistoryOffset = parseInt(e.target.value);
+            updateScopeHistoryLabel();
+            if (isScopePaused && scopeHistory.length > 0) {
+                const data = scopeHistory[scopeHistory.length - 1 - scopeHistoryOffset];
+                if (data) drawScope(data);
+            }
+        };
+    }
+
+    function updateScopeHistoryLabel() {
+        const sec = (scopeHistoryOffset * (analyser ? analyser.fftSize/2 : 1024) / 44100).toFixed(1);
+        historyTime.innerText = `-${sec}s`;
+    }
 
     drawConstellation([], true); 
 };
@@ -419,6 +463,7 @@ function stopReceiver() {
     if(audioCtx) audioCtx.close();
     audioCtx = null;
     micSource = null;
+    scopeHistory = []; // Clear history on stop
     document.getElementById('status-badge').innerText = "Idle";
     document.getElementById('status-badge').className = "status-badge warn";
     document.getElementById('btn-toggle-scan').innerText = "Start Scan";
@@ -429,7 +474,15 @@ function loop() {
     if (!isRunning) return;
     requestAnimationFrame(loop);
     analyser.getFloatTimeDomainData(waveArray);
-    drawScope(waveArray);
+    
+    // Record history
+    scopeHistory.push(new Float32Array(waveArray));
+    if (scopeHistory.length > MAX_SCOPE_HISTORY) scopeHistory.shift();
+
+    if (!isScopePaused) {
+        drawScope(waveArray);
+    }
+
     if (receiver) {
         const type = document.getElementById('modem-type').value;
         const points = receiver.processBlock(waveArray, type);

@@ -62,12 +62,11 @@
         .bento-grid { 
             display: grid; 
             grid-template-columns: 1fr 1.5fr 1.5fr;
-            grid-template-rows: auto 180px;
+            grid-template-rows: auto auto;
             gap: 15px; 
             padding: 15px;
             flex-grow: 1;
             box-sizing: border-box;
-            /* overflow: hidden; Removed to allow scrolling */
         }
         
         .card { 
@@ -80,6 +79,8 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
             min-width: 0; /* Prevents overflow */
         }
+
+        .card-tall { grid-row: span 2; }
         
         .card h2 {
             margin: 0 0 12px 0;
@@ -108,10 +109,12 @@
             }
             .app-container { height: auto; }
             .card-span-2 { grid-column: span 2; }
+            .card-tall { grid-row: span 1; }
         }
         @media (max-width: 800px) {
             .bento-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
             .card-span-2 { grid-column: span 1; }
+            .card-tall { grid-row: span 1; }
         }
 
         /* MODAL */
@@ -186,8 +189,8 @@
     </header>
 
     <div class="bento-grid">
-        <!-- COLUMN 1: Transmitter -->
-        <div class="card">
+        <!-- COLUMN 1: Transmitter (Spans 2 rows) -->
+        <div class="card card-tall">
             <h2>Transmitter (TX) 📡</h2>
             <div style="display:flex; flex-direction:column; gap:15px; flex-grow:1;">
                 <div>
@@ -231,7 +234,7 @@
             </div>
         </div>
 
-        <!-- COLUMN 2: Receiver -->
+        <!-- COLUMN 2: Receiver (Row 1) -->
         <div class="card">
             <h2>Receiver (RX) - Constellation 🌌</h2>
             <canvas id="constellation-canvas"></canvas>
@@ -253,7 +256,7 @@
             </div>
         </div>
 
-        <!-- COLUMN 3: Scope -->
+        <!-- COLUMN 3: Scope (Row 1) -->
         <div class="card">
             <h2>Signal Scope 〰️</h2>
             <canvas id="scope-canvas"></canvas>
@@ -262,21 +265,31 @@
                     <span>TIME DOMAIN (SAMPLES)</span>
                     <span>VOLTAGE (NORMALIZED)</span>
                 </div>
-                <button id="btn-export-waveform" class="btn action" style="font-size:0.7rem; padding: 4px 8px;">Export Waveform</button>
+                <div style="display:flex; gap:5px;">
+                    <button id="btn-scope-pause" class="btn action" style="font-size:0.7rem; padding: 4px 8px;"><i class="fas fa-pause"></i> Pause</button>
+                    <button id="btn-export-waveform" class="btn action" style="font-size:0.7rem; padding: 4px 8px;">Export</button>
+                </div>
+            </div>
+            <!-- Scope History Controls (Hidden by default) -->
+            <div id="scope-history-controls" style="margin-top:10px; display:none; align-items:center; gap:10px; background:#111; padding:8px; border-radius:6px; border:1px solid #333;">
+                <label style="font-size:0.65rem; color:#888; white-space:nowrap;">HISTORY</label>
+                <input type="range" id="scope-history-range" min="0" max="0" value="0" style="flex-grow:1; accent-color:var(--accent);">
+                <span id="scope-history-time" style="font-size:0.7rem; color:var(--accent); font-family:monospace; min-width:40px;">0.0s</span>
             </div>
         </div>
 
-        <!-- BOTTOM ROW -->
-        <div class="card card-span-2">
+        <!-- COLUMN 2: Decoded (Row 2) -->
+        <div class="card">
             <h2>Decoded Message 📝</h2>
-            <div id="rx-text" style="flex-grow:1; background:#000; color:#00ff41; font-family:'Courier New', monospace; padding:15px; border-radius:8px; border:1px solid #222; overflow-y:auto; word-break:break-all; font-size:1.3rem; text-shadow: 0 0 5px rgba(0,255,65,0.3);">
+            <div id="rx-text" style="flex-grow:1; background:#000; color:#00ff41; font-family:'Courier New', monospace; padding:15px; border-radius:8px; border:1px solid #222; overflow-y:auto; word-break:break-all; font-size:1.3rem; text-shadow: 0 0 5px rgba(0,255,65,0.3); min-height:100px;">
                 Waiting for signal...
             </div>
             <div style="display:flex; justify-content:flex-end; margin-top:10px;">
-                <button id="btn-export-evm" class="btn action" style="font-size:0.75rem;">Export Constellation CSV (TI-84)</button>
+                <button id="btn-export-evm" class="btn action" style="font-size:0.75rem;">Export CSV (TI-84)</button>
             </div>
         </div>
 
+        <!-- COLUMN 3: Lab Guide (Row 2) -->
         <div class="card">
             <h2>Lab Guide 📘</h2>
             <div style="color:#999; font-size:0.8rem; line-height:1.5; overflow-y:auto;">
