@@ -383,8 +383,8 @@ function drawConstellation(symbols, isGhost = false) {
     const type = document.getElementById('modem-type').value;
     const idealPoints = getIdealPoints(type);
     
-    // Plot Ideal Points
-    ctx.fillStyle = '#666';
+    // Plot Ideal Points (Reference pattern)
+    ctx.fillStyle = '#888';
     const scale = 0.85;
     for(let p of idealPoints) {
         const px = (w/2) + (p.I * (w/2) * scale);
