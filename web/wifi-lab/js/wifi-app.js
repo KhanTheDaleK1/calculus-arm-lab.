@@ -100,8 +100,9 @@ async function startReceiver() {
             audio: { 
                 deviceId: devId ? {exact: devId} : undefined,
                 echoCancellation: false, 
+                autoGainControl: false,
                 noiseSuppression: false, 
-                autoGainControl: false 
+                latency: 0
             } 
         });
         
