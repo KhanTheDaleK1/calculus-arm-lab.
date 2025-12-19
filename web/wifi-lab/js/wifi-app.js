@@ -12,6 +12,10 @@ let waveArray; // Float32 buffer for analysis
 let modemEngine;
 let modemBufferSource = null;
 
+// RECEIVER STATE
+let rxSettings = { gain: 1.0, phase: 0 };
+let rxHistory = []; // For export
+
 window.onload = () => {
     initCanvas('modem-bit-canvas');
     initCanvas('constellation-canvas');
@@ -47,6 +51,17 @@ window.onload = () => {
     document.getElementById('modem-type').onchange = () => {
         drawConstellation();
     };
+    
+    // RX Controls
+    document.getElementById('rx-gain').oninput = (e) => {
+        rxSettings.gain = parseFloat(e.target.value);
+        document.getElementById('rx-gain-val').innerText = rxSettings.gain.toFixed(1);
+    };
+    document.getElementById('rx-phase').oninput = (e) => {
+        rxSettings.phase = parseInt(e.target.value);
+        document.getElementById('rx-phase-val').innerText = rxSettings.phase;
+    };
+    document.getElementById('btn-export-evm').onclick = exportEVM;
 
     // Draw initial grid
     drawConstellation();
