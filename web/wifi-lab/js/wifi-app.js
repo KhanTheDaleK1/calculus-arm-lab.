@@ -14,6 +14,7 @@ let masterGain;
 let isRunning = false;
 let waveArray;
 let calibrationScale = 1.0; 
+let userGain = 1.0;
 
 // ! SCOPE HISTORY STATE
 let isScopePaused = false;

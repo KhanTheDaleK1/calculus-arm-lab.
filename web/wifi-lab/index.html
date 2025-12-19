@@ -251,7 +251,13 @@
                 </div>
                 <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#ccc;">
                     <span>SNR: <b id="rx-evm" style="color:var(--accent);">Good</b></span>
+                    <span>Peak: <b id="rx-peak" style="font-family:monospace;">0%</b></span>
                     <span>Clock: <b id="rx-bits" style="font-family:monospace;">Locked</b></span>
+                </div>
+                <div style="margin-top:10px; display:flex; align-items:center; gap:10px;">
+                    <label style="font-size:0.65rem; color:#888; white-space:nowrap;">INPUT GAIN</label>
+                    <input type="range" id="rx-gain" min="0" max="400" value="100" style="flex-grow:1; accent-color:var(--accent);">
+                    <span id="rx-gain-val" style="font-size:0.7rem; color:#888; min-width:30px;">1.0x</span>
                 </div>
             </div>
         </div>

@@ -1,33 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grey Car - Robotics Lab</title>
-    <link rel="stylesheet" href="../css/style.css">
-</head>
-<body>
-    <div class="app-container">
-        <header>
-            <div class="header-left">
-                <a href="../index.html" class="home-link">
-                    <h1>Grey <span class="highlight">Car</span></h1>
-                </a>
-            </div>
-            <div class="connection-status">
-                <span id="status-indicator" class="status-badge warn">Disconnected</span>
-            </div>
-        </header>
+import os
 
-        <main class="grid-layout" style="grid-template-columns: 1fr;">
-            <section class="panel">
-                <h2>Autonomous Rover <span>🚗</span></h2>
-                <div style="text-align: center; padding: 50px;">
-                    <h3 style="color: #666;">System Offline</h3>
-                    <p style="color: #888;">Connect device to initialize controls.</p>
-                </div>
-            </section>
-        </main>
+files = [
+    "../index.html",
+    "../arm/index.html",
+    "../black-car/index.html",
+    "../grey-car/index.html",
+    "../microphone-labs/index.html"
+]
+
+footer_html = """
     <footer>
         <div style="margin-bottom:10px;">
             &copy; 2025 <strong>Evan Beechem</strong>. All rights reserved. <br>
@@ -38,9 +19,9 @@
             <a href="#" class="btn-eula-trigger" style="color:var(--text-dim); text-decoration:none; margin:0 10px; border-bottom:1px dotted #555;">EULA & License</a>
         </div>
     </footer>
+"""
 
-    </div>
-
+modals_html = """
     <!-- CREDITS MODAL -->
     <div id="credits-modal" class="modal-overlay">
         <div class="modal-content" style="max-width: 500px;">
@@ -93,7 +74,82 @@
             </div>
         </div>
     </div>
+"""
 
-<script src="../js/site-footer.js"></script>
-</body>
-</html>
+script_tag = '<script src="{}/js/site-footer.js"></script>'
+
+for file_path in files:
+    try:
+        with open(file_path, 'r') as f:
+            content = f.read()
+        
+        if "id=\"credits-modal\"" in content:
+            print(f"Skipping {file_path}, already patched.")
+            continue
+        
+        # Calculate relative path to js
+        depth = file_path.count('/') - 1 # ../index.html is depth 0? No. 
+        # ../index.html -> root. ../arm/index.html -> 1 level deep from root.
+        # But we are in wifi-lab/
+        # ../ is web/
+        # ../js/ is web/js/
+        # So for ../index.html, src="js/site-footer.js"
+        # For ../arm/index.html, src="../js/site-footer.js"
+        
+        # Actually easier: relative to the file.
+        # ../index.html is in web/. js is in web/js. -> src="js/site-footer.js"
+        # ../arm/index.html is in web/arm/. js is in web/js. -> src="../js/site-footer.js"
+        
+        rel_js_path = ""
+        if file_path == "../index.html":
+             rel_js_path = "."
+        else:
+             rel_js_path = ".."
+        
+        current_script_tag = script_tag.format(rel_js_path)
+
+        # INSERT FOOTER
+        # Look for </main>
+        if "</main>" in content:
+            content = content.replace("</main>", "</main>" + footer_html)
+        elif "class=\"bento-grid\"" in content:
+             # Find the closing div for bento-grid. This is risky with simple replace.
+             # Microphone lab: <div class="bento-grid"> ... </div> </div>
+             # It ends with </div> </div> (grid close, container close).
+             # We can try to insert before the last </div> if we can guess it, or just before </body> but inside a wrapper?
+             # No, standard is inside .app-container.
+             
+             # Locate the last </div> before <script...
+             # Actually, just inserting before </body> works for the footer too if we style it right?
+             # But we want it inside .app-container if possible.
+             
+             # Let's try to insert before the scripts start.
+             if "<script" in content:
+                 first_script_idx = content.find("<script")
+                 # Check if there's a closing div before that?
+                 # Safe bet: Insert before </body> and hope CSS handles it or it sits at bottom.
+                 # But we want it inside .app-container for layout reasons?
+                 # In mic lab, .app-container has height:100vh usually, but we changed CSS to auto.
+                 # So putting it at the end of .app-container is fine.
+                 
+                 # Let's rely on </main> for most. For Mic lab, I'll regex or string find.
+                 pass
+        
+        # Fallback if no </main>: Insert before the last </div> if we can guess it, or just before </body> but inside a wrapper?
+        # Let's rely on </main> for most. For Mic lab, I'll regex or string find.
+        if "Microphone Labs" in content and "</main>" not in content:
+             # It ends with </div>\n</div>\n\n<script
+             # The last div is app-container close?
+             # Let's insert footer before <script src="../js/mic-app.js">
+             target = '<script src="../js/mic-app.js">'
+             content = content.replace(target, footer_html + target)
+
+        # INSERT MODALS AND SCRIPT
+        content = content.replace("</body>", modals_html + "\n" + current_script_tag + "\n</body>")
+
+        with open(file_path, 'w') as f:
+            f.write(content)
+        print(f"Patched {file_path}")
+
+    except Exception as e:
+        print(f"Error patching {file_path}: {e}")
