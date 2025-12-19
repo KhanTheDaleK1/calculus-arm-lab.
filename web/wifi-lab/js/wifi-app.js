@@ -290,71 +290,127 @@ function loop() {
 let calibrationScale = 1.0; 
 
 async function startCalibration() {
-    if (isRunning) {
-        alert("Please stop the receiver before calibrating.");
-        return;
+    const wasRunning = isRunning;
+    let tempStream = null;
+
+    const s = document.getElementById('status-badge');
+    
+    // If we are not running, we might need user interaction to start audio context
+    // and we should warn them a tone is coming.
+    if (!wasRunning) {
+         const proceed = confirm("Calibration will play a test tone and activate your microphone for 1 second.\n\nEnsure your speakers are ON and volume is up.\n\nClick OK to start.");
+         if (!proceed) return;
     }
 
-    alert("Calibration will now play a short test tone. Please ensure your volume is at a medium level and the microphone is near the speaker. Click OK to begin.");
-
-    await initAudioGraph();
-    const s = document.getElementById('status-badge');
     s.innerText = "Calibrating...";
     s.className = "status-badge info";
 
-    const osc = audioCtx.createOscillator();
-    osc.frequency.setValueAtTime(CONFIG.carrierFreq, audioCtx.currentTime);
-    osc.type = 'sine';
-    const toneGain = audioCtx.createGain();
-    toneGain.gain.setValueAtTime(0.5, audioCtx.currentTime); 
-    osc.connect(toneGain).connect(masterGain);
-    osc.start();
+    try {
+        await initAudioGraph();
 
-    await new Promise(r => setTimeout(r, 500)); 
-
-    const magnitudes = [];
-    const calibrationDuration = 1000; 
-    const startTime = performance.now();
-
-    const listen = () => {
-        if (performance.now() - startTime > calibrationDuration) {
-            osc.stop();
-            osc.disconnect();
-
-            if (magnitudes.length === 0) {
-                alert("Calibration failed: No signal detected.");
-                s.innerText = "Calibration Failed";
-                s.className = "status-badge error";
-                return;
-            }
-
-            const avgMagnitude = magnitudes.reduce((a, b) => a + b, 0) / magnitudes.length;
-            const targetMagnitude = 0.75; 
-            
-            if (avgMagnitude < 0.01) {
-                alert("Calibration failed: Signal too weak.");
-                s.innerText = "Calibration Failed";
-                s.className = "status-badge error";
-                calibrationScale = 1.0; 
-            } else {
-                calibrationScale = targetMagnitude / avgMagnitude;
-                alert(`Calibration Complete! Applied ${calibrationScale.toFixed(2)}x gain.`);
-                s.innerText = "Calibrated";
-                s.className = "status-badge success";
-            }
-            return;
+        // 1. Ensure Mic is Connected
+        // If not running, or if running but somehow micSource is missing
+        if (!micSource) {
+            const devId = document.getElementById('device-select').value;
+            // Get a temporary stream
+            tempStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { 
+                    deviceId: devId ? { exact: devId } : undefined,
+                    echoCancellation: false, 
+                    autoGainControl: false, 
+                    noiseSuppression: false
+                } 
+            });
+            micSource = audioCtx.createMediaStreamSource(tempStream);
+            micSource.connect(analyser);
         }
 
-        analyser.getFloatTimeDomainData(waveArray);
-        let energy = 0;
-        for(let s of waveArray) energy += s*s;
-        const mag = Math.sqrt(energy / waveArray.length);
-        if (mag > 0) magnitudes.push(mag);
+        // 2. Play Tone
+        const osc = audioCtx.createOscillator();
+        osc.frequency.setValueAtTime(CONFIG.carrierFreq, audioCtx.currentTime);
+        osc.type = 'sine';
         
-        requestAnimationFrame(listen);
-    };
-    
-    listen(); 
+        const toneGain = audioCtx.createGain();
+        toneGain.gain.setValueAtTime(0.5, audioCtx.currentTime); 
+        
+        osc.connect(toneGain).connect(masterGain);
+        osc.start();
+
+        // Wait for audio path to stabilize
+        await new Promise(r => setTimeout(r, 500)); 
+
+        // 3. Measure
+        const magnitudes = [];
+        const calibrationDuration = 1000; 
+        const startTime = performance.now();
+
+        const finish = () => {
+             osc.stop();
+             osc.disconnect();
+
+             // Cleanup temp mic if we opened it
+             if (tempStream) {
+                 if (micSource) micSource.disconnect();
+                 micSource = null;
+                 tempStream.getTracks().forEach(t => t.stop());
+             }
+
+             if (magnitudes.length === 0) {
+                 alert("Calibration Failed: No Audio Detected.");
+                 s.innerText = "Calib Failed";
+                 s.className = "status-badge error";
+             } else {
+                 const avg = magnitudes.reduce((a,b)=>a+b,0) / magnitudes.length;
+                 
+                 // Check against noise floor
+                 if (avg < 0.005) {
+                     alert("Signal too weak to calibrate.\nPlease increase volume or move mic closer to speaker.");
+                     s.innerText = "Weak Signal";
+                     s.className = "status-badge error";
+                 } else {
+                     const target = 0.75; // Target amplitude
+                     calibrationScale = target / avg;
+                     
+                     // Cap gain to reasonable limits (e.g. 0.1x to 50x)
+                     if (calibrationScale > 50) calibrationScale = 50;
+                     if (calibrationScale < 0.1) calibrationScale = 0.1;
+
+                     alert(`Calibration Complete!\n\nSignal Level: ${(avg*100).toFixed(1)}%\nApplied Gain: ${calibrationScale.toFixed(2)}x`);
+                     
+                     if (wasRunning) {
+                        s.innerText = "Receiving";
+                        s.className = "status-badge success";
+                     } else {
+                        s.innerText = "Calibrated";
+                        s.className = "status-badge success";
+                     }
+                 }
+             }
+        };
+
+        const listen = () => {
+            if (performance.now() - startTime > calibrationDuration) {
+                finish();
+                return;
+            }
+            analyser.getFloatTimeDomainData(waveArray);
+            
+            // Calculate RMS
+            let e = 0;
+            for(let x of waveArray) e += x*x;
+            const mag = Math.sqrt(e/waveArray.length);
+            
+            magnitudes.push(mag);
+            requestAnimationFrame(listen);
+        };
+        listen();
+
+    } catch(e) {
+        console.error(e);
+        alert("Calibration Error: " + e.message);
+        s.innerText = "Error";
+        s.className = "status-badge error";
+    }
 }
 
 function drawConstellation(points) {
