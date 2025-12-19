@@ -32,8 +32,10 @@ window.onload = () => {
     populateMics();
 
     // ! Bindings
-    document.getElementById('btn-start').onclick = startReceiver;
-    document.getElementById('btn-stop').onclick = stopReceiver;
+    document.getElementById('btn-toggle-scan').onclick = () => {
+        if (isRunning) stopReceiver();
+        else startReceiver();
+    };
     document.getElementById('btn-modem-send').onclick = transmitModemData;
     document.getElementById('modem-type').onchange = () => {
         drawConstellation([], true); // ! Redraw grid on change
@@ -54,11 +56,11 @@ window.onload = () => {
 };
 
 function populateMics() {
-    const startBtn = document.getElementById('btn-start');
+    const toggleBtn = document.getElementById('btn-toggle-scan');
     const sel = document.getElementById('device-select');
-    if (!sel || !startBtn) return;
+    if (!sel || !toggleBtn) return;
     
-    startBtn.disabled = true;
+    toggleBtn.disabled = true;
     sel.innerHTML = '<option>Detecting...</option>';
 
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
@@ -79,7 +81,7 @@ function populateMics() {
                     opt.text = d.label || `Mic ${i + 1}`;
                     sel.appendChild(opt);
                 });
-                startBtn.disabled = false;
+                toggleBtn.disabled = false;
             }
         }).catch(err => {
             console.error("An error occurred during mic detection:", err.name, err.message);
@@ -304,6 +306,21 @@ async function startReceiver() {
         const s = document.getElementById('status-badge');
         s.innerText = "Receiving";
         s.className = "status-badge success";
+        
+        const btn = document.getElementById('btn-toggle-scan');
+        if(btn) {
+            btn.innerText = "Stop Scan";
+            btn.classList.remove('primary');
+            btn.classList.add('action'); // Or a 'danger' class if available, but 'action' is dark/neutral or maybe define a red one?
+            // The user asked for "visual feedback". 
+            // The existing CSS has .action { background: #333; }. 
+            // Maybe keep it simple or add inline style for red if needed.
+            // Let's stick to 'action' class for now as it contrasts with 'primary'.
+            // Actually, let's make it distinct.
+            btn.style.background = '#d32f2f'; 
+            btn.style.borderColor = '#d32f2f';
+        }
+        
         loop();
 
     } catch(e) { 
@@ -320,6 +337,15 @@ function stopReceiver() {
     micSource = null;
     document.getElementById('status-badge').innerText = "Idle";
     document.getElementById('status-badge').className = "status-badge warn";
+    
+    const btn = document.getElementById('btn-toggle-scan');
+    if(btn) {
+        btn.innerText = "Start Scan";
+        btn.classList.add('primary');
+        btn.classList.remove('action');
+        btn.style.background = '';
+        btn.style.borderColor = '';
+    }
 }
 
 function loop() {
