@@ -31,7 +31,6 @@ window.onload = () => {
 
     populateMics();
 
-    // ! Bindings
     const toggleBtn = document.getElementById('btn-toggle-scan');
     if (toggleBtn) {
         toggleBtn.onclick = () => {
@@ -49,9 +48,7 @@ window.onload = () => {
 
     document.getElementById('modem-baud').onchange = (e) => {
         const newBaud = parseInt(e.target.value);
-        if (receiver) {
-            receiver.updateBaud(newBaud);
-        }
+        if (receiver) receiver.updateBaud(newBaud);
     };
     
     document.getElementById('btn-rx-clear').onclick = () => {
@@ -136,7 +133,6 @@ class CostasLoopReceiver {
         this.lpfQ = 0;
         this.lpfAlpha = 0.1; 
         
-        // Decoding State
         this.updateBaud(baud);
         this.symbolCounter = 0;
         this.isSyncing = false;
@@ -183,7 +179,6 @@ class CostasLoopReceiver {
             this.errorInt += error * this.beta; 
             this.phase += this.freq + (error * this.alpha) + this.errorInt;
 
-            // --- Symbol Sampling ---
             if (rms > CONFIG.squelch) {
                 if (!this.isSyncing) {
                     this.isSyncing = true;
@@ -199,6 +194,7 @@ class CostasLoopReceiver {
                 }
             } else {
                 this.isSyncing = false;
+                this.state = 'IDLE'; // Reset state on silence
             }
         }
         this.phase = this.phase % (2 * Math.PI);
@@ -206,37 +202,16 @@ class CostasLoopReceiver {
     }
 
     slice(I, Q, type) {
-        const gain = 2.5; // Gain applied in visualization to help slicing
+        const gain = 2.5; 
         const sI = I * gain;
         const sQ = Q * gain;
 
         if (type === 'BPSK') return [sI > 0 ? 1 : 0];
         if (type === 'QPSK') return [sI > 0 ? 1 : 0, sQ > 0 ? 1 : 0];
-        
         if (type === 'QAM16') {
-            const slice_line = (val) => {
-                if (val < -0.66) return [0,0];
-                if (val < 0) return [0,1];
-                if (val < 0.66) return [1,1];
-                return [1,0];
-            };
-            return [...slice_line(sI), ...slice_line(sQ)];
+            const sl = (v) => v < -0.66 ? [0,0] : v < 0 ? [0,1] : v < 0.66 ? [1,1] : [1,0];
+            return [...sl(sI), ...sl(sQ)];
         }
-        
-        if (type === 'QAM64') {
-            const slice_line = (val) => {
-                if (val < -0.85) return [0,0,0];
-                if (val < -0.57) return [0,0,1];
-                if (val < -0.28) return [0,1,1];
-                if (val < 0) return [0,1,0];
-                if (val < 0.28) return [1,1,0];
-                if (val < 0.57) return [1,1,1];
-                if (val < 0.85) return [1,0,1];
-                return [1,0,0];
-            };
-            return [...slice_line(sI), ...slice_line(sQ)];
-        }
-        
         return [sI > 0 ? 1 : 0]; 
     }
 
@@ -245,14 +220,15 @@ class CostasLoopReceiver {
 
         while (this.bitBuffer.length >= 1) {
             if (this.state === 'IDLE') {
-                if (this.bitBuffer.shift() === 0) {
+                if (this.bitBuffer.shift() === 0) { // START BIT
                     this.state = 'DATA';
                     this.byteBuffer = [];
                 }
             } else if (this.state === 'DATA') {
                 if (this.bitBuffer.length >= 8) {
                     const byteBits = this.bitBuffer.splice(0, 8);
-                    const charCode = parseInt(byteBits.join(''), 2);
+                    const charCode = parseInt(byteBits.join(''), 2); // Read as MSB-first
+                    
                     if (charCode >= 32 && charCode <= 126) {
                         this.message += String.fromCharCode(charCode);
                         document.getElementById('rx-text').innerText = this.message;
@@ -275,13 +251,18 @@ class ModemEngine {
 
     generateAudioBuffer(text, type, ctx) {
         let bits = [];
-        bits.push(...new Array(16).fill(1)); // Preamble
+        
+        // Robust Preamble (Alternating 1/0 helps sync clock and phase)
+        for(let p=0; p<32; p++) bits.push(p % 2);
 
         for (let i = 0; i < text.length; i++) {
             const charCode = text.charCodeAt(i);
-            bits.push(0); // START
-            for (let b = 7; b >= 0; b--) bits.push((charCode >> b) & 1);
-            bits.push(1); // STOP
+            bits.push(0); // START BIT
+            // Send MSB first to match receiver's parseInt join
+            for (let b = 7; b >= 0; b--) {
+                bits.push((charCode >> b) & 1);
+            }
+            bits.push(1); // STOP BIT
         }
 
         const idealPoints = getIdealPoints(type);
@@ -420,7 +401,6 @@ function drawScope(buffer) {
     const w = c.width, h = c.height;
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
     ctx.strokeStyle = THEME.accent; ctx.beginPath();
-    const step = w / buffer.length;
     for(let i=0; i<w; i+=2) {
         const v = buffer[Math.floor(i/w*buffer.length)];
         const y = (h/2) - (v*h/2*2);
