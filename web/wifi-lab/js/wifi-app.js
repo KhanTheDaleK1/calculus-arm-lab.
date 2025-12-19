@@ -721,6 +721,7 @@ window.addEventListener('resize', () => {
 });
 // --- CALIBRATION ---
 
+
 async function startCalibration() {
     if (isRunning) {
         alert("Please stop the receiver before calibrating.");
