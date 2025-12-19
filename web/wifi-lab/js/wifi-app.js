@@ -439,11 +439,11 @@ function drawScope(buffer) {
     ctx.lineWidth = 2;
     ctx.strokeStyle = THEME.accent;
     ctx.beginPath();
-    for(let i=0; i<w; i++) {
-        const idx = Math.floor((i/w) * buffer.length);
+    for(let x=0; x<w; x++) {
+        const idx = Math.floor((x/w) * buffer.length);
         const v = buffer[idx];
         const y = (h/2) - (v * h/2 * 0.9);
-        if(i===0) ctx.moveTo(i, y); else ctx.lineTo(i, y);
+        if(x===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
 }
