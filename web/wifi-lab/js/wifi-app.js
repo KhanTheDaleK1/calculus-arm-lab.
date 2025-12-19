@@ -44,40 +44,55 @@ window.onload = () => {
 };
 
 function populateMics() {
+    console.log("Attempting to populate microphones...");
     const startBtn = document.getElementById('btn-start');
     const sel = document.getElementById('device-select');
-    if (!sel || !startBtn) return;
+    if (!sel || !startBtn) {
+        console.error("UI elements for mic selection not found.");
+        return;
+    }
     
     startBtn.disabled = true;
     sel.innerHTML = '<option>Detecting...</option>';
 
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-        // We must call getUserMedia first to get permission, otherwise labels are blank.
+        console.log("Requesting user media for permission...");
         navigator.mediaDevices.getUserMedia({audio:true})
         .then(stream => {
-            // Got permission, now enumerate
+            console.log("Permission granted. Stream received.");
+            // IMPORTANT: Stop the dummy stream used for getting permissions.
+            stream.getTracks().forEach(track => track.stop());
+            
+            console.log("Enumerating devices...");
             return navigator.mediaDevices.enumerateDevices();
         })
         .then(devs => {
+            console.log(`Found ${devs.length} total devices.`);
             sel.innerHTML = '';
             const mics = devs.filter(d => d.kind === 'audioinput');
+            console.log(`Found ${mics.length} audio input devices.`);
+
             if (mics.length === 0) {
                 sel.innerHTML = '<option>No mics found</option>';
+                console.warn("No microphones found after enumeration.");
             } else {
                 mics.forEach((d, i) => {
                     const opt = document.createElement('option');
                     opt.value = d.deviceId;
                     opt.text = d.label || `Mic ${i + 1}`;
+                    console.log(`- Adding mic: ${opt.text} (ID: ${opt.value})`);
                     sel.appendChild(opt);
                 });
                 startBtn.disabled = false; // Enable start button
+                console.log("Start button enabled.");
             }
-            // IMPORTANT: Stop the dummy stream used for getting permissions.
-            stream.getTracks().forEach(track => track.stop());
         }).catch(err => {
-            console.error("Mic enumeration error:", err);
-            sel.innerHTML = '<option>Mic Permission Denied</option>';
+            console.error("An error occurred during mic detection:", err.name, err.message);
+            sel.innerHTML = `<option>Error: ${err.name}</option>`;
         });
+    } else {
+        console.error("navigator.mediaDevices or enumerateDevices is not supported.");
+        sel.innerHTML = '<option>Not Supported</option>';
     }
 }
 
@@ -238,18 +253,44 @@ async function initAudioGraph() {
 }
 
 async function startReceiver() {
-    if (isRunning) return;
+    if (isRunning) {
+        console.warn("startReceiver called while already running.");
+        return;
+    }
+    console.log("Starting receiver...");
     try {
         await initAudioGraph();
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: document.getElementById('device-select').value || undefined, echoCancellation: false, autoGainControl: false, noiseSuppression: false, latency: 0 }});
-        if (micSource) micSource.disconnect();
+        
+        const selectedDeviceId = document.getElementById('device-select').value;
+        console.log(`Attempting to start stream with deviceId: ${selectedDeviceId}`);
+
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: { 
+                deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined, 
+                echoCancellation: false, 
+                autoGainControl: false, 
+                noiseSuppression: false, 
+                latency: 0 
+            }
+        });
+        
+        console.log("Successfully created audio stream.");
+
+        if (micSource) try { micSource.disconnect(); } catch(e){}
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
+
         isRunning = true;
-        document.getElementById('status-badge').innerText = "Receiving";
-        document.getElementById('status-badge').className = "status-badge success";
+        const s = document.getElementById('status-badge');
+        s.innerText = "Receiving";
+        s.className = "status-badge success";
+        console.log("Receiver is now running.");
         loop();
-    } catch(e) { alert("Mic Error: " + e); }
+
+    } catch(e) { 
+        console.error("Failed to start receiver:", e.name, e.message);
+        alert("Mic Error: " + e.name + " - " + e.message); 
+    }
 }
 
 function stopReceiver() {
