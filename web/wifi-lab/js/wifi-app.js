@@ -85,7 +85,18 @@ function populateMics() {
             }
         }).catch(err => {
             console.error("An error occurred during mic detection:", err.name, err.message);
-            sel.innerHTML = `<option>Error: ${err.name}</option>`;
+            if (err.name === 'NotAllowedError') {
+                sel.innerHTML = '<option>Error: Permission Denied. Please allow microphone access.</option>';
+                alert("Microphone Access Denied: Please enable microphone permissions for this site in your browser settings to use the Wi-Fi Lab.");
+            } else if (err.name === 'NotFoundError') {
+                sel.innerHTML = '<option>Error: No input devices found.</option>';
+                alert("No Microphone Found: Please ensure a microphone is connected and enabled on your system.");
+            }
+             else {
+                sel.innerHTML = `<option>Error: ${err.name} - ${err.message}</option>`;
+                alert(`Microphone Error: ${err.name} - ${err.message}`);
+            }
+            toggleBtn.disabled = true; // Disable button if mic detection fails
         });
     } else {
         console.error("navigator.mediaDevices or enumerateDevices is not supported.");
