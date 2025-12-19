@@ -42,7 +42,10 @@ window.onload = () => {
         receiver.clear();
         document.getElementById('rx-text').innerText = "Cleared.";
     };
-    document.getElementById('btn-refresh-mics').onclick = populateMics;
+    document.getElementById('btn-connect-ti84').onclick = () => {
+        alert("TI-84 Connection feature coming soon!");
+        console.log("Connect TI-84 clicked");
+    };
 
 
     drawConstellation([], true); // Draw initial grid
