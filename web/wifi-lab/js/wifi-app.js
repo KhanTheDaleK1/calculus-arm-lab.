@@ -273,6 +273,28 @@ class ModemEngine {
                 const Q = (b[2] ? 2 : -2) + (b[3] ? 1 : -1);
                 symbols.push({ I: I / 3, Q: Q / 3, bits: b });
             }
+        } else if (type === 'QAM64') {
+            for (let i = 0; i < bits.length; i += 6) {
+                // Get 6 bits, pad with 0 if necessary
+                const b = [];
+                for(let k=0; k<6; k++) b.push(bits[i+k] || 0);
+
+                // Map 3 bits to 8 levels (-7 to 7)
+                // 4*b2 + 2*b1 + 1*b0 -> 0..7
+                // Map to: (val * 2) - 7  -> -7..7
+                
+                // I Axis (Bits 0,1,2)
+                const iVal = (b[0]*4) + (b[1]*2) + b[2];
+                const I_raw = (iVal * 2) - 7;
+                
+                // Q Axis (Bits 3,4,5)
+                const qVal = (b[3]*4) + (b[4]*2) + b[5];
+                const Q_raw = (qVal * 2) - 7;
+
+                // Normalize (Max amplitude is sqrt(7^2 + 7^2) ≈ 9.9)
+                // We'll divide by 7 to keep I/Q within approx -1..1 range for the buffer
+                symbols.push({ I: I_raw / 7, Q: Q_raw / 7, bits: b });
+            }
         }
 
         // Sync Header (Alternating Phase) to help visualizer "see" activity before data
