@@ -65,19 +65,30 @@ async function startEngine() {
     analyser.fftSize = CONFIG.fftSize;
 
     const devId = document.getElementById('device-select').value;
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: devId ? {exact: devId} : undefined } });
     
-    micSource = audioCtx.createMediaStreamSource(stream);
-    micSource.connect(analyser);
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Browser API not supported. Note: Mic requires HTTPS or localhost.");
+        }
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: devId ? {exact: devId} : undefined } });
+        
+        micSource = audioCtx.createMediaStreamSource(stream);
+        micSource.connect(analyser);
 
-    const len = analyser.frequencyBinCount;
-    dataArray = new Uint8Array(len);
-    timeArray = new Uint8Array(len);
+        const len = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(len);
+        timeArray = new Uint8Array(len);
 
-    isRunning = true;
-    document.getElementById('mic-status').innerText = "LIVE";
-    document.getElementById('mic-status').style.color = "#00ff00";
-    loop();
+        isRunning = true;
+        document.getElementById('mic-status').innerText = "LIVE";
+        document.getElementById('mic-status').style.color = "#00ff00";
+        loop();
+    } catch (err) {
+        console.error("Mic Error:", err);
+        alert("Microphone Error:\n" + err.message + "\n\n(Ensure you allowed permissions and are using HTTPS/localhost)");
+        stopEngine();
+    }
 }
 
 function stopEngine() {

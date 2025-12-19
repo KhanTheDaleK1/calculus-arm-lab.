@@ -93,7 +93,7 @@ select, input[type=number], input[type=text] {
     border: 1px solid #444;
     padding: 8px 10px;
     border-radius: 6px;
-    font-size: 0.95rem;
+    font-size: 1rem; /* Prevent iOS Zoom */
     min-width: 120px;
 }
 select:focus, input:focus { outline: 1px solid var(--accent); }

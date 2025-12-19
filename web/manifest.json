@@ -1,0 +1,20 @@
+{
+  "name": "Calculus & Robotics Labs",
+  "short_name": "CalcLabs",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#d05ce3",
+  "icons": [
+    {
+      "src": "/assets/mom.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/mom.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
