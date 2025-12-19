@@ -160,7 +160,8 @@ class Receiver {
                 // We want to sample in the MIDDLE of the symbol.
                 this.startTime = now;
                 this.lastSampleTime = now - (this.symbolDuration * 0.5); 
-                this.clear(); // Clear old garbage
+                this.bits = [];
+                this.text = "";
             }
             return []; // No bits yet
         }
@@ -397,13 +398,14 @@ function drawConstellation(symbols, isGhost = false) {
     if (!symbols || symbols.length === 0) return;
     
     // Set color based on whether it's a ghost or a sampled point
-    ctx.fillStyle = isGhost ? 'rgba(255, 255, 255, 0.2)' : THEME.accent;
+    // Ghost is now a nice translucent purple
+    ctx.fillStyle = isGhost ? 'rgba(208, 92, 227, 0.6)' : THEME.accent;
     
     symbols.forEach(s => {
         const px = (w/2) + (s.i_raw * (w/2) * scale);
         const py = (h/2) - (s.q_raw * (h/2) * scale);
         ctx.beginPath();
-        ctx.arc(px, py, 3, 0, Math.PI*2);
+        ctx.arc(px, py, isGhost ? 4 : 5, 0, Math.PI*2);
         ctx.fill();
     });
 }
