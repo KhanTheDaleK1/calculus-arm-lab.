@@ -194,7 +194,7 @@ class CostasLoopReceiver {
                 }
             } else {
                 this.isSyncing = false;
-                this.state = 'IDLE'; // Reset state on silence
+                this.state = 'IDLE'; 
             }
         }
         this.phase = this.phase % (2 * Math.PI);
@@ -220,14 +220,14 @@ class CostasLoopReceiver {
 
         while (this.bitBuffer.length >= 1) {
             if (this.state === 'IDLE') {
-                if (this.bitBuffer.shift() === 0) { // START BIT
+                if (this.bitBuffer.shift() === 0) { 
                     this.state = 'DATA';
                     this.byteBuffer = [];
                 }
             } else if (this.state === 'DATA') {
                 if (this.bitBuffer.length >= 8) {
                     const byteBits = this.bitBuffer.splice(0, 8);
-                    const charCode = parseInt(byteBits.join(''), 2); // Read as MSB-first
+                    const charCode = parseInt(byteBits.join(''), 2); 
                     
                     if (charCode >= 32 && charCode <= 126) {
                         this.message += String.fromCharCode(charCode);
@@ -251,18 +251,15 @@ class ModemEngine {
 
     generateAudioBuffer(text, type, ctx) {
         let bits = [];
-        
-        // Robust Preamble (Alternating 1/0 helps sync clock and phase)
         for(let p=0; p<32; p++) bits.push(p % 2);
 
         for (let i = 0; i < text.length; i++) {
             const charCode = text.charCodeAt(i);
-            bits.push(0); // START BIT
-            // Send MSB first to match receiver's parseInt join
+            bits.push(0); 
             for (let b = 7; b >= 0; b--) {
                 bits.push((charCode >> b) & 1);
             }
-            bits.push(1); // STOP BIT
+            bits.push(1); 
         }
 
         const idealPoints = getIdealPoints(type);
@@ -368,6 +365,7 @@ async function startCalibration() {
 
 function drawConstellation(points, clear = false) {
     const c = document.getElementById('constellation-canvas');
+    if (!c) return;
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
     ctx.fillStyle = clear ? '#0b0b0b' : 'rgba(0,0,0,0.2)'; 
@@ -378,9 +376,11 @@ function drawConstellation(points, clear = false) {
     const type = document.getElementById('modem-type').value;
     const ideal = getIdealPoints(type);
     ctx.fillStyle = '#444';
-    ideal.forEach(p => {
-        ctx.beginPath(); ctx.arc((p.I*0.8+1)*w/2, (-p.Q*0.8+1)*h/2, 3, 0, 7); ctx.fill();
-    });
+    for (let p of ideal) {
+        ctx.beginPath(); 
+        ctx.arc((p.I*0.8+1)*w/2, (-p.Q*0.8+1)*h/2, 3, 0, 7); 
+        ctx.fill();
+    }
 
     if (!points) return;
     ctx.fillStyle = THEME.accent;
@@ -389,18 +389,23 @@ function drawConstellation(points, clear = false) {
     for (let p of points) {
         const x = (p.i*2.5*0.8+1)*w/2;
         const y = (-p.q*2.5*0.8+1)*h/2;
-        if (x < 0 || x > w || y < 0 || y > h) continue;
-        ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill();
+        if (x >= 0 && x <= w && y >= 0 && y <= h) {
+            ctx.beginPath(); 
+            ctx.arc(x, y, 4, 0, 7); 
+            ctx.fill();
+        }
     }
     ctx.shadowBlur = 0;
 }
 
 function drawScope(buffer) {
     const c = document.getElementById('scope-canvas');
+    if (!c) return;
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
     ctx.strokeStyle = THEME.accent; ctx.beginPath();
+    const step = w / buffer.length;
     for(let i=0; i<w; i+=2) {
         const v = buffer[Math.floor(i/w*buffer.length)];
         const y = (h/2) - (v*h/2*2);
