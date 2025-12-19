@@ -44,6 +44,12 @@ window.onload = () => {
     document.getElementById('btn-start').onclick = startReceiver;
     document.getElementById('btn-stop').onclick = stopReceiver;
     document.getElementById('btn-modem-send').onclick = transmitModemData;
+    document.getElementById('modem-type').onchange = () => {
+        drawConstellation();
+    };
+
+    // Draw initial grid
+    drawConstellation();
 };
 
 function initCanvas(id) {
