@@ -192,7 +192,7 @@ function drawConstellation() {
 
     // --- DRAW IDEAL GRID STATES ---
     const type = document.getElementById('modem-type').value;
-    ctx.fillStyle = '#444'; // Dim gray for ideal states
+    ctx.fillStyle = '#666'; // Brighter gray for visibility
     
     let idealPoints = [];
 
@@ -210,14 +210,15 @@ function drawConstellation() {
     }
 
     // Plot Ideal Points
-    const scale = 0.8; // Match the signal scaling
+    const scale = 0.85; // Use 85% of the half-width
     for(let p of idealPoints) {
-        const px = (w/2) + (p.I * w * scale); // Removed extra 0.5 factor from signal logic to match
-        const py = (h/2) - (p.Q * h * scale);
+        // I/Q are -1 to 1. Map to canvas centered at w/2, h/2.
+        const px = (w/2) + (p.I * (w/2) * scale); 
+        const py = (h/2) - (p.Q * (h/2) * scale);
         
         ctx.beginPath();
         // Draw small cross or hollow circle
-        ctx.arc(px, py, 2, 0, Math.PI*2);
+        ctx.arc(px, py, 3, 0, Math.PI*2);
         ctx.fill();
     }
 
@@ -260,12 +261,18 @@ function drawConstellation() {
         // We multiply by 4 to fill the canvas. 
         // NOTE: In generation, I/Q are ~1.0. 
         // Here, I = val * cos. If val is amplitude 1, I max is 1.
+        // Actually, if val is 1.0, and cos is 1.0, I is 1.0.
+        // So I/Q range is -1 to 1.
         
-        const plotX = (w/2) + (I * w * 0.8);
-        const plotY = (h/2) - (Q * h * 0.8);
+        const plotX = (w/2) + (I * (w/2) * scale * 2.0); // Multiply by 2.0 to compensate for the cos/sin averaging effect? 
+        // Wait, if I = val * cos(wt), the RMS is lower, but peak is 1.
+        // Let's stick to the same scale logic as the grid:
+        
+        const px = (w/2) + (I * (w/2) * scale * 2); // *2 because raw I/Q demod often yields 0.5 amplitude
+        const py = (h/2) - (Q * (h/2) * scale * 2);
 
         ctx.beginPath();
-        ctx.arc(plotX, plotY, 2, 0, Math.PI * 2);
+        ctx.arc(px, py, 2, 0, Math.PI * 2);
         ctx.fill();
     }
 }
