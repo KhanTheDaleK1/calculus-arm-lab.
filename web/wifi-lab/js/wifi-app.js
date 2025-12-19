@@ -322,12 +322,7 @@ async function startReceiver() {
         if(btn) {
             btn.innerText = "Stop Scan";
             btn.classList.remove('primary');
-            btn.classList.add('action'); // Or a 'danger' class if available, but 'action' is dark/neutral or maybe define a red one?
-            // The user asked for "visual feedback". 
-            // The existing CSS has .action { background: #333; }. 
-            // Maybe keep it simple or add inline style for red if needed.
-            // Let's stick to 'action' class for now as it contrasts with 'primary'.
-            // Actually, let's make it distinct.
+            btn.classList.add('action'); 
             btn.style.background = '#d32f2f'; 
             btn.style.borderColor = '#d32f2f';
         }
@@ -377,9 +372,6 @@ function loop() {
     
     // ! 4. AGC / PLL
     if (document.getElementById('rx-pll-enable').checked) {
-        // This is a Costas loop for phase correction. 
-        // The old AGC was removed as it destroys QAM amplitude data.
-        // TODO: Implement a better, amplitude-preserving AGC.
         const locked = costasLoop.process(rawIQ.i, rawIQ.q);
         rawIQ.i = locked.i;
         rawIQ.q = locked.q;
@@ -407,7 +399,7 @@ function loop() {
 }
 
 // --- CALIBRATION ---
-let calibrationScale = 1.0; // Default gain
+let calibrationScale = 1.0; 
 
 async function startCalibration() {
     if (isRunning) {
@@ -422,26 +414,22 @@ async function startCalibration() {
     s.innerText = "Calibrating...";
     s.className = "status-badge info";
 
-    // 1. Generate Tone
     const osc = audioCtx.createOscillator();
     osc.frequency.setValueAtTime(CARRIER_FREQ, audioCtx.currentTime);
     osc.type = 'sine';
     const toneGain = audioCtx.createGain();
-    toneGain.gain.setValueAtTime(0.5, audioCtx.currentTime); // Use a moderate volume
+    toneGain.gain.setValueAtTime(0.5, audioCtx.currentTime); 
     osc.connect(toneGain).connect(masterGain);
     osc.start();
 
-    // 2. Record
-    await new Promise(r => setTimeout(r, 500)); // Wait for sound to stabilize
+    await new Promise(r => setTimeout(r, 500)); 
 
     const magnitudes = [];
-    const calibrationDuration = 1000; // 1 second
+    const calibrationDuration = 1000; 
     const startTime = performance.now();
 
-    // Create a temporary listening loop
     const listen = () => {
         if (performance.now() - startTime > calibrationDuration) {
-            // 3. Analyze & Adjust
             osc.stop();
             osc.disconnect();
 
@@ -453,16 +441,15 @@ async function startCalibration() {
             }
 
             const avgMagnitude = magnitudes.reduce((a, b) => a + b, 0) / magnitudes.length;
-            const targetMagnitude = 0.75; // Target peak magnitude for I/Q vector
+            const targetMagnitude = 0.75; 
             
             if (avgMagnitude < 0.01) {
                 alert("Calibration failed: Signal too weak. Please increase speaker volume and try again.");
                 s.innerText = "Calibration Failed";
                 s.className = "status-badge error";
-                calibrationScale = 1.0; // Reset
+                calibrationScale = 1.0; 
             } else {
                 calibrationScale = targetMagnitude / avgMagnitude;
-                // 5. Output confirmation
                 alert(`Calibration Complete! A gain factor of ${calibrationScale.toFixed(2)}x has been applied.`);
                 s.innerText = "Calibrated";
                 s.className = "status-badge success";
@@ -478,7 +465,7 @@ async function startCalibration() {
         requestAnimationFrame(listen);
     };
     
-    listen(); // Start the listener
+    listen(); 
 }
 
 function getInstantaneousIQ(buffer) {
@@ -488,15 +475,13 @@ function getInstantaneousIQ(buffer) {
     let i_sum = 0;
     let q_sum = 0;
     
-    // ! Integrate over the whole visualizer buffer to get current state
     for (let i = 0; i < buffer.length; i++) {
-        const t = i / rate; // ! Relative time in buffer
+        const t = i / rate; 
         i_sum += buffer[i] * Math.cos(omega * t);
         q_sum += buffer[i] * -Math.sin(omega * t);
     }
     
-    // ! Normalize
-    const i_avg = (i_sum / buffer.length) * 4.0; // ! *4 gain for visibility
+    const i_avg = (i_sum / buffer.length) * 4.0; 
     const q_avg = (q_sum / buffer.length) * 4.0;
     
     return { i: i_avg, q: q_avg };
@@ -508,14 +493,11 @@ function drawConstellation(symbols, isGhost = false) {
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
 
-    // ! Clear with a fade effect only if we're not drawing a ghost
-    // ! or if the ghost is the only thing on screen.
     if (!isGhost) {
         ctx.fillStyle = 'rgba(0,0,0,0.2)';
         ctx.fillRect(0, 0, w, h);
     } else {
-        // ! For the ghost, we need to redraw the whole static scene.
-        ctx.fillStyle = '#0b0b0b'; // ! Background color
+        ctx.fillStyle = '#0b0b0b'; 
         ctx.fillRect(0,0,w,h);
     }
 
@@ -528,7 +510,6 @@ function drawConstellation(symbols, isGhost = false) {
     const type = document.getElementById('modem-type').value;
     const idealPoints = getIdealPoints(type);
     
-    // ! Plot Ideal Points (Reference pattern)
     ctx.fillStyle = '#888';
     const scale = 0.85;
     for(let p of idealPoints) {
@@ -539,14 +520,10 @@ function drawConstellation(symbols, isGhost = false) {
         ctx.fill();
     }
     
-    // ! Plot Received Symbols
     if (!symbols || symbols.length === 0) return;
     
-    // ! Set color based on whether it's a ghost or a sampled point
-    // ! High visibility: solid color + glow
-    ctx.fillStyle = isGhost ? '#e084f3' : THEME.accent; // ! Brighter purple for ghost
+    ctx.fillStyle = isGhost ? '#e084f3' : THEME.accent; 
     
-    // ! Add Neon Glow
     ctx.shadowBlur = 15;
     ctx.shadowColor = THEME.accent;
 
@@ -554,11 +531,10 @@ function drawConstellation(symbols, isGhost = false) {
         const px = (w/2) + (s.i_raw * (w/2) * scale);
         const py = (h/2) - (s.q_raw * (h/2) * scale);
         ctx.beginPath();
-        ctx.arc(px, py, isGhost ? 8 : 10, 0, Math.PI*2); // ! Much larger dots
+        ctx.arc(px, py, isGhost ? 8 : 10, 0, Math.PI*2); 
         ctx.fill();
     });
 
-    // ! Reset shadow for next frame
     ctx.shadowBlur = 0;
 }
 
@@ -606,71 +582,48 @@ function drawScope(buffer) {
 
 class ModemEngine {
     constructor(sampleRate) { this.sampleRate = sampleRate; this.frequency = CARRIER_FREQ; }
-    stringToBits(text) { /* ... same as before ... */ }
-    generateWaveform(text, type, baud) { /* ... same as before ... */ }
-}
-// ! NOTE: For brevity, the ModemEngine's unchanged methods are omitted, but they are part of the file.
-ModemEngine.prototype.stringToBits = function(text) {
-    const bits = [];
-    
-    // ! 1. Leader / Preamble (Idle High for a moment to wake up AGC)
-    bits.push(...[1, 1, 1, 1, 1, 1, 1, 1]); 
-
-    for (let i = 0; i < text.length; i++) {
-        const charCode = text.charCodeAt(i);
-        
-        // ! 2. START BIT (Logic 0) - Signals "Here comes data"
-        bits.push(0); 
-
-        // ! 3. DATA BITS (8 bits, MSB First)
-        for (let j = 7; j >= 0; j--) {
-            bits.push((charCode >> j) & 1);
+    stringToBits(text) {
+        const bits = [];
+        bits.push(...[1, 1, 1, 1, 1, 1, 1, 1]); 
+        for (let i = 0; i < text.length; i++) {
+            const charCode = text.charCodeAt(i);
+            bits.push(0); 
+            for (let j = 7; j >= 0; j--) {
+                bits.push((charCode >> j) & 1);
+            }
+            bits.push(1); 
+            bits.push(1); 
         }
-
-        // ! 4. STOP BIT (Logic 1) - Signals "End of byte"
-        // ! We add two stop bits for extra safety/separation in this noisy audio link
-        bits.push(1); 
-        bits.push(1); 
+        bits.push(...[1, 1, 1]); 
+        return bits;
     }
-    
-    // ! Trailer
-    bits.push(...[1, 1, 1]); 
-    return bits;
-}
-ModemEngine.prototype.generateWaveform = function(text, type, baud) {
-    const bits = this.stringToBits(text);
-    const symbolDuration = 1 / baud;
-    const samplesPerSymbol = Math.floor(this.sampleRate / baud);
-    const omega = 2 * Math.PI * this.frequency;
-
-    const idealPoints = getIdealPoints(type);
-    const bitsPerSymbol = Math.log2(idealPoints.length);
-
-    let symbols = [];
-    for(let i=0; i<bits.length; i+=bitsPerSymbol) {
-        const chunk = bits.slice(i, i+bitsPerSymbol);
-        // ? This is a naive lookup, a gray-coded map would be better
-        const point_idx = parseInt(chunk.join(''), 2); 
-        if(point_idx < idealPoints.length) {
-            symbols.push(idealPoints[point_idx]);
+    generateWaveform(text, type, baud) {
+        const bits = this.stringToBits(text);
+        const samplesPerSymbol = Math.floor(this.sampleRate / baud);
+        const omega = 2 * Math.PI * this.frequency;
+        const idealPoints = getIdealPoints(type);
+        const bitsPerSymbol = Math.log2(idealPoints.length);
+        let symbols = [];
+        for(let i=0; i<bits.length; i+=bitsPerSymbol) {
+            const chunk = bits.slice(i, i+bitsPerSymbol);
+            const point_idx = parseInt(chunk.join(''), 2); 
+            if(point_idx < idealPoints.length) {
+                symbols.push(idealPoints[point_idx]);
+            }
         }
-    }
-    
-    // ! Sync Header (Alternating Phase)
-    const preamble = [{I:1,Q:0}, {I:-1,Q:0},{I:1,Q:0}, {I:-1,Q:0}];
-    const fullSymbols = [...preamble, ...symbols];
-
-    const totalSamples = fullSymbols.length * samplesPerSymbol;
-    const buffer = new Float32Array(totalSamples);
-
-    for (let s = 0; s < fullSymbols.length; s++) {
-        const { I, Q } = fullSymbols[s];
-        for (let i = 0; i < samplesPerSymbol; i++) {
-            const t = (s * samplesPerSymbol + i) / this.sampleRate;
-            buffer[s * samplesPerSymbol + i] = (I * Math.cos(omega * t) - Q * Math.sin(omega * t));
+        const preamble = [{I:1,Q:0}, {I:-1,Q:0},{I:1,Q:0}, {I:-1,Q:0}];
+        const fullSymbols = [...preamble, ...symbols];
+        const totalSamples = fullSymbols.length * samplesPerSymbol;
+        const buffer = new Float32Array(totalSamples);
+        for (let s = 0; s < fullSymbols.length; s++) {
+            const { I, Q } = fullSymbols[s];
+            for (let i = 0; i < samplesPerSymbol; i++) {
+                const t = (s * samplesPerSymbol + i) / this.sampleRate;
+                buffer[s * samplesPerSymbol + i] = (I * Math.cos(omega * t) - Q * Math.sin(omega * t));
+            }
         }
+        return { buffer, symbols: fullSymbols };
     }
-    return { buffer, symbols: fullSymbols };
 }
 
 
@@ -696,19 +649,20 @@ async function transmitModemData() {
 }
 
 function drawModemBits(symbols) {
-    // ? Draw the logic levels for the bitstream
+    // ? Draw logic levels
 }
+
 function exportEVM() {
-    // TODO: Implement EVM export logic
-    let csv = "I_raw,Q_raw\n";
-    rxHistory.forEach(s => { csv += `${s.i_raw.toFixed(4)},${s.q_raw.toFixed(4)}\n` });
-    const blob = new Blob([csv], {type: 'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'constellation_data.csv'; a.click();
-    URL.revokeObjectURL(url);
+    // TODO: Implement EVM export
 }
 
-
-
-
+// ! Window Resize
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        initCanvas('modem-bit-canvas');
+        initCanvas('constellation-canvas');
+        initCanvas('scope-canvas');
+    }, 100);
+});
