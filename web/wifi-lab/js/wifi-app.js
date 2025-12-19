@@ -421,7 +421,7 @@ class ModemEngine {
                 sampleIdx++;
             }
         }
-        return buffer;
+        return { buffer, bits };
     }
 }
 
@@ -538,7 +538,7 @@ async function startCalibration() {
 
     // Play modulated sync sequence for calibration
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, 20);
-    const buffer = engine.generateAudioBuffer("CALIBRATE", "QPSK", audioCtx);
+    const { buffer } = engine.generateAudioBuffer("CALIBRATE", "QPSK", audioCtx);
     const source = audioCtx.createBufferSource();
     source.buffer = buffer;
     source.connect(masterGain);
@@ -616,55 +616,63 @@ function drawScope(buffer) {
 }
 
 async function transmitModemData() {
-
     const text = document.getElementById('modem-input').value || "HI";
-
     const type = document.getElementById('modem-type').value;
-
     const baud = parseInt(document.getElementById('modem-baud').value);
-
     const sendBtn = document.getElementById('btn-modem-send');
 
-
-
     await initAudioGraph();
-
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
-
-    const buffer = engine.generateAudioBuffer(text, type, audioCtx);
-
+    const { buffer, bits } = engine.generateAudioBuffer(text, type, audioCtx);
     
+    // Update bitstream display
+    const bitstreamEl = document.getElementById('modem-bitstream');
+    if (bitstreamEl) bitstreamEl.innerText = bits.join('');
+    drawBinaryStream(bits);
 
     if (modemBufferSource) try { modemBufferSource.stop(); } catch(e){}
-
     modemBufferSource = audioCtx.createBufferSource();
-
     modemBufferSource.buffer = buffer;
-
     modemBufferSource.connect(masterGain);
-
     if(analyser) modemBufferSource.connect(analyser);
-
     
-
     if (sendBtn) {
-
         sendBtn.innerText = "SENDING...";
-
         sendBtn.disabled = true;
-
         modemBufferSource.onended = () => {
-
             sendBtn.innerText = "SEND";
-
             sendBtn.disabled = false;
-
         };
-
     }
-
     modemBufferSource.start();
+}
 
+function drawBinaryStream(bits) {
+    const c = document.getElementById('modem-bit-canvas');
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    const w = c.width, h = c.height;
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0,0,w,h);
+    
+    if (bits.length === 0) return;
+    
+    ctx.strokeStyle = THEME.accent;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    const step = w / bits.length;
+    let x = 0;
+    
+    ctx.moveTo(0, bits[0] === 1 ? 10 : h - 10);
+    
+    for (let i = 0; i < bits.length; i++) {
+        const y = bits[i] === 1 ? 10 : h - 10;
+        ctx.lineTo(x, y);
+        x += step;
+        ctx.lineTo(x, y);
+    }
+    ctx.stroke();
 }
 
 
