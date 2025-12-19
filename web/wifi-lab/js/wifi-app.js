@@ -8,15 +8,15 @@ let masterGain;
 let isRunning = false;
 let waveArray;
 
-// RX/TX STATE
-let modemEngine;
-let modemBufferSource = null;
-let costasLoop, agc, receiver;
-
 function initCanvas(id) {
     const c = document.getElementById(id);
     if(c) { c.width = c.clientWidth; c.height = c.clientHeight; }
 }
+
+// RX/TX STATE
+let modemEngine;
+let modemBufferSource = null;
+let costasLoop, agc, receiver;
 
 window.onload = () => {
     initCanvas('modem-bit-canvas');
