@@ -846,6 +846,14 @@ async function transmitModemData() {
     if (analyser) modemBufferSource.connect(analyser);
     
     modemBufferSource.start();
+
+    // Ensure loop is running for visualizations
+    if (!isRunning) {
+        isRunning = true;
+        document.getElementById('mic-status').innerText = "Transmitting";
+        document.getElementById('mic-status').className = "status-badge success";
+        loop();
+    }
 }
 
 function drawModemBits(symbols) {
