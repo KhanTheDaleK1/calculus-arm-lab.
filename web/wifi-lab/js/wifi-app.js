@@ -29,11 +29,18 @@ window.onload = () => {
     initCanvas('constellation-canvas');
     initCanvas('scope-canvas');
 
+    // Security Check: getUserMedia requires HTTPS or localhost
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        const msg = "⚠️ SECURITY ERROR: Microphone access is BLOCKED by your browser because this site is not using HTTPS. Please use an HTTPS connection or run on localhost.";
+        console.error(msg);
+        document.getElementById('rx-text').innerHTML = `<span style="color:#ff5555">${msg}</span>`;
+    }
+
     populateMics();
 
     const toggleBtn = document.getElementById('btn-toggle-scan');
     if (toggleBtn) {
-        toggleBtn.disabled = false; // Ensure button is clickable to trigger permission
+        toggleBtn.disabled = false; 
         toggleBtn.onclick = () => {
             if (isRunning) stopReceiver();
             else startReceiver();
@@ -77,15 +84,16 @@ function populateMics() {
     navigator.mediaDevices.enumerateDevices()
     .then(devs => {
         const mics = devs.filter(d => d.kind === 'audioinput');
+        sel.innerHTML = '';
         if (mics.length === 0) {
-            sel.innerHTML = '<option>No mics found</option>';
+            const opt = document.createElement('option');
+            opt.text = "No Mics Found (Check Permissions)";
+            sel.appendChild(opt);
         } else {
-            sel.innerHTML = '';
             mics.forEach((d, i) => {
                 const opt = document.createElement('option');
                 opt.value = d.deviceId;
-                // Labels are often empty until permission is granted
-                opt.text = d.label || `Microphone ${i + 1} (Click Start Scan)`;
+                opt.text = d.label || `Microphone ${i + 1} (Grant Permission)`;
                 sel.appendChild(opt);
             });
         }
@@ -96,7 +104,7 @@ function populateMics() {
 }
 
 // ==========================================
-// ! DSPCLASSES
+// ! DSP CLASSES
 // ==========================================
 
 function getIdealPoints(type) {
@@ -300,12 +308,14 @@ async function startReceiver() {
         await initAudioGraph();
         
         const sel = document.getElementById('device-select');
-        const selectedDeviceId = sel ? sel.value : undefined;
+        let constraints = { audio: true };
         
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true
-        });
+        // If we have a real looking device ID, use it
+        if (sel && sel.value && sel.value.length > 5) {
+            constraints.audio = { deviceId: { exact: sel.value } };
+        }
         
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
 
@@ -322,15 +332,16 @@ async function startReceiver() {
         populateMics(); // Refresh names now that we have permission
     } catch(e) { 
         console.error("Mic Error:", e);
-        alert("Microphone Error: " + e.message + "\n\nPlease ensure you have allowed microphone access in your browser settings."); 
-    } 
+        const errorArea = document.getElementById('rx-text');
+        if (errorArea) errorArea.innerHTML = `<span style="color:#ff5555">Microphone Error: ${e.message}</span><br>Ensure you are using HTTPS and have granted permission.`;
+        alert("Microphone Error: " + e.message); 
+    }
 }
 
 function stopReceiver() {
     isRunning = false;
     if(micSource) {
         micSource.disconnect();
-        // Stop the tracks to release the hardware
         const stream = micSource.mediaStream;
         if (stream) stream.getTracks().forEach(t => t.stop());
     }
