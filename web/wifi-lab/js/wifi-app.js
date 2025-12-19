@@ -82,6 +82,15 @@ window.onload = () => {
     const exportConstBtn = document.getElementById('btn-export-evm');
     if (exportConstBtn) exportConstBtn.onclick = exportConstellation;
 
+    const gainSlider = document.getElementById('rx-gain');
+    const gainVal = document.getElementById('rx-gain-val');
+    if (gainSlider) {
+        gainSlider.oninput = (e) => {
+            userGain = parseFloat(e.target.value) / 100.0;
+            if (gainVal) gainVal.innerText = userGain.toFixed(1) + 'x';
+        };
+    }
+
     // Scope Controls
     const pauseBtn = document.getElementById('btn-scope-pause');
     const historyControls = document.getElementById('scope-history-controls');
@@ -213,7 +222,7 @@ class CostasLoopReceiver {
                 const rms = Math.sqrt(energySum / inputBuffer.length);
                 
                 for (let i = 0; i < inputBuffer.length; i++) {
-                    const sample = inputBuffer[i] * calibrationScale; // Apply calibration
+                    const sample = inputBuffer[i] * calibrationScale * userGain; // Apply calibration and user gain
                     const loI = Math.cos(this.phase);
                     const loQ = -Math.sin(this.phase);
                     let rawI = sample * loI;
@@ -476,6 +485,26 @@ function loop() {
     requestAnimationFrame(loop);
     analyser.getFloatTimeDomainData(waveArray);
     
+    // Peak Detection for Clipping
+    let maxAbs = 0;
+    for(let i=0; i<waveArray.length; i++) {
+        const abs = Math.abs(waveArray[i]);
+        if(abs > maxAbs) maxAbs = abs;
+    }
+    const peakPercent = maxAbs * 100;
+    const peakEl = document.getElementById('rx-peak');
+    if (peakEl) {
+        peakEl.innerText = Math.round(peakPercent) + '%';
+        if (peakPercent > 95) {
+            peakEl.style.color = '#ff5555'; // Clipping!
+            peakEl.innerText += " CLIP";
+        } else if (peakPercent > 70) {
+            peakEl.style.color = '#ffb86c'; // Warning
+        } else {
+            peakEl.style.color = '#50fa7b'; // Good
+        }
+    }
+
     // Record history
     scopeHistory.push(new Float32Array(waveArray));
     if (scopeHistory.length > MAX_SCOPE_HISTORY) scopeHistory.shift();
