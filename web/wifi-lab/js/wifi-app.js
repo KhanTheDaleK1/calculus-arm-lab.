@@ -513,23 +513,34 @@ function loop() {
     requestAnimationFrame(loop);
     analyser.getFloatTimeDomainData(waveArray);
     
-    // Peak Detection for Clipping
-    let maxAbs = 0;
+    // Peak Detection
+    let maxRaw = 0;
     for(let i=0; i<waveArray.length; i++) {
         const abs = Math.abs(waveArray[i]);
-        if(abs > maxAbs) maxAbs = abs;
+        if(abs > maxRaw) maxRaw = abs;
     }
-    const peakPercent = maxAbs * 100;
+
+    const scaledPeak = maxRaw * userGain;
+    const peakPercent = scaledPeak * 100;
     const peakEl = document.getElementById('rx-peak');
+    
     if (peakEl) {
         peakEl.innerText = Math.round(peakPercent) + '%';
-        if (peakPercent > 95) {
-            peakEl.style.color = '#ff5555'; // Clipping!
-            peakEl.innerText += " CLIP";
-        } else if (peakPercent > 70) {
-            peakEl.style.color = '#ffb86c'; // Warning
+        
+        // 1. Check for Hardware Clipping (Mic is too hot in System Settings)
+        if (maxRaw > 0.98) {
+            peakEl.style.color = '#ff5555';
+            peakEl.innerText = "HW CLIP! (Turn down System Mic)";
+        } 
+        // 2. Check for Software Clipping (Gain slider is too high)
+        else if (peakPercent > 95) {
+            peakEl.style.color = '#ff5555';
+            peakEl.innerText += " (Gain too high)";
+        } 
+        else if (peakPercent > 70) {
+            peakEl.style.color = '#ffb86c';
         } else {
-            peakEl.style.color = '#50fa7b'; // Good
+            peakEl.style.color = '#50fa7b';
         }
     }
 
