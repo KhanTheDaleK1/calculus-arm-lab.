@@ -27,7 +27,7 @@
         .app-container {
             display: flex;
             flex-direction: column;
-            height: 100vh;
+            min-height: 100vh;
             max-width: 100vw;
         }
 
@@ -67,7 +67,7 @@
             padding: 15px;
             flex-grow: 1;
             box-sizing: border-box;
-            overflow: hidden;
+            /* overflow: hidden; Removed to allow scrolling */
         }
         
         .card { 
@@ -288,7 +288,12 @@
         </div>
     </div>
 
-    <footer style="margin-top:30px; border-top:1px solid #333; padding:20px 0; text-align:center; color:#666; font-size:0.8rem;">
+    <div style="margin: 40px auto 20px auto; text-align:center; opacity:0.6; font-size:0.8rem; padding: 0 20px;">
+        <div style="margin-bottom:5px;">[Joke of the Session 🐨]</div>
+        <div id="mic-joke-text" style="font-style: italic;">Loading...</div>
+    </div>
+
+    <footer style="border-top:1px solid #333; padding:30px 0; text-align:center; color:#666; font-size:0.8rem; background: #141414;">
         <div style="margin-bottom:10px;">
             &copy; 2025 <strong>Evan Beechem</strong>. All rights reserved. <br>
             <span style="opacity:0.7;">Open Source Project</span>
@@ -296,10 +301,6 @@
         <div style="margin-bottom:15px;">
             <a href="#" id="btn-credits" style="color:#888; text-decoration:none; margin:0 10px; border-bottom:1px dotted #555;">Credits</a>
             <a href="#" id="btn-eula" style="color:#888; text-decoration:none; margin:0 10px; border-bottom:1px dotted #555;">EULA & License</a>
-        </div>
-        <div style="opacity:0.5; font-size:0.75rem;">
-            <div>[Joke of the Session 🐨]</div>
-            <div id="mic-joke-text">Loading...</div>
         </div>
     </footer>
 
