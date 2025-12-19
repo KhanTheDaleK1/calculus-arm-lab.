@@ -209,29 +209,113 @@ class CostasLoopReceiver {
         return [sI > 0 ? 1 : 0]; 
     }
 
-    processBits(newBits) {
-        this.bitBuffer.push(...newBits);
-        while (this.bitBuffer.length >= 1) {
-            if (this.state === 'IDLE') {
-                if (this.bitBuffer.shift() === 0) { 
-                    this.state = 'DATA';
-                    this.byteBuffer = [];
-                }
-            } else if (this.state === 'DATA') {
-                if (this.bitBuffer.length >= 8) {
-                    const byteBits = this.bitBuffer.splice(0, 8);
-                    const charCode = parseInt(byteBits.join(''), 2); 
-                    if (charCode >= 32 && charCode <= 126) {
-                        this.message += String.fromCharCode(charCode);
-                        document.getElementById('rx-text').innerText = this.message;
+        processBits(newBits) {
+
+            this.bitBuffer.push(...newBits);
+
+    
+
+            // Loop until we don't have enough bits to proceed
+
+            while (true) {
+
+                if (this.state === 'IDLE') {
+
+                    if (this.bitBuffer.length === 0) break;
+
+                    
+
+                    // Peek at the first bit
+
+                    const bit = this.bitBuffer[0];
+
+                    
+
+                    if (bit === 0) { 
+
+                        // Found START BIT (0). Consume it and switch to DATA.
+
+                        this.bitBuffer.shift(); 
+
+                        this.state = 'DATA';
+
+                        this.byteBuffer = [];
+
+                    } else {
+
+                        // Found a 1 (Idle/Preamble). Consume it and ignore.
+
+                        this.bitBuffer.shift();
+
                     }
-                    this.state = 'IDLE'; 
-                } else {
-                    break; 
+
+                } 
+
+                else if (this.state === 'DATA') {
+
+                    if (this.bitBuffer.length === 0) break;
+
+                    
+
+                    // Collect 8 data bits
+
+                    this.byteBuffer.push(this.bitBuffer.shift());
+
+                    
+
+                    if (this.byteBuffer.length === 8) {
+
+                        this.state = 'STOP';
+
+                    }
+
+                } 
+
+                else if (this.state === 'STOP') {
+
+                    if (this.bitBuffer.length === 0) break;
+
+                    
+
+                    const stopBit = this.bitBuffer.shift();
+
+                    
+
+                    if (stopBit === 1) {
+
+                        // VALID FRAME. Decode the Byte.
+
+                        const charCode = parseInt(this.byteBuffer.join(''), 2);
+
+                        // Filter printable characters
+
+                        if (charCode >= 32 && charCode <= 126) {
+
+                            this.message += String.fromCharCode(charCode);
+
+                            document.getElementById('rx-text').innerText = this.message;
+
+                        }
+
+                    } else {
+
+                        // FRAMING ERROR (Bit Slip). Discard byte.
+
+                        console.warn("Framing Error: Expected Stop Bit (1), got 0");
+
+                    }
+
+                    
+
+                    // Reset for next character
+
+                    this.state = 'IDLE';
+
                 }
+
             }
+
         }
-    }
 }
 
 class ModemEngine {
@@ -243,7 +327,9 @@ class ModemEngine {
 
     generateAudioBuffer(text, type, ctx) {
         let bits = [];
-        for(let p=0; p<32; p++) bits.push(p % 2); // Preamble
+        // Robust Preamble: All 1s (Idle High) so the receiver ignores it while syncing phase/gain
+        for(let p=0; p<40; p++) bits.push(1); 
+
         for (let i = 0; i < text.length; i++) {
             const charCode = text.charCodeAt(i);
             bits.push(0); 
