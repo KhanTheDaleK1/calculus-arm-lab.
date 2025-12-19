@@ -190,13 +190,18 @@
                 <h2>Lab Guide 📘</h2>
                 <div style="color:#ccc; font-size:0.9rem; line-height:1.6;">
                     <p><strong>1. Encode:</strong> Convert ASCII text to Binary.</p>
-                    <p><strong>2. Modulate:</strong> Map bits to Phase/Amplitude (symbols).
-                        <br><span style="color:var(--accent)">BPSK:</span> 180° flip.
-                        <br><span style="color:var(--accent)">QPSK:</span> 4 phases (90° apart).
-                        <br><span style="color:var(--accent)">16-QAM:</span> Phase + Amplitude.
+                    <p><strong>2. Modulate:</strong> Map bits to Symbols (Phase/Amplitude).
+                        <br><span style="color:var(--accent)">BPSK:</span> 2 states (1 bit).
+                        <br><span style="color:var(--accent)">QPSK:</span> 4 states (2 bits).
+                        <br><span style="color:var(--accent)">16/64-QAM:</span> 16 or 64 states (4/6 bits).
                     </p>
-                    <p><strong>3. Transmit:</strong> Play sound wave (Air Gap).</p>
-                    <p><strong>4. Decode:</strong> Receiver plots "Constellation". Dots form clusters if signal is clear.</p>
+                    <p><strong>3. Transmit:</strong> Play sound wave (Air Gap). Lower Baud rate = Slower = Easier to see.</p>
+                    <p><strong>4. Calculator Connection:</strong>
+                        <br>The "Constellation" is just a Polar Graph!
+                        <br>Each dot is a complex number: <code>Z = I + Qi</code>
+                        <br>Magnitude (Amplitude): <code>R = √(I² + Q²)</code>
+                        <br>Phase (Angle): <code>θ = tan⁻¹(Q/I)</code>
+                    </p>
                 </div>
             </div>
 
@@ -218,10 +223,29 @@
             </div>
         </div>
     </div>
+
+    <div style="margin-top:20px; color:#888; font-size:0.9rem; text-align:center; padding-bottom: 20px;">
+        <div>[Joke of the Session 🐨]</div>
+        <div id="mic-joke-text">Loading...</div>
+    </div>
 </div>
 
 <script src="js/wifi-app.js"></script>
+<script src="../arm/js/jokes.js"></script>
 <script>
+    window.addEventListener('load', () => {
+        const jokeEl = document.getElementById('mic-joke-text');
+        if (!jokeEl) return;
+        const render = () => {
+            if (window.mathJokes && window.mathJokes.length) {
+                const j = window.mathJokes[Math.floor(Math.random() * window.mathJokes.length)];
+                jokeEl.textContent = `"${j}"`;
+            } else {
+                setTimeout(render, 200);
+            }
+        };
+        render();
+    });
     window.addEventListener('load', () => {
         const btn = document.getElementById('btn-help');
         if (btn) btn.addEventListener('click', () => {
