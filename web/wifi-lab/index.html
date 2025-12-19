@@ -100,9 +100,13 @@
         canvas { 
             flex-grow: 1; 
             width: 100%; 
-            min-height: 200px;
+            /* min-height removed to prevent overlap in small containers */
             background: #000; 
             border-radius: 4px; 
+        }
+        
+        #constellation-canvas, #scope-canvas {
+            min-height: 200px;
         }
 
         /* RESPONSIVE */
@@ -176,7 +180,7 @@
 
                     <div style="height:100px; position:relative;">
                          <canvas id="modem-bit-canvas"></canvas>
-                         <div style="position:absolute; top:5px; left:5px; font-size:0.7rem; color:#666;">Logic Levels</div>
+                         <div style="position:absolute; top:5px; left:5px; font-size:0.7rem; color:#666; z-index:10; pointer-events:none;">Logic Levels</div>
                     </div>
 
                 </div>
