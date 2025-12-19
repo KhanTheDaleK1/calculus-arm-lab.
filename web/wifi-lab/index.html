@@ -190,19 +190,21 @@
             <div class="panel card">
                 <h2>Lab Guide 📘</h2>
                 <div style="color:#ccc; font-size:0.9rem; line-height:1.6;">
-                    <p><strong>1. Encode:</strong> Convert ASCII text to Binary.</p>
-                    <p><strong>2. Modulate:</strong> Map bits to Symbols (Phase/Amplitude).
-                        <br><span style="color:var(--accent)">BPSK:</span> 2 states (1 bit).
-                        <br><span style="color:var(--accent)">QPSK:</span> 4 states (2 bits).
-                        <br><span style="color:var(--accent)">16/64-QAM:</span> 16 or 64 states (4/6 bits).
-                    </p>
-                    <p><strong>3. Transmit:</strong> Play sound wave (Air Gap). Lower Baud rate = Slower = Easier to see.</p>
-                    <p><strong>4. Calculator Connection:</strong>
-                        <br>The "Constellation" is just a Polar Graph!
-                        <br>Each dot is a complex number: <code>Z = I + Qi</code>
-                        <br>Magnitude (Amplitude): <code>R = √(I² + Q²)</code>
-                        <br>Phase (Angle): <code>θ = tan⁻¹(Q/I)</code>
-                    </p>
+                    <p><strong>1. Encode:</strong> Your text message is converted into binary bits.</p>
+                    <p><strong>2. Modulate:</strong> Binary bits are mapped to specific symbols (constellation points) based on the selected modulation (BPSK, QPSK, QAM).</p>
+                    <ul>
+                        <li><span style="color:var(--accent)">BPSK:</span> Uses 2 states (1 bit per symbol).</li>
+                        <li><span style="color:var(--accent)">QPSK:</span> Uses 4 states (2 bits per symbol).</li>
+                        <li><span style="color:var(--accent)">16-QAM:</span> Uses 16 states (4 bits per symbol).</li>
+                        <li><span style="color:var(--accent)">64-QAM:</span> Uses 64 states (6 bits per symbol).</li>
+                    </ul>
+                    <p><strong>3. Transmit:</strong> The symbols are converted into an audible sound wave (transmitted via air). Use a lower 'Symbol Rate' (Baud) for easier observation.</p>
+                    <p><strong>4. Observe Constellation:</strong> This plot visualizes received symbols as complex numbers (I/Q coordinates).</p>
+                    <ul>
+                        <li><strong>Ideal Points:</strong> The faint grid points show where symbols *should* land for the chosen modulation.</li>
+                        <li><strong>Real-time Signal:</strong> The brighter, moving dots represent the actual received symbols. A tight cluster around ideal points indicates a good signal.</li>
+                    </ul>
+                    <p><strong>5. TI-84 Data Export:</strong> Click "Export Constellation CSV" to download I/Q data. You can then import this data into your TI-84 calculator (e.g., into Lists L1/L2) for plotting and analysis.</p>
                 </div>
             </div>
 
