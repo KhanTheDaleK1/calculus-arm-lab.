@@ -718,5 +718,6 @@ window.addEventListener('resize', () => {
         initCanvas('constellation-canvas');
         initCanvas('scope-canvas');
     }, 100);
-}); // Close setTimeout
+});
+
 
