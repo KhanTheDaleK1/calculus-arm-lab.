@@ -42,6 +42,7 @@ window.onload = () => {
         receiver.clear();
         document.getElementById('rx-text').innerText = "Cleared.";
     };
+    document.getElementById('btn-calibrate').onclick = startCalibration;
     document.getElementById('btn-connect-ti84').onclick = () => {
         // TODO: Implement actual Serial/USB connection for TI-84
         alert("TI-84 Connection feature coming soon!");
@@ -331,29 +332,27 @@ function loop() {
     drawScope(waveArray);
     
     // ! 2. Get Current I/Q (Physics)
-    // ? We treat the buffer as a single point in time
     const rawIQ = getInstantaneousIQ(waveArray);
+
+    // ! 3. APPLY CALIBRATION GAIN
+    rawIQ.i *= calibrationScale;
+    rawIQ.q *= calibrationScale;
     
-    // ! 3. AGC / PLL
+    // ! 4. AGC / PLL
     if (document.getElementById('rx-pll-enable').checked) {
-        // ! Simple AGC
-        const mag = Math.sqrt(rawIQ.i**2 + rawIQ.q**2);
-        if (mag > 0.001) {
-            rawIQ.i /= mag; 
-            rawIQ.q /= mag;
-        }
-        // ? PLL (Optional, can rely on raw for low baud)
-        // const locked = costasLoop.process(rawIQ.i, rawIQ.q);
-        // rawIQ.i = locked.i; rawIQ.q = locked.q;
+        // This is a Costas loop for phase correction. 
+        // The old AGC was removed as it destroys QAM amplitude data.
+        // TODO: Implement a better, amplitude-preserving AGC.
+        const locked = costasLoop.process(rawIQ.i, rawIQ.q);
+        rawIQ.i = locked.i;
+        rawIQ.q = locked.q;
     }
 
-    // ! 4. Update Receiver Logic (Computer Science)
+    // ! 5. Update Receiver Logic (Computer Science)
     const baud = parseInt(document.getElementById('modem-baud').value);
-    
-    // ! This now returns an array ONLY if the clock ticked
     const sampledSymbols = receiver.update(rawIQ.i, rawIQ.q, baud);
     
-    // ! 5. Slice & Process ONLY if we sampled
+    // ! 6. Slice & Process ONLY if we sampled
     if (sampledSymbols.length > 0) {
         const type = document.getElementById('modem-type').value;
         const slicer = receiver.getSlicer(type);
@@ -363,13 +362,86 @@ function loop() {
             receiver.processSymbol(bits);
         });
         
-        // ! Flash the constellation to show we sampled
         drawConstellation([sampledSymbols[0]]); 
     } else {
-        // ! Draw the "Ghost" cursor (Realtime feedback)
-        // ! Pass a flag to draw it faintly
+        // Draw the "Ghost" cursor
         drawConstellation([{i_raw: rawIQ.i, q_raw: rawIQ.q}], true);
     }
+}
+
+// --- CALIBRATION ---
+let calibrationScale = 1.0; // Default gain
+
+async function startCalibration() {
+    if (isRunning) {
+        alert("Please stop the receiver before calibrating.");
+        return;
+    }
+
+    alert("Calibration will now play a short test tone. Please ensure your volume is at a medium level and the microphone is near the speaker. Click OK to begin.");
+
+    await initAudioGraph();
+    const s = document.getElementById('status-badge');
+    s.innerText = "Calibrating...";
+    s.className = "status-badge info";
+
+    // 1. Generate Tone
+    const osc = audioCtx.createOscillator();
+    osc.frequency.setValueAtTime(CARRIER_FREQ, audioCtx.currentTime);
+    osc.type = 'sine';
+    const toneGain = audioCtx.createGain();
+    toneGain.gain.setValueAtTime(0.5, audioCtx.currentTime); // Use a moderate volume
+    osc.connect(toneGain).connect(masterGain);
+    osc.start();
+
+    // 2. Record
+    await new Promise(r => setTimeout(r, 500)); // Wait for sound to stabilize
+
+    const magnitudes = [];
+    const calibrationDuration = 1000; // 1 second
+    const startTime = performance.now();
+
+    // Create a temporary listening loop
+    const listen = () => {
+        if (performance.now() - startTime > calibrationDuration) {
+            // 3. Analyze & Adjust
+            osc.stop();
+            osc.disconnect();
+
+            if (magnitudes.length === 0) {
+                alert("Calibration failed: No signal detected. Please check your microphone and speaker volume.");
+                s.innerText = "Calibration Failed";
+                s.className = "status-badge error";
+                return;
+            }
+
+            const avgMagnitude = magnitudes.reduce((a, b) => a + b, 0) / magnitudes.length;
+            const targetMagnitude = 0.75; // Target peak magnitude for I/Q vector
+            
+            if (avgMagnitude < 0.01) {
+                alert("Calibration failed: Signal too weak. Please increase speaker volume and try again.");
+                s.innerText = "Calibration Failed";
+                s.className = "status-badge error";
+                calibrationScale = 1.0; // Reset
+            } else {
+                calibrationScale = targetMagnitude / avgMagnitude;
+                // 5. Output confirmation
+                alert(`Calibration Complete! A gain factor of ${calibrationScale.toFixed(2)}x has been applied.`);
+                s.innerText = "Calibrated";
+                s.className = "status-badge success";
+            }
+            return;
+        }
+
+        analyser.getFloatTimeDomainData(waveArray);
+        const iq = getInstantaneousIQ(waveArray);
+        const mag = Math.sqrt(iq.i**2 + iq.q**2);
+        if (mag > 0) magnitudes.push(mag);
+        
+        requestAnimationFrame(listen);
+    };
+    
+    listen(); // Start the listener
 }
 
 function getInstantaneousIQ(buffer) {
@@ -609,4 +681,76 @@ window.addEventListener('resize', () => {
         initCanvas('constellation-canvas');
         initCanvas('scope-canvas');
     }, 100);
-});
+// --- CALIBRATION ---
+
+async function startCalibration() {
+    if (isRunning) {
+        alert("Please stop the receiver before calibrating.");
+        return;
+    }
+
+    alert("Calibration will now play a short test tone. Please ensure your volume is at a medium level and the microphone is near the speaker. Click OK to begin.");
+
+    await initAudioGraph();
+    const s = document.getElementById('status-badge');
+    s.innerText = "Calibrating...";
+    s.className = "status-badge info";
+
+    // 1. Generate Tone
+    const osc = audioCtx.createOscillator();
+    osc.frequency.setValueAtTime(CARRIER_FREQ, audioCtx.currentTime);
+    osc.type = 'sine';
+    const toneGain = audioCtx.createGain();
+    toneGain.gain.setValueAtTime(0.5, audioCtx.currentTime); // Use a moderate volume
+    osc.connect(toneGain).connect(masterGain);
+    osc.start();
+
+    // 2. Record
+    await new Promise(r => setTimeout(r, 500)); // Wait for sound to stabilize
+
+    const magnitudes = [];
+    const calibrationDuration = 1000; // 1 second
+    const startTime = performance.now();
+
+    // Create a temporary listening loop
+    const listen = () => {
+        if (performance.now() - startTime > calibrationDuration) {
+            // 3. Analyze & Adjust
+            osc.stop();
+            osc.disconnect();
+
+            if (magnitudes.length === 0) {
+                alert("Calibration failed: No signal detected. Please check your microphone and speaker volume.");
+                s.innerText = "Calibration Failed";
+                s.className = "status-badge error";
+                return;
+            }
+
+            const avgMagnitude = magnitudes.reduce((a, b) => a + b, 0) / magnitudes.length;
+            const targetMagnitude = 0.75; // Target peak magnitude for I/Q vector
+            
+            if (avgMagnitude < 0.01) {
+                alert("Calibration failed: Signal too weak. Please increase speaker volume and try again.");
+                s.innerText = "Calibration Failed";
+                s.className = "status-badge error";
+                calibrationScale = 1.0; // Reset
+            } else {
+                calibrationScale = targetMagnitude / avgMagnitude;
+                // 5. Output confirmation
+                alert(`Calibration Complete! A gain factor of ${calibrationScale.toFixed(2)}x has been applied.`);
+                s.innerText = "Calibrated";
+                s.className = "status-badge success";
+            }
+            return;
+        }
+
+        analyser.getFloatTimeDomainData(waveArray);
+        const iq = getInstantaneousIQ(waveArray);
+        const mag = Math.sqrt(iq.i**2 + iq.q**2);
+        if (mag > 0) magnitudes.push(mag);
+        
+        requestAnimationFrame(listen);
+    };
+    
+    listen(); // Start the listener
+}
