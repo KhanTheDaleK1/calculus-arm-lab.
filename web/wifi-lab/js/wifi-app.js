@@ -33,6 +33,7 @@ window.onload = () => {
 
     const toggleBtn = document.getElementById('btn-toggle-scan');
     if (toggleBtn) {
+        toggleBtn.disabled = false; // Ensure button is clickable to trigger permission
         toggleBtn.onclick = () => {
             if (isRunning) stopReceiver();
             else startReceiver();
@@ -65,44 +66,37 @@ window.onload = () => {
 };
 
 function populateMics() {
-    const toggleBtn = document.getElementById('btn-toggle-scan');
     const sel = document.getElementById('device-select');
-    if (!sel || !toggleBtn) return;
+    if (!sel) return;
     
-    toggleBtn.disabled = true;
-    sel.innerHTML = '<option>Detecting...</option>';
-
-    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-        navigator.mediaDevices.getUserMedia({audio:true})
-        .then(stream => {
-            stream.getTracks().forEach(track => track.stop());
-            return navigator.mediaDevices.enumerateDevices();
-        })
-        .then(devs => {
-            sel.innerHTML = '';
-            const mics = devs.filter(d => d.kind === 'audioinput');
-            if (mics.length === 0) {
-                sel.innerHTML = '<option>No mics found</option>';
-            } else {
-                mics.forEach((d, i) => {
-                    const opt = document.createElement('option');
-                    opt.value = d.deviceId;
-                    opt.text = d.label || `Mic ${i + 1}`;
-                    sel.appendChild(opt);
-                });
-                toggleBtn.disabled = false;
-            }
-        }).catch(err => {
-            console.error("Mic detection error:", err);
-            sel.innerHTML = '<option>Error: Check Permissions</option>';
-        });
-    } else {
-        sel.innerHTML = '<option>Not Supported</option>';
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        sel.innerHTML = '<option>Browser Not Supported</option>';
+        return;
     }
+
+    navigator.mediaDevices.enumerateDevices()
+    .then(devs => {
+        const mics = devs.filter(d => d.kind === 'audioinput');
+        if (mics.length === 0) {
+            sel.innerHTML = '<option>No mics found</option>';
+        } else {
+            sel.innerHTML = '';
+            mics.forEach((d, i) => {
+                const opt = document.createElement('option');
+                opt.value = d.deviceId;
+                // Labels are often empty until permission is granted
+                opt.text = d.label || `Microphone ${i + 1} (Click Start Scan)`;
+                sel.appendChild(opt);
+            });
+        }
+    }).catch(err => {
+        console.error("Mic enumeration error:", err);
+        sel.innerHTML = '<option>Error detecting mics</option>';
+    });
 }
 
 // ==========================================
-// ! DSP CLASSES
+// ! DSPCLASSES
 // ==========================================
 
 function getIdealPoints(type) {
@@ -145,7 +139,6 @@ class CostasLoopReceiver {
     updateBaud(newBaud) {
         this.baud = newBaud;
         this.samplesPerSymbol = this.sampleRate / newBaud;
-        console.log("Receiver updated to", newBaud, "Baud");
     }
 
     clear() {
@@ -305,10 +298,14 @@ async function startReceiver() {
     if (isRunning) return;
     try {
         await initAudioGraph();
-        const selectedDeviceId = document.getElementById('device-select').value;
+        
+        const sel = document.getElementById('device-select');
+        const selectedDeviceId = sel ? sel.value : undefined;
+        
         const stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }
+            audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true
         });
+        
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
 
@@ -322,12 +319,21 @@ async function startReceiver() {
         document.getElementById('btn-toggle-scan').style.background = "#d32f2f";
         
         loop();
-    } catch(e) { alert("Mic Error: " + e.message); }
+        populateMics(); // Refresh names now that we have permission
+    } catch(e) { 
+        console.error("Mic Error:", e);
+        alert("Microphone Error: " + e.message + "\n\nPlease ensure you have allowed microphone access in your browser settings."); 
+    } 
 }
 
 function stopReceiver() {
     isRunning = false;
-    if(micSource) micSource.disconnect();
+    if(micSource) {
+        micSource.disconnect();
+        // Stop the tracks to release the hardware
+        const stream = micSource.mediaStream;
+        if (stream) stream.getTracks().forEach(t => t.stop());
+    }
     if(audioCtx) audioCtx.close();
     audioCtx = null;
     micSource = null;
