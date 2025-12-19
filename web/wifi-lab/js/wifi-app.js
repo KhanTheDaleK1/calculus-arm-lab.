@@ -13,6 +13,7 @@ let audioCtx, analyser, micSource;
 let masterGain;
 let isRunning = false;
 let waveArray;
+let calibrationScale = 1.0; 
 
 function initCanvas(id) {
     const c = document.getElementById(id);
@@ -29,9 +30,8 @@ window.onload = () => {
     initCanvas('constellation-canvas');
     initCanvas('scope-canvas');
 
-    // Security Check: getUserMedia requires HTTPS or localhost
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        const msg = "⚠️ SECURITY ERROR: Microphone access is BLOCKED by your browser because this site is not using HTTPS. Please use an HTTPS connection or run on localhost.";
+        const msg = "⚠️ SECURITY ERROR: HTTPS required for Microphone access.";
         console.error(msg);
         document.getElementById('rx-text').innerHTML = `<span style="color:#ff5555">${msg}</span>`;
     }
@@ -75,20 +75,16 @@ window.onload = () => {
 function populateMics() {
     const sel = document.getElementById('device-select');
     if (!sel) return;
-    
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
         sel.innerHTML = '<option>Browser Not Supported</option>';
         return;
     }
-
     navigator.mediaDevices.enumerateDevices()
     .then(devs => {
         const mics = devs.filter(d => d.kind === 'audioinput');
         sel.innerHTML = '';
         if (mics.length === 0) {
-            const opt = document.createElement('option');
-            opt.text = "No Mics Found (Check Permissions)";
-            sel.appendChild(opt);
+            sel.innerHTML = '<option>No Mics Found</option>';
         } else {
             mics.forEach((d, i) => {
                 const opt = document.createElement('option');
@@ -98,7 +94,7 @@ function populateMics() {
             });
         }
     }).catch(err => {
-        console.error("Mic enumeration error:", err);
+        console.error(err);
         sel.innerHTML = '<option>Error detecting mics</option>';
     });
 }
@@ -134,7 +130,6 @@ class CostasLoopReceiver {
         this.lpfI = 0;
         this.lpfQ = 0;
         this.lpfAlpha = 0.1; 
-        
         this.updateBaud(baud);
         this.symbolCounter = 0;
         this.isSyncing = false;
@@ -165,7 +160,7 @@ class CostasLoopReceiver {
         const rms = Math.sqrt(energySum / inputBuffer.length);
         
         for (let i = 0; i < inputBuffer.length; i++) {
-            const sample = inputBuffer[i];
+            const sample = inputBuffer[i] * calibrationScale; // Apply calibration
             const loI = Math.cos(this.phase);
             const loQ = -Math.sin(this.phase);
             let rawI = sample * loI;
@@ -185,7 +180,6 @@ class CostasLoopReceiver {
                     this.isSyncing = true;
                     this.symbolCounter = Math.floor(this.samplesPerSymbol / 2); 
                 }
-                
                 this.symbolCounter--;
                 if (this.symbolCounter <= 0) {
                     this.symbolCounter = this.samplesPerSymbol;
@@ -203,10 +197,9 @@ class CostasLoopReceiver {
     }
 
     slice(I, Q, type) {
-        const gain = 2.5; 
-        const sI = I * gain;
-        const sQ = Q * gain;
-
+        // Gain adjusted by calibrationScale now, so thresholds are normalized
+        const sI = I * 2.0; 
+        const sQ = Q * 2.0;
         if (type === 'BPSK') return [sI > 0 ? 1 : 0];
         if (type === 'QPSK') return [sI > 0 ? 1 : 0, sQ > 0 ? 1 : 0];
         if (type === 'QAM16') {
@@ -218,7 +211,6 @@ class CostasLoopReceiver {
 
     processBits(newBits) {
         this.bitBuffer.push(...newBits);
-
         while (this.bitBuffer.length >= 1) {
             if (this.state === 'IDLE') {
                 if (this.bitBuffer.shift() === 0) { 
@@ -229,7 +221,6 @@ class CostasLoopReceiver {
                 if (this.bitBuffer.length >= 8) {
                     const byteBits = this.bitBuffer.splice(0, 8);
                     const charCode = parseInt(byteBits.join(''), 2); 
-                    
                     if (charCode >= 32 && charCode <= 126) {
                         this.message += String.fromCharCode(charCode);
                         document.getElementById('rx-text').innerText = this.message;
@@ -252,26 +243,20 @@ class ModemEngine {
 
     generateAudioBuffer(text, type, ctx) {
         let bits = [];
-        for(let p=0; p<32; p++) bits.push(p % 2);
-
+        for(let p=0; p<32; p++) bits.push(p % 2); // Preamble
         for (let i = 0; i < text.length; i++) {
             const charCode = text.charCodeAt(i);
             bits.push(0); 
-            for (let b = 7; b >= 0; b--) {
-                bits.push((charCode >> b) & 1);
-            }
+            for (let b = 7; b >= 0; b--) bits.push((charCode >> b) & 1);
             bits.push(1); 
         }
-
         const idealPoints = getIdealPoints(type);
         const bitsPerSymbol = Math.log2(idealPoints.length);
         while (bits.length % bitsPerSymbol !== 0) bits.push(1);
-
         const totalSymbols = bits.length / bitsPerSymbol;
         const totalSamples = totalSymbols * this.symbolPeriod;
         const buffer = ctx.createBuffer(1, totalSamples, this.sampleRate);
         const data = buffer.getChannelData(0);
-
         let phase = 0;
         let sampleIdx = 0;
         for (let i = 0; i < bits.length; i += bitsPerSymbol) {
@@ -288,7 +273,7 @@ class ModemEngine {
     }
 }
 
-// --- MAIN AUDIO & DRAWING ---
+// --- MAIN AUDIO ---
 
 async function initAudioGraph() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -306,44 +291,32 @@ async function startReceiver() {
     if (isRunning) return;
     try {
         await initAudioGraph();
-        
         const sel = document.getElementById('device-select');
-        let constraints = { audio: true };
-        
-        // If we have a real looking device ID, use it
-        if (sel && sel.value && sel.value.length > 5) {
-            constraints.audio = { deviceId: { exact: sel.value } };
-        }
-        
+        const constraints = { audio: (sel && sel.value && sel.value.length > 5) ? { deviceId: { exact: sel.value } } : true };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
-
         const baud = parseInt(document.getElementById('modem-baud').value);
         receiver = new CostasLoopReceiver(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
-
         isRunning = true;
         document.getElementById('status-badge').innerText = "Receiving";
         document.getElementById('status-badge').className = "status-badge success";
         document.getElementById('btn-toggle-scan').innerText = "Stop Scan";
         document.getElementById('btn-toggle-scan').style.background = "#d32f2f";
-        
         loop();
-        populateMics(); // Refresh names now that we have permission
+        populateMics();
     } catch(e) { 
-        console.error("Mic Error:", e);
-        const errorArea = document.getElementById('rx-text');
-        if (errorArea) errorArea.innerHTML = `<span style="color:#ff5555">Microphone Error: ${e.message}</span><br>Ensure you are using HTTPS and have granted permission.`;
-        alert("Microphone Error: " + e.message); 
+        console.error(e);
+        document.getElementById('rx-text').innerHTML = `<span style="color:#ff5555">Error: ${e.message}</span>`;
     }
 }
 
 function stopReceiver() {
     isRunning = false;
     if(micSource) {
-        micSource.disconnect();
         const stream = micSource.mediaStream;
         if (stream) stream.getTracks().forEach(t => t.stop());
+        micSource.disconnect();
     }
     if(audioCtx) audioCtx.close();
     audioCtx = null;
@@ -369,15 +342,53 @@ function loop() {
 async function startCalibration() {
     const s = document.getElementById('status-badge');
     s.innerText = "Calibrating...";
+    s.className = "status-badge info";
     await initAudioGraph();
-    const osc = audioCtx.createOscillator();
-    osc.frequency.setValueAtTime(CONFIG.carrierFreq, audioCtx.currentTime);
-    osc.connect(masterGain);
-    osc.start();
-    setTimeout(() => {
-        osc.stop();
-        s.innerText = isRunning ? "Receiving" : "Calibrated";
-    }, 1000);
+    
+    // Create a temporary stream if receiver is not running
+    let tempStream = null;
+    if (!micSource) {
+        const sel = document.getElementById('device-select');
+        const constraints = { audio: (sel && sel.value && sel.value.length > 5) ? { deviceId: { exact: sel.value } } : true };
+        tempStream = await navigator.mediaDevices.getUserMedia(constraints);
+        micSource = audioCtx.createMediaStreamSource(tempStream);
+        micSource.connect(analyser);
+    }
+
+    // Play modulated sync sequence for calibration
+    const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, 20);
+    const buffer = engine.generateAudioBuffer("CALIBRATE", "QPSK", audioCtx);
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(masterGain);
+    source.start();
+
+    const magnitudes = [];
+    const startTime = performance.now();
+    const listen = () => {
+        if (performance.now() - startTime > 1500) {
+            source.stop();
+            if (tempStream) {
+                tempStream.getTracks().forEach(t => t.stop());
+                micSource = null;
+            }
+            if (magnitudes.length > 0) {
+                const avg = magnitudes.reduce((a,b)=>a+b,0) / magnitudes.length;
+                calibrationScale = 0.5 / Math.max(avg, 0.001);
+                s.innerText = "Calibrated";
+                s.className = "status-badge success";
+            } else {
+                s.innerText = "Failed";
+                s.className = "status-badge error";
+            }
+            return;
+        }
+        analyser.getFloatTimeDomainData(waveArray);
+        let e = 0; for(let x of waveArray) e += x*x;
+        magnitudes.push(Math.sqrt(e/waveArray.length));
+        requestAnimationFrame(listen);
+    };
+    listen();
 }
 
 function drawConstellation(points, clear = false) {
@@ -389,27 +400,20 @@ function drawConstellation(points, clear = false) {
     ctx.fillRect(0,0,w,h);
     ctx.strokeStyle = '#333'; ctx.beginPath();
     ctx.moveTo(w/2,0); ctx.lineTo(w/2,h); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke();
-    
     const type = document.getElementById('modem-type').value;
     const ideal = getIdealPoints(type);
     ctx.fillStyle = '#444';
     for (let p of ideal) {
-        ctx.beginPath(); 
-        ctx.arc((p.I*0.8+1)*w/2, (-p.Q*0.8+1)*h/2, 3, 0, 7); 
-        ctx.fill();
+        ctx.beginPath(); ctx.arc((p.I*0.8+1)*w/2, (-p.Q*0.8+1)*h/2, 3, 0, 7); ctx.fill();
     }
-
     if (!points) return;
     ctx.fillStyle = THEME.accent;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = THEME.accent;
+    ctx.shadowBlur = 10; ctx.shadowColor = THEME.accent;
     for (let p of points) {
-        const x = (p.i*2.5*0.8+1)*w/2;
-        const y = (-p.q*2.5*0.8+1)*h/2;
+        const x = (p.i*2.0*0.8+1)*w/2;
+        const y = (-p.q*2.0*0.8+1)*h/2;
         if (x >= 0 && x <= w && y >= 0 && y <= h) {
-            ctx.beginPath(); 
-            ctx.arc(x, y, 4, 0, 7); 
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(x, y, 4, 0, 7); ctx.fill();
         }
     }
     ctx.shadowBlur = 0;
@@ -422,7 +426,6 @@ function drawScope(buffer) {
     const w = c.width, h = c.height;
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
     ctx.strokeStyle = THEME.accent; ctx.beginPath();
-    const step = w / buffer.length;
     for(let i=0; i<w; i+=2) {
         const v = buffer[Math.floor(i/w*buffer.length)];
         const y = (h/2) - (v*h/2*2);
@@ -436,17 +439,14 @@ async function transmitModemData() {
     const type = document.getElementById('modem-type').value;
     const baud = parseInt(document.getElementById('modem-baud').value);
     const sendBtn = document.getElementById('btn-modem-send');
-
     await initAudioGraph();
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
     const buffer = engine.generateAudioBuffer(text, type, audioCtx);
-    
     if (modemBufferSource) try { modemBufferSource.stop(); } catch(e){}
     modemBufferSource = audioCtx.createBufferSource();
     modemBufferSource.buffer = buffer;
     modemBufferSource.connect(masterGain);
     if(analyser) modemBufferSource.connect(analyser);
-    
     if (sendBtn) {
         sendBtn.innerText = "SENDING...";
         sendBtn.disabled = true;
