@@ -314,14 +314,23 @@ function getInstantaneousIQ(buffer) {
     return { i: i_avg, q: q_avg };
 }
 
-function drawConstellation(symbols) {
+function drawConstellation(symbols, isGhost = false) {
     const c = document.getElementById('constellation-canvas');
     if (!c) return;
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
 
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
-    ctx.fillRect(0, 0, w, h);
+    // Clear with a fade effect only if we're not drawing a ghost
+    // or if the ghost is the only thing on screen.
+    if (!isGhost) {
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(0, 0, w, h);
+    } else {
+        // For the ghost, we need to redraw the whole static scene.
+        ctx.fillStyle = '#0b0b0b'; // Background color
+        ctx.fillRect(0,0,w,h);
+    }
+
     ctx.strokeStyle = '#333';
     ctx.beginPath();
     ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
@@ -345,55 +354,16 @@ function drawConstellation(symbols) {
     // Plot Received Symbols
     if (!symbols || symbols.length === 0) return;
     
-    const usePll = document.getElementById('rx-pll-enable').checked;
-    const slicer = receiver.getSlicer(type);
-    let total_error = 0;
-
-    ctx.fillStyle = THEME.accent;
+    // Set color based on whether it's a ghost or a sampled point
+    ctx.fillStyle = isGhost ? 'rgba(255, 255, 255, 0.2)' : THEME.accent;
+    
     symbols.forEach(s => {
-        let {i_raw, q_raw} = s;
-        
-        // Manual Gain
-        i_raw *= document.getElementById('rx-pll-enable').checked ? 1.0 : rxSettings.gain;
-        q_raw *= document.getElementById('rx-pll-enable').checked ? 1.0 : rxSettings.gain;
-        
-        let i_final = i_raw;
-        let q_final = q_raw;
-
-        if (usePll) {
-            const locked = costasLoop.process(i_raw, q_raw);
-            i_final = locked.i;
-            q_final = locked.q;
-        }
-
-        // Slice to get bits
-        const bits = slicer(i_final, q_final);
-        document.getElementById('rx-bits').innerText = bits.join('');
-        receiver.processSymbol(bits);
-        
-        // Find nearest ideal point for EVM
-        let min_dist_sq = Infinity;
-        let nearest_point = {I:0, Q:0};
-        for(const p of idealPoints) {
-            const dist_sq = (i_final - p.I)**2 + (q_final - p.Q)**2;
-            if (dist_sq < min_dist_sq) {
-                min_dist_sq = dist_sq;
-                nearest_point = p;
-            }
-        }
-        total_error += min_dist_sq;
-        
-        // Plot
-        const px = (w/2) + (i_final * (w/2) * scale);
-        const py = (h/2) - (q_final * (h/2) * scale);
+        const px = (w/2) + (s.i_raw * (w/2) * scale);
+        const py = (h/2) - (s.q_raw * (h/2) * scale);
         ctx.beginPath();
         ctx.arc(px, py, 3, 0, Math.PI*2);
         ctx.fill();
     });
-
-    document.getElementById('rx-text').innerText = receiver.text;
-    document.getElementById('rx-evm').innerText = (Math.sqrt(total_error / symbols.length) * 100).toFixed(1) + '%';
-    rxHistory = symbols;
 }
 
 function getIdealPoints(type) {
