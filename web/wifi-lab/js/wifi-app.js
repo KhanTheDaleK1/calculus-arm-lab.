@@ -24,7 +24,10 @@ let scopeHistoryOffset = 0;
 
 function initCanvas(id) {
     const c = document.getElementById(id);
-    if(c) { c.width = c.clientWidth; c.height = c.clientHeight; }
+    if(c) { 
+        c.width = c.clientWidth || 400; 
+        c.height = c.clientHeight || 150; 
+    }
 }
 
 // ! RX/TX STATE
@@ -429,18 +432,21 @@ class ModemEngine {
         while (bits.length % bitsPerSymbol !== 0) bits.push(1);
         const totalSymbols = bits.length / bitsPerSymbol;
         const totalSamples = totalSymbols * this.symbolPeriod;
-        const buffer = ctx.createBuffer(1, totalSamples, this.sampleRate);
-        const data = buffer.getChannelData(0);
-        let phase = 0;
-        let sampleIdx = 0;
-        for (let i = 0; i < bits.length; i += bitsPerSymbol) {
-            const chunk = bits.slice(i, i + bitsPerSymbol);
-            const symbolIndex = parseInt(chunk.join(''), 2);
-            const point = idealPoints[symbolIndex % idealPoints.length];
-            for (let t = 0; t < this.symbolPeriod; t++) {
-                data[sampleIdx] = (point.I * Math.cos(phase) - point.Q * Math.sin(phase));
-                phase += this.omega;
-                sampleIdx++;
+        let buffer = null;
+        if (ctx && ctx.createBuffer) {
+            buffer = ctx.createBuffer(1, totalSamples, this.sampleRate);
+            const data = buffer.getChannelData(0);
+            let phase = 0;
+            let sampleIdx = 0;
+            for (let i = 0; i < bits.length; i += bitsPerSymbol) {
+                const chunk = bits.slice(i, i + bitsPerSymbol);
+                const symbolIndex = parseInt(chunk.join(''), 2);
+                const point = idealPoints[symbolIndex % idealPoints.length];
+                for (let t = 0; t < this.symbolPeriod; t++) {
+                    data[sampleIdx] = (point.I * Math.cos(phase) - point.Q * Math.sin(phase));
+                    phase += this.omega;
+                    sampleIdx++;
+                }
             }
         }
         return { buffer, bits };
@@ -673,11 +679,18 @@ function drawBinaryStream(bits) {
     const c = document.getElementById('modem-bit-canvas');
     if (!c) return;
     const ctx = c.getContext('2d');
+    
+    // Ensure canvas has size before drawing
+    if (c.width === 0 || c.height === 0) {
+        c.width = c.clientWidth || 400;
+        c.height = c.clientHeight || 80;
+    }
+    
     const w = c.width, h = c.height;
     ctx.fillStyle = '#050505';
     ctx.fillRect(0,0,w,h);
     
-    if (bits.length === 0) return;
+    if (!bits || bits.length === 0) return;
     
     ctx.strokeStyle = THEME.accent;
     ctx.lineWidth = 2;
@@ -686,10 +699,13 @@ function drawBinaryStream(bits) {
     const step = w / bits.length;
     let x = 0;
     
-    ctx.moveTo(0, bits[0] === 1 ? 10 : h - 10);
+    const padding = 15; // Padding from top/bottom
+    const getY = (bit) => bit === 1 ? padding : h - padding;
+    
+    ctx.moveTo(0, getY(bits[0]));
     
     for (let i = 0; i < bits.length; i++) {
-        const y = bits[i] === 1 ? 10 : h - 10;
+        const y = getY(bits[i]);
         ctx.lineTo(x, y);
         x += step;
         ctx.lineTo(x, y);
