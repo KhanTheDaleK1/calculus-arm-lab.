@@ -57,15 +57,37 @@ window.onload = () => {
     const sendBtn = document.getElementById('btn-modem-send');
     if (sendBtn) sendBtn.onclick = transmitModemData;
 
+    const refreshTransmitterPreview = () => {
+        const text = document.getElementById('modem-input').value || "";
+        const type = document.getElementById('modem-type').value;
+        const baud = parseInt(document.getElementById('modem-baud').value);
+        
+        // Use a dummy audio context or just the math for preview
+        const engine = new ModemEngine(44100, CONFIG.carrierFreq, baud);
+        // We need a way to get bits without needing a full AudioBuffer/Context if possible, 
+        // but generateAudioBuffer is fine if we pass a mock context or just handle the null ctx
+        const { bits } = engine.generateAudioBuffer(text, type, { createBuffer: () => ({ getChannelData: () => new Float32Array() }) });
+        
+        const bitstreamEl = document.getElementById('modem-bitstream');
+        if (bitstreamEl) bitstreamEl.innerText = bits.length > 0 ? bits.join('') : "...";
+        drawBinaryStream(bits);
+    };
+
+    document.getElementById('modem-input').oninput = refreshTransmitterPreview;
     document.getElementById('modem-type').onchange = () => {
         drawConstellation([], true); 
+        refreshTransmitterPreview();
     };
 
     document.getElementById('modem-baud').onchange = (e) => {
         const newBaud = parseInt(e.target.value);
         if (receiver) receiver.updateBaud(newBaud);
+        refreshTransmitterPreview();
     };
     
+    // Initial preview
+    refreshTransmitterPreview();
+
     document.getElementById('btn-rx-clear').onclick = () => {
         if (receiver) receiver.clear();
     };
