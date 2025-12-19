@@ -176,12 +176,44 @@ function drawConstellation() {
     ctx.fillStyle = 'rgba(0,0,0,0.1)';
     ctx.fillRect(0, 0, w, h);
 
-    // Grid
+    // Draw Axis
     ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
     ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
     ctx.stroke();
+
+    // --- DRAW IDEAL GRID STATES ---
+    const type = document.getElementById('modem-type').value;
+    ctx.fillStyle = '#444'; // Dim gray for ideal states
+    
+    let idealPoints = [];
+
+    if (type === 'BPSK') {
+        idealPoints = [{I:-1, Q:0}, {I:1, Q:0}];
+    } else if (type === 'QPSK') {
+        idealPoints = [{I:-1, Q:-1}, {I:-1, Q:1}, {I:1, Q:-1}, {I:1, Q:1}];
+    } else if (type === 'QAM16') {
+        const levels = [-3, -1, 1, 3]; // Before normalization division by 3
+        // Normalized: -1, -0.33, 0.33, 1
+        for(let i of levels) for(let q of levels) idealPoints.push({I:i/3, Q:q/3});
+    } else if (type === 'QAM64') {
+        const levels = [-7, -5, -3, -1, 1, 3, 5, 7]; // Before normalization div by 7
+        for(let i of levels) for(let q of levels) idealPoints.push({I:i/7, Q:q/7});
+    }
+
+    // Plot Ideal Points
+    const scale = 0.8; // Match the signal scaling
+    for(let p of idealPoints) {
+        const px = (w/2) + (p.I * w * scale); // Removed extra 0.5 factor from signal logic to match
+        const py = (h/2) - (p.Q * h * scale);
+        
+        ctx.beginPath();
+        // Draw small cross or hollow circle
+        ctx.arc(px, py, 2, 0, Math.PI*2);
+        ctx.fill();
+    }
 
     if (!waveArray) return;
 
@@ -219,7 +251,10 @@ function drawConstellation() {
         
         // Scale and Center
         // val is roughly -1 to 1. I/Q will be roughly -0.5 to 0.5.
-        // We multiply by 4 to fill the canvas.
+        // We multiply by 4 to fill the canvas. 
+        // NOTE: In generation, I/Q are ~1.0. 
+        // Here, I = val * cos. If val is amplitude 1, I max is 1.
+        
         const plotX = (w/2) + (I * w * 0.8);
         const plotY = (h/2) - (Q * h * 0.8);
 
