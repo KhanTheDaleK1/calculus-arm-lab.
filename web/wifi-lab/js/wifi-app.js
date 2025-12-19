@@ -66,8 +66,14 @@ window.onload = () => {
     document.getElementById('btn-calibrate').onclick = startCalibration;
     
     document.getElementById('btn-connect-ti84').onclick = () => {
-        alert("TI-84 Connection feature coming soon!");
+        alert("TI-84 Connection: To import data, export the CSV from this lab and use TI-Connect CE to drag the file into your calculator as a List (L1/L2).");
     };
+
+    const exportWaveBtn = document.getElementById('btn-export-waveform');
+    if (exportWaveBtn) exportWaveBtn.onclick = exportWaveform;
+
+    const exportConstBtn = document.getElementById('btn-export-evm');
+    if (exportConstBtn) exportConstBtn.onclick = exportConstellation;
 
     drawConstellation([], true); 
 };
@@ -133,68 +139,74 @@ class CostasLoopReceiver {
         this.updateBaud(baud);
         this.symbolCounter = 0;
         this.isSyncing = false;
-        this.bitBuffer = [];
-        this.message = "";
-        this.state = 'IDLE'; 
-        this.byteBuffer = [];
-    }
-
-    updateBaud(newBaud) {
-        this.baud = newBaud;
-        this.samplesPerSymbol = this.sampleRate / newBaud;
-    }
-
-    clear() {
-        this.message = "";
-        this.bitBuffer = [];
-        this.byteBuffer = [];
-        this.state = 'IDLE';
-        this.isSyncing = false;
-        document.getElementById('rx-text').innerText = "Waiting for signal...";
-    }
-
-    processBlock(inputBuffer, modulationType) {
-        const points = [];
-        let energySum = 0;
-        for(let s of inputBuffer) energySum += s*s;
-        const rms = Math.sqrt(energySum / inputBuffer.length);
-        
-        for (let i = 0; i < inputBuffer.length; i++) {
-            const sample = inputBuffer[i] * calibrationScale; // Apply calibration
-            const loI = Math.cos(this.phase);
-            const loQ = -Math.sin(this.phase);
-            let rawI = sample * loI;
-            let rawQ = sample * loQ;
-            this.lpfI = this.lpfI + this.lpfAlpha * (rawI - this.lpfI);
-            this.lpfQ = this.lpfQ + this.lpfAlpha * (rawQ - this.lpfQ);
-
-            const signI = this.lpfI > 0 ? 1 : -1;
-            const signQ = this.lpfQ > 0 ? 1 : -1;
-            const error = (signI * this.lpfQ) - (signQ * this.lpfI);
-
-            this.errorInt += error * this.beta; 
-            this.phase += this.freq + (error * this.alpha) + this.errorInt;
-
-            if (rms > CONFIG.squelch) {
-                if (!this.isSyncing) {
-                    this.isSyncing = true;
-                    this.symbolCounter = Math.floor(this.samplesPerSymbol / 2); 
-                }
-                this.symbolCounter--;
-                if (this.symbolCounter <= 0) {
-                    this.symbolCounter = this.samplesPerSymbol;
-                    const bits = this.slice(this.lpfI, this.lpfQ, modulationType);
-                    this.processBits(bits);
-                    points.push({ i: this.lpfI, q: this.lpfQ });
-                }
-            } else {
-                this.isSyncing = false;
+                this.bitBuffer = [];
+                this.message = "";
                 this.state = 'IDLE'; 
+                this.byteBuffer = [];
+                this.lastPoints = []; // Store recent points for export
             }
-        }
-        this.phase = this.phase % (2 * Math.PI);
-        return points;
-    }
+        
+            updateBaud(newBaud) {
+                this.baud = newBaud;
+                this.samplesPerSymbol = this.sampleRate / newBaud;
+            }
+        
+            clear() {
+                this.message = "";
+                this.bitBuffer = [];
+                this.byteBuffer = [];
+                this.state = 'IDLE';
+                this.isSyncing = false;
+                this.lastPoints = [];
+                document.getElementById('rx-text').innerText = "Waiting for signal...";
+            }
+        
+            processBlock(inputBuffer, modulationType) {
+                const points = [];
+                let energySum = 0;
+                for(let s of inputBuffer) energySum += s*s;
+                const rms = Math.sqrt(energySum / inputBuffer.length);
+                
+                for (let i = 0; i < inputBuffer.length; i++) {
+                    const sample = inputBuffer[i] * calibrationScale; // Apply calibration
+                    const loI = Math.cos(this.phase);
+                    const loQ = -Math.sin(this.phase);
+                    let rawI = sample * loI;
+                    let rawQ = sample * loQ;
+                    this.lpfI = this.lpfI + this.lpfAlpha * (rawI - this.lpfI);
+                    this.lpfQ = this.lpfQ + this.lpfAlpha * (rawQ - this.lpfQ);
+        
+                    const signI = this.lpfI > 0 ? 1 : -1;
+                    const signQ = this.lpfQ > 0 ? 1 : -1;
+                    const error = (signI * this.lpfQ) - (signQ * this.lpfI);
+        
+                    this.errorInt += error * this.beta; 
+                    this.phase += this.freq + (error * this.alpha) + this.errorInt;
+        
+                    if (rms > CONFIG.squelch) {
+                        if (!this.isSyncing) {
+                            this.isSyncing = true;
+                            this.symbolCounter = Math.floor(this.samplesPerSymbol / 2); 
+                        }
+                        
+                        this.symbolCounter--;
+                        if (this.symbolCounter <= 0) {
+                            this.symbolCounter = this.samplesPerSymbol;
+                            const bits = this.slice(this.lpfI, this.lpfQ, modulationType);
+                            this.processBits(bits);
+                            const p = { i: this.lpfI, q: this.lpfQ };
+                            points.push(p);
+                            this.lastPoints.push(p);
+                            if (this.lastPoints.length > 1000) this.lastPoints.shift(); // Keep last 1000
+                        }
+                    } else {
+                        this.isSyncing = false;
+                        this.state = 'IDLE'; 
+                    }
+                }
+                this.phase = this.phase % (2 * Math.PI);
+                return points;
+            }
 
     slice(I, Q, type) {
         // Gain adjusted by calibrationScale now, so thresholds are normalized
@@ -521,28 +533,114 @@ function drawScope(buffer) {
 }
 
 async function transmitModemData() {
+
     const text = document.getElementById('modem-input').value || "HI";
+
     const type = document.getElementById('modem-type').value;
+
     const baud = parseInt(document.getElementById('modem-baud').value);
+
     const sendBtn = document.getElementById('btn-modem-send');
+
+
+
     await initAudioGraph();
+
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
+
     const buffer = engine.generateAudioBuffer(text, type, audioCtx);
+
+    
+
     if (modemBufferSource) try { modemBufferSource.stop(); } catch(e){}
+
     modemBufferSource = audioCtx.createBufferSource();
+
     modemBufferSource.buffer = buffer;
+
     modemBufferSource.connect(masterGain);
+
     if(analyser) modemBufferSource.connect(analyser);
+
+    
+
     if (sendBtn) {
+
         sendBtn.innerText = "SENDING...";
+
         sendBtn.disabled = true;
+
         modemBufferSource.onended = () => {
+
             sendBtn.innerText = "SEND";
+
             sendBtn.disabled = false;
+
         };
+
     }
+
     modemBufferSource.start();
+
 }
+
+
+
+function exportWaveform() {
+
+    if (!waveArray) { alert("No waveform data available. Start the scan first."); return; }
+
+    let csv = "Index,Voltage\n";
+
+    for (let i = 0; i < waveArray.length; i++) {
+
+        csv += `${i},${waveArray[i].toFixed(6)}\n`;
+
+    }
+
+    downloadCSV(csv, "waveform_data.csv");
+
+}
+
+
+
+function exportConstellation() {
+
+    if (!receiver || receiver.lastPoints.length === 0) { alert("No constellation data available. Transmit or receive a signal first."); return; }
+
+    let csv = "I,Q\n";
+
+    for (let p of receiver.lastPoints) {
+
+        csv += `${p.i.toFixed(6)},${p.q.toFixed(6)}\n`;
+
+    }
+
+    downloadCSV(csv, "constellation_data.csv");
+
+}
+
+
+
+function downloadCSV(csv, filename) {
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+
+    a.href = url;
+
+    a.download = filename;
+
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+}
+
+
 
 window.addEventListener('resize', () => {
     initCanvas('modem-bit-canvas');
