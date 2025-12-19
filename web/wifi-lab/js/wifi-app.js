@@ -443,7 +443,7 @@ function drawScope(buffer) {
         const idx = Math.floor((i/w) * buffer.length);
         const v = buffer[idx];
         const y = (h/2) - (v * h/2 * 0.9);
-        if(i===0) ctx.moveTo(x, y); else ctx.lineTo(i, y);
+        if(i===0) ctx.moveTo(i, y); else ctx.lineTo(i, y);
     }
     ctx.stroke();
 }
