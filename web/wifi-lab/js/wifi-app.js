@@ -1,7 +1,7 @@
 // ! CONFIG
 const CONFIG = {
-    carrierFreq: 1200,   // 1200 Hz Tone (Standard for Audio Modems)
-    baudRate: 20,        // Default Baud
+    carrierFreq: 1200,   
+    baudRate: 20,        
     sampleRate: 44100,   
     squelch: 0.01        
 };
@@ -29,7 +29,6 @@ window.onload = () => {
     initCanvas('constellation-canvas');
     initCanvas('scope-canvas');
 
-    // ! Populate Mic list on load
     populateMics();
 
     // ! Bindings
@@ -91,20 +90,33 @@ function populateMics() {
                 toggleBtn.disabled = false;
             }
         }).catch(err => {
-            console.error("An error occurred during mic detection:", err.name, err.message);
-            if (err.name === 'NotAllowedError') {
-                sel.innerHTML = '<option>Error: Permission Denied</option>';
-            } else {
-                sel.innerHTML = `<option>Error: ${err.name}</option>`;
-            }
+            console.error("Mic detection error:", err);
+            sel.innerHTML = '<option>Error: Check Permissions</option>';
         });
     } else {
         sel.innerHTML = '<option>Not Supported</option>';
     }
 }
 
+// ==========================================
+// ! DSP CLASSES
+// ==========================================
 
-// --- DSP CLASSES ---
+function getIdealPoints(type) {
+    if (type === 'BPSK') return [{I:-1, Q:0}, {I:1, Q:0}];
+    if (type === 'QPSK') return [{I:-1, Q:-1}, {I:-1, Q:1}, {I:1, Q:-1}, {I:1, Q:1}];
+    if (type === 'QAM16') {
+        const points = [];
+        for(let i of [-3,-1,1,3]) for(let q of [-3,-1,1,3]) points.push({I:i/3, Q:q/3});
+        return points;
+    }
+    if (type === 'QAM64') {
+        const points = [];
+        for(let i of [-7,-5,-3,-1,1,3,5,7]) for(let q of [-7,-5,-3,-1,1,3,5,7]) points.push({I:i/7, Q:q/7});
+        return points;
+    }
+    return [];
+}
 
 class CostasLoopReceiver {
     constructor(sampleRate, carrierFreq) {
@@ -132,7 +144,7 @@ class CostasLoopReceiver {
         const rms = Math.sqrt(energySum / inputBuffer.length);
         if (rms < CONFIG.squelch) return [];
 
-        const viewStep = 10; 
+        const viewStep = 8; 
         for (let i = 0; i < inputBuffer.length; i++) {
             const sample = inputBuffer[i];
             const loI = Math.cos(this.phase);
@@ -141,11 +153,16 @@ class CostasLoopReceiver {
             let rawQ = sample * loQ;
             this.lpfI = this.lpfI + this.lpfAlpha * (rawI - this.lpfI);
             this.lpfQ = this.lpfQ + this.lpfAlpha * (rawQ - this.lpfQ);
+
+            // Generic Error Detector for PSK/QAM
+            // For BPSK/QPSK, this is standard. For higher QAM, it still tracks carrier phase.
             const signI = this.lpfI > 0 ? 1 : -1;
             const signQ = this.lpfQ > 0 ? 1 : -1;
             const error = (signI * this.lpfQ) - (signQ * this.lpfI);
+
             this.errorInt += error * this.beta; 
             this.phase += this.freq + (error * this.alpha) + this.errorInt;
+            
             if (i % viewStep === 0) {
                 points.push({ i: this.lpfI, q: this.lpfQ });
             }
@@ -155,35 +172,45 @@ class CostasLoopReceiver {
     }
 }
 
-class QPSKModulator {
+class ModemEngine {
     constructor(sampleRate, carrier, baud) {
         this.sampleRate = sampleRate;
+        this.carrier = carrier;
+        this.baud = baud;
         this.omega = 2 * Math.PI * carrier / sampleRate;
         this.symbolPeriod = Math.floor(sampleRate / baud);
     }
 
-    generateAudioBuffer(text, ctx) {
+    generateAudioBuffer(text, type, ctx) {
+        // 1. Convert Text to Bits
         let bits = [];
         for (let i = 0; i < text.length; i++) {
             const charCode = text.charCodeAt(i);
             for (let b = 7; b >= 0; b--) bits.push((charCode >> b) & 1);
         }
-        if (bits.length % 2 !== 0) bits.push(0);
-        const totalSamples = (bits.length / 2) * this.symbolPeriod;
+
+        const idealPoints = getIdealPoints(type);
+        const bitsPerSymbol = Math.log2(idealPoints.length);
+
+        // Pad bits to match symbol size
+        while (bits.length % bitsPerSymbol !== 0) bits.push(0);
+
+        const totalSymbols = bits.length / bitsPerSymbol;
+        const totalSamples = totalSymbols * this.symbolPeriod;
         const buffer = ctx.createBuffer(1, totalSamples, this.sampleRate);
         const data = buffer.getChannelData(0);
+
         let phase = 0;
         let sampleIdx = 0;
-        for (let i = 0; i < bits.length; i += 2) {
-            const b0 = bits[i];
-            const b1 = bits[i+1];
-            let targetPhase = 0;
-            if (b0 === 0 && b1 === 0) targetPhase = 0.25 * Math.PI;
-            if (b0 === 0 && b1 === 1) targetPhase = 0.75 * Math.PI;
-            if (b0 === 1 && b1 === 1) targetPhase = 1.25 * Math.PI;
-            if (b0 === 1 && b1 === 0) targetPhase = 1.75 * Math.PI;
+
+        for (let i = 0; i < bits.length; i += bitsPerSymbol) {
+            const chunk = bits.slice(i, i + bitsPerSymbol);
+            const symbolIndex = parseInt(chunk.join(''), 2);
+            const point = idealPoints[symbolIndex % idealPoints.length];
+
             for (let t = 0; t < this.symbolPeriod; t++) {
-                data[sampleIdx] = Math.sin(phase + targetPhase);
+                // Modulate: I*cos - Q*sin
+                data[sampleIdx] = (point.I * Math.cos(phase) - point.Q * Math.sin(phase));
                 phase += this.omega;
                 sampleIdx++;
             }
@@ -191,7 +218,6 @@ class QPSKModulator {
         return buffer;
     }
 }
-
 
 // --- MAIN AUDIO & DRAWING ---
 
@@ -218,8 +244,7 @@ async function startReceiver() {
                 deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined, 
                 echoCancellation: false, 
                 autoGainControl: false, 
-                noiseSuppression: false, 
-                latency: 0 
+                noiseSuppression: false 
             }
         });
         
@@ -227,9 +252,8 @@ async function startReceiver() {
         micSource = audioCtx.createMediaStreamSource(stream);
         micSource.connect(analyser);
 
-        CONFIG.sampleRate = audioCtx.sampleRate;
-        receiver = new CostasLoopReceiver(CONFIG.sampleRate, CONFIG.carrierFreq);
-        modemEngine = new QPSKModulator(CONFIG.sampleRate, CONFIG.carrierFreq, CONFIG.baudRate);
+        receiver = new CostasLoopReceiver(audioCtx.sampleRate, CONFIG.carrierFreq);
+        modemEngine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, CONFIG.baudRate);
 
         isRunning = true;
         const s = document.getElementById('status-badge');
@@ -239,8 +263,6 @@ async function startReceiver() {
         const btn = document.getElementById('btn-toggle-scan');
         if(btn) {
             btn.innerText = "Stop Scan";
-            btn.classList.remove('primary');
-            btn.classList.add('action'); 
             btn.style.background = '#d32f2f'; 
             btn.style.borderColor = '#d32f2f';
         }
@@ -248,8 +270,8 @@ async function startReceiver() {
         loop();
 
     } catch(e) { 
-        console.error("Failed to start receiver:", e.name, e.message);
-        alert("Mic Error: " + e.name + " - " + e.message); 
+        console.error("Start Error:", e);
+        alert("Mic Error: " + e.message); 
     }
 }
 
@@ -265,8 +287,6 @@ function stopReceiver() {
     const btn = document.getElementById('btn-toggle-scan');
     if(btn) {
         btn.innerText = "Start Scan";
-        btn.classList.add('primary');
-        btn.classList.remove('action');
         btn.style.background = '';
         btn.style.borderColor = '';
     }
@@ -277,7 +297,6 @@ function loop() {
     requestAnimationFrame(loop);
     
     analyser.getFloatTimeDomainData(waveArray);
-    
     drawScope(waveArray);
     
     if (receiver) {
@@ -292,14 +311,10 @@ let calibrationScale = 1.0;
 async function startCalibration() {
     const wasRunning = isRunning;
     let tempStream = null;
-
     const s = document.getElementById('status-badge');
     
-    // If we are not running, we might need user interaction to start audio context
-    // and we should warn them a tone is coming.
     if (!wasRunning) {
-         const proceed = confirm("Calibration will play a test tone and activate your microphone for 1 second.\n\nEnsure your speakers are ON and volume is up.\n\nClick OK to start.");
-         if (!proceed) return;
+         if (!confirm("Start calibration test tone?")) return;
     }
 
     s.innerText = "Calibrating...";
@@ -307,139 +322,88 @@ async function startCalibration() {
 
     try {
         await initAudioGraph();
-
-        // 1. Ensure Mic is Connected
-        // If not running, or if running but somehow micSource is missing
         if (!micSource) {
             const devId = document.getElementById('device-select').value;
-            // Get a temporary stream
-            tempStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { 
-                    deviceId: devId ? { exact: devId } : undefined,
-                    echoCancellation: false, 
-                    autoGainControl: false, 
-                    noiseSuppression: false
-                } 
-            });
+            tempStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: devId ? { exact: devId } : undefined } });
             micSource = audioCtx.createMediaStreamSource(tempStream);
             micSource.connect(analyser);
         }
 
-        // 2. Play Tone
         const osc = audioCtx.createOscillator();
         osc.frequency.setValueAtTime(CONFIG.carrierFreq, audioCtx.currentTime);
-        osc.type = 'sine';
-        
-        const toneGain = audioCtx.createGain();
-        toneGain.gain.setValueAtTime(0.5, audioCtx.currentTime); 
-        
-        osc.connect(toneGain).connect(masterGain);
+        osc.connect(masterGain);
         osc.start();
 
-        // Wait for audio path to stabilize
-        await new Promise(r => setTimeout(r, 500)); 
+        await new Promise(r => setTimeout(r, 600)); 
 
-        // 3. Measure
         const magnitudes = [];
-        const calibrationDuration = 1000; 
         const startTime = performance.now();
 
-        const finish = () => {
-             osc.stop();
-             osc.disconnect();
-
-             // Cleanup temp mic if we opened it
-             if (tempStream) {
-                 if (micSource) micSource.disconnect();
-                 micSource = null;
-                 tempStream.getTracks().forEach(t => t.stop());
-             }
-
-             if (magnitudes.length === 0) {
-                 alert("Calibration Failed: No Audio Detected.");
-                 s.innerText = "Calib Failed";
-                 s.className = "status-badge error";
-             } else {
-                 const avg = magnitudes.reduce((a,b)=>a+b,0) / magnitudes.length;
-                 
-                 // Check against noise floor
-                 if (avg < 0.005) {
-                     alert("Signal too weak to calibrate.\nPlease increase volume or move mic closer to speaker.");
-                     s.innerText = "Weak Signal";
-                     s.className = "status-badge error";
-                 } else {
-                     const target = 0.75; // Target amplitude
-                     calibrationScale = target / avg;
-                     
-                     // Cap gain to reasonable limits (e.g. 0.1x to 50x)
-                     if (calibrationScale > 50) calibrationScale = 50;
-                     if (calibrationScale < 0.1) calibrationScale = 0.1;
-
-                     alert(`Calibration Complete!\n\nSignal Level: ${(avg*100).toFixed(1)}%\nApplied Gain: ${calibrationScale.toFixed(2)}x`);
-                     
-                     if (wasRunning) {
-                        s.innerText = "Receiving";
-                        s.className = "status-badge success";
-                     } else {
-                        s.innerText = "Calibrated";
-                        s.className = "status-badge success";
-                     }
-                 }
-             }
-        };
-
         const listen = () => {
-            if (performance.now() - startTime > calibrationDuration) {
-                finish();
+            if (performance.now() - startTime > 1000) {
+                osc.stop();
+                if (tempStream) {
+                    tempStream.getTracks().forEach(t => t.stop());
+                    micSource = null;
+                }
+                if (magnitudes.length === 0) {
+                    s.innerText = "No Signal";
+                } else {
+                    const avg = magnitudes.reduce((a,b)=>a+b,0) / magnitudes.length;
+                    calibrationScale = 0.75 / Math.max(avg, 0.001);
+                    s.innerText = "Calibrated";
+                }
                 return;
             }
             analyser.getFloatTimeDomainData(waveArray);
-            
-            // Calculate RMS
             let e = 0;
             for(let x of waveArray) e += x*x;
-            const mag = Math.sqrt(e/waveArray.length);
-            
-            magnitudes.push(mag);
+            magnitudes.push(Math.sqrt(e/waveArray.length));
             requestAnimationFrame(listen);
         };
         listen();
 
-    } catch(e) {
-        console.error(e);
-        alert("Calibration Error: " + e.message);
-        s.innerText = "Error";
-        s.className = "status-badge error";
-    }
+    } catch(e) { alert(e.message); }
 }
 
-function drawConstellation(points) {
+function drawConstellation(points, clearGrid = false) {
     const c = document.getElementById('constellation-canvas');
     if (!c) return;
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
 
-    ctx.fillStyle = 'rgba(0,0,0,0.15)'; 
+    ctx.fillStyle = clearGrid ? '#0b0b0b' : 'rgba(0,0,0,0.2)'; 
     ctx.fillRect(0, 0, w, h);
 
+    // Crosshairs
     ctx.strokeStyle = '#333';
     ctx.beginPath();
     ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
     ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
     ctx.stroke();
 
+    // Ideal Grid
+    const type = document.getElementById('modem-type').value;
+    const ideal = getIdealPoints(type);
+    ctx.fillStyle = '#444';
+    const scale = 0.8;
+    for(let p of ideal) {
+        ctx.beginPath();
+        ctx.arc((p.I * scale + 1) * w/2, (-p.Q * scale + 1) * h/2, 3, 0, 7);
+        ctx.fill();
+    }
+
     if (!points || points.length === 0) return;
 
     ctx.fillStyle = THEME.accent;
     ctx.shadowBlur = 10;
     ctx.shadowColor = THEME.accent;
-
     for(let p of points) {
-        const x = (p.i * 3 + 1) * (w/2);
-        const y = (-p.q * 3 + 1) * (h/2);
+        const x = (p.i * 2.5 * scale + 1) * (w/2);
+        const y = (-p.q * 2.5 * scale + 1) * (h/2);
         if (x < 0 || x > w || y < 0 || y > h) continue;
         ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI*2);
+        ctx.arc(x, y, 3, 0, 7);
         ctx.fill();
     }
     ctx.shadowBlur = 0;
@@ -450,21 +414,12 @@ function drawScope(buffer) {
     if(!c) return;
     const ctx = c.getContext('2d');
     const w = c.width, h = c.height;
-
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
-    ctx.strokeStyle = '#222'; ctx.beginPath();
-    ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
-
-    if(!buffer) return;
-
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = THEME.accent;
-    ctx.beginPath();
+    ctx.strokeStyle = THEME.accent; ctx.beginPath();
     const step = w / buffer.length;
     let x = 0;
     for(let i=0; i<buffer.length; i+=2) {
-        const v = buffer[i];
-        const y = (h/2) - (v * h/2 * 1.5);
+        const y = (h/2) - (buffer[i] * h/2 * 2.0);
         if(i===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         x += step * 2;
     }
@@ -473,12 +428,12 @@ function drawScope(buffer) {
 
 async function transmitModemData() {
     let text = document.getElementById('modem-input').value || "HI";
-    if (text.length > 200) text = text.slice(0, 200);
+    const type = document.getElementById('modem-type').value;
+    const baud = parseInt(document.getElementById('modem-baud').value);
     
     await initAudioGraph();
-    if (!modemEngine) modemEngine = new QPSKModulator(audioCtx.sampleRate, CONFIG.carrierFreq, CONFIG.baudRate);
-    
-    const buffer = modemEngine.generateAudioBuffer(text, audioCtx);
+    const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
+    const buffer = engine.generateAudioBuffer(text, type, audioCtx);
     
     if (modemBufferSource) try { modemBufferSource.stop(); } catch(e){}
     modemBufferSource = audioCtx.createBufferSource();
@@ -490,7 +445,7 @@ async function transmitModemData() {
     if (!isRunning) {
         isRunning = true;
         loop();
-        setTimeout(() => { if(isRunning && !micSource) isRunning = false; }, 2000);
+        setTimeout(() => { if(isRunning && !micSource) isRunning = false; }, 3000);
     }
 }
 
