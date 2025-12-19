@@ -94,23 +94,150 @@
         </div>
     </header>
 
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --surface: #1a1a1a;
+            --border: #2a2a2a;
+            --accent: #d05ce3; 
+            --accent-glow: rgba(208, 92, 227, 0.3);
+        }
+        body { 
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: #e0e0e0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+        } 
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 100vw;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: #141414;
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+        .header-left h1 { margin: 0; font-size: 1.4rem; font-weight: 600; }
+        .controls { display: flex; gap: 10px; align-items: center; }
+        
+        .controls select, .controls button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #252525;
+            color: white;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .controls button.primary { background: var(--accent); border: none; font-weight: 600; cursor: pointer; }
+        .controls button.primary:hover { filter: brightness(1.1); box-shadow: 0 0 15px var(--accent-glow); }
+        .controls button.action { background: #333; cursor: pointer; }
+        .controls button.action:hover { background: #444; }
+
+        /* GRID SYSTEM */
+        .bento-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1.5fr 1.5fr;
+            grid-template-rows: auto 180px;
+            gap: 15px; 
+            padding: 15px;
+            flex-grow: 1;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        
+        .card { 
+            background: var(--surface); 
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            min-width: 0; /* Prevents overflow */
+        }
+        
+        .card h2 {
+            margin: 0 0 12px 0;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #aaa;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+        }
+
+        canvas { 
+            flex-grow: 1; 
+            width: 100%; 
+            background: #050505; 
+            border-radius: 8px; 
+            border: 1px solid #222;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1200px) {
+            .bento-grid { 
+                grid-template-columns: 1fr 1fr; 
+                grid-template-rows: repeat(3, auto);
+                overflow-y: auto;
+            }
+            .app-container { height: auto; }
+            .card-span-2 { grid-column: span 2; }
+        }
+        @media (max-width: 800px) {
+            .bento-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
+            .card-span-2 { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container"> 
+    <header>
+        <div class="header-left">
+            <a href="../index.html" class="home-link" style="text-decoration:none; color:inherit;">
+                <h1>Wi-Fi <span class="highlight" style="color:var(--accent);">Lab</span></h1>
+            </a>
+        </div>
+        
+        <div class="controls">
+            <select id="device-select" style="max-width:200px;"><option>Detecting Mics...</option></select>
+            <button id="btn-toggle-scan" class="btn primary">Start Scan</button>
+            <button id="btn-connect-ti84" class="btn action" title="Connect TI-84"><i class="fas fa-calculator"></i> TI-84</button>
+            <button id="btn-help" class="btn action">Help</button>
+            <span id="status-badge" class="status-badge warn" style="padding:4px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">Idle</span>
+        </div>
+    </header>
+
     <div class="bento-grid">
         <!-- COLUMN 1: Transmitter -->
-        <div class="panel card">
+        <div class="card">
             <h2>Transmitter (TX) 📡</h2>
-            <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; flex-direction:column; gap:15px; flex-grow:1;">
                 <div>
-                    <label style="font-size:0.8rem; color:#aaa; margin-bottom:4px; display:block;">Message Payload (Max 200)</label>
+                    <label style="font-size:0.75rem; color:#888; margin-bottom:6px; display:block;">MESSAGE PAYLOAD</label>
                     <div style="display:flex; gap:8px;">
-                        <input type="text" id="modem-input" value="HI" maxlength="200" oninput="if(this.value.length > 200) this.value = this.value.slice(0, 200);" style="flex:1; padding:10px; background:#000; color:#fff; border:1px solid #444; border-radius:4px; font-family:monospace; font-size:1.1rem;">
-                        <button id="btn-modem-send" class="btn primary" style="min-width:80px;">SEND</button>
+                        <input type="text" id="modem-input" value="HI" maxlength="200" style="flex:1; padding:10px; background:#000; color:#fff; border:1px solid var(--border); border-radius:6px; font-family:monospace; font-size:1rem;">
+                        <button id="btn-modem-send" class="btn primary" style="min-width:70px;">SEND</button>
                     </div>
                 </div>
                 
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div>
-                        <label style="font-size:0.8rem; color:#888;">Modulation</label>
-                        <select id="modem-type" style="width:100%; padding:8px; margin-top:4px; background:#222; color:white; border:1px solid #444; border-radius:4px;">
+                        <label style="font-size:0.7rem; color:#666;">MODULATION</label>
+                        <select id="modem-type" style="width:100%; margin-top:4px;">
                             <option value="BPSK">BPSK (1 bit)</option>
                             <option value="QPSK" selected>QPSK (2 bits)</option>
                             <option value="QAM16">16-QAM (4 bits)</option>
@@ -118,11 +245,9 @@
                         </select>
                     </div>
                     <div>
-                        <label style="font-size:0.8rem; color:#888;">Symbol Rate</label>
-                        <select id="modem-baud" style="width:100%; padding:8px; margin-top:4px; background:#222; color:white; border:1px solid #444; border-radius:4px;">
-                            <option value="1">1 Baud (Slow)</option>
-                            <option value="2">2 Baud</option>
-                            <option value="5">5 Baud</option>
+                        <label style="font-size:0.7rem; color:#666;">BAUD RATE</label>
+                        <select id="modem-baud" style="width:100%; margin-top:4px;">
+                            <option value="1">1 Baud</option>
                             <option value="10">10 Baud</option>
                             <option value="20" selected>20 Baud</option>
                             <option value="50">50 Baud</option>
@@ -130,71 +255,68 @@
                     </div>
                 </div>
 
-                <div style="background:#111; padding:10px; border-radius:4px; border:1px solid #333;">
-                    <label style="font-size:0.75rem; color:#666; display:block; margin-bottom:5px;">Binary Stream (Base-2)</label>
-                    <div id="modem-bitstream" style="font-family:monospace; font-size:0.9rem; word-break:break-all; color:var(--accent); min-height:1.2em; max-height:100px; overflow-y:auto;">
-                        ...
+                <div style="flex-grow:1; display:flex; flex-direction:column; gap:10px; min-height:0;">
+                    <div style="background:#0a0a0a; padding:10px; border-radius:6px; border:1px solid #222; flex: 1; overflow:hidden;">
+                        <label style="font-size:0.65rem; color:#555; display:block; margin-bottom:4px;">BINARY STREAM</label>
+                        <div id="modem-bitstream" style="font-family:monospace; font-size:0.85rem; color:var(--accent); word-break:break-all;">...</div>
                     </div>
-                </div>
-
-                <div style="height:100px; position:relative; overflow:hidden; border-radius:4px;">
-                     <canvas id="modem-bit-canvas" style="width:100%; height:100%; display:block; min-height:0;"></canvas>
-                     <div style="position:absolute; top:5px; left:5px; font-size:0.7rem; color:#666; z-index:10; pointer-events:none;">Logic Levels</div>
+                    <div style="height:80px; position:relative; border-radius:6px; overflow:hidden; border:1px solid #222;">
+                         <canvas id="modem-bit-canvas"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- COLUMN 2: Receiver (Bigger) -->
-        <div class="panel card" style="flex: 1.5;">
+        <!-- COLUMN 2: Receiver -->
+        <div class="card">
             <h2>Receiver (RX) - Constellation 🌌</h2>
-            <canvas id="constellation-canvas" style="min-height:300px;"></canvas>
+            <canvas id="constellation-canvas"></canvas>
             
-            <div style="background:#111; padding:10px; margin-top:10px; border-radius:4px; border:1px solid #333;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                     <label style="font-size:0.8rem; color:#aaa; display:flex; align-items:center; gap:8px; cursor:pointer;">
-                        <input type="checkbox" id="rx-pll-enable" checked>
-                        Enable PLL / AGC
+            <div style="background:#111; padding:12px; margin-top:12px; border-radius:8px; border:1px solid #222;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                     <label style="font-size:0.75rem; color:#888; display:flex; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="rx-pll-enable" checked> PLL Lock
                     </label>
-                    <div style="display:flex; gap:5px;">
-                        <button id="btn-calibrate" class="btn primary" style="font-size:0.7rem; padding: 2px 8px;">Calibrate 🎚️</button>
-                        <button id="btn-rx-clear" class="btn secondary" style="font-size:0.7rem; padding: 2px 8px;">Clear</button>
+                    <div style="display:flex; gap:8px;">
+                        <button id="btn-calibrate" class="btn action" style="font-size:0.7rem; padding: 4px 10px;">Calibrate</button>
+                        <button id="btn-rx-clear" class="btn action" style="font-size:0.7rem; padding: 4px 10px;">Clear</button>
                     </div>
                 </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:#ccc;">
-                    <span>EVM: <b id="rx-evm" style="color:var(--accent);">--</b></span>
-                    <span>Bits: <b id="rx-bits" style="font-family:monospace;">--</b></span>
+                <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#ccc;">
+                    <span>SNR: <b id="rx-evm" style="color:var(--accent);">Good</b></span>
+                    <span>Clock: <b id="rx-bits" style="font-family:monospace;">Locked</b></span>
                 </div>
             </div>
+        </div>
 
-            <div style="margin-top:10px; display:flex; justify-content:space-between; font-size:0.8rem; color:#888;">
-                <span>I (In-Phase) = X-Axis</span>
-                <span>Q (Quadrature) = Y-Axis</span>
+        <!-- COLUMN 3: Scope -->
+        <div class="card">
+            <h2>Signal Scope 〰️</h2>
+            <canvas id="scope-canvas"></canvas>
+            <div style="margin-top:10px; display:flex; justify-content:space-between; font-size:0.7rem; color:#555;">
+                <span>TIME DOMAIN (SAMPLES)</span>
+                <span>VOLTAGE (NORMALIZED)</span>
             </div>
         </div>
 
-        <!-- COLUMN 3: Scope (Bigger) -->
-        <div class="panel card" style="flex: 1.5;">
-            <h2>Signal Scope 〰️</h2>
-            <canvas id="scope-canvas" style="flex-grow:1; min-height:300px;"></canvas>
-        </div>
-
-        <!-- BOTTOM ROW: Decoded Message and Lab Guide Side-by-Side -->
-        <div class="panel card" style="grid-column: span 2;">
+        <!-- BOTTOM ROW -->
+        <div class="card card-span-2">
             <h2>Decoded Message 📝</h2>
-            <div id="rx-text" style="background:#000; color:#fff; font-family:monospace; padding:10px; border-radius:4px; border:1px solid #444; height:120px; overflow-y:auto; word-break:break-all; font-size:1.2rem;">
+            <div id="rx-text" style="flex-grow:1; background:#000; color:#00ff41; font-family:'Courier New', monospace; padding:15px; border-radius:8px; border:1px solid #222; overflow-y:auto; word-break:break-all; font-size:1.3rem; text-shadow: 0 0 5px rgba(0,255,65,0.3);">
                 Waiting for signal...
             </div>
-            <button id="btn-export-evm" class="btn action" style="width:100%; margin-top:10px; font-size:0.8rem; padding:6px;">Export Constellation CSV (TI-84)</button>
+            <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+                <button id="btn-export-evm" class="btn action" style="font-size:0.75rem;">Export Constellation CSV (TI-84)</button>
+            </div>
         </div>
 
-        <div class="panel card" style="grid-column: span 1;">
+        <div class="card">
             <h2>Lab Guide 📘</h2>
-            <div style="color:#ccc; font-size:0.8rem; line-height:1.4; overflow-y:auto; max-height:160px;">
-                <p><strong>1. Encode:</strong> Message -> Bits.</p>
-                <p><strong>2. Modulate:</strong> Bits -> Symbols (BPSK, QPSK, QAM).</p>
-                <p><strong>3. Transmit:</strong> Symbols -> Audible Sound.</p>
-                <p><strong>4. Observe:</strong> Check the Constellation patterns.</p>
-                <p><strong>5. Export:</strong> Analyze I/Q data on your TI-84.</p>
+            <div style="color:#999; font-size:0.8rem; line-height:1.5; overflow-y:auto;">
+                <p><strong>1. Configure:</strong> Set your Modulation and Baud.</p>
+                <p><strong>2. Transmit:</strong> Type a message and hit SEND.</p>
+                <p><strong>3. Decode:</strong> The Receiver uses a <b>Costas Loop</b> to lock phase and slice bits in real-time.</p>
+                <p><strong>4. Analyze:</strong> Observe how higher baud rates increase signal noise.</p>
             </div>
         </div>
     </div>
