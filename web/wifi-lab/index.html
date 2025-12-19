@@ -113,6 +113,56 @@
             .bento-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
             .card-span-2 { grid-column: span 1; }
         }
+
+        /* MODAL */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 2000;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+            backdrop-filter: blur(5px);
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+        .modal-content {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #333;
+            max-width: 800px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            animation: modalPop 0.3s ease-out;
+        }
+        @keyframes modalPop { from { transform: scale(0.9); } to { transform: scale(1); } }
+        .modal-close {
+            position: absolute;
+            top: 10px; right: 15px;
+            font-size: 1.5rem;
+            color: #888;
+            cursor: pointer;
+            transition: color 0.2s;
+            z-index: 10;
+        }
+        .modal-close:hover { color: var(--accent); }
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 */
+            height: 0;
+            overflow: hidden;
+            border-radius: 8px;
+            background: #000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: 0;
+        }
     </style>
 </head>
 <body>
@@ -129,6 +179,7 @@
             <select id="device-select" style="max-width:200px;"><option>Detecting Mics...</option></select>
             <button id="btn-toggle-scan" class="btn primary">Start Scan</button>
             <button id="btn-connect-ti84" class="btn action" title="Connect TI-84"><i class="fas fa-calculator"></i> TI-84</button>
+            <button id="btn-intro" class="btn action" title="Watch Lab Intro" style="border: 1px solid var(--accent); color: var(--accent);"><i class="fas fa-play-circle"></i> Intro</button>
             <button id="btn-help" class="btn action">Help</button>
             <span id="status-badge" class="status-badge warn" style="padding:4px 10px; border-radius:20px; font-size:0.75rem; font-weight:600;">Idle</span>
         </div>
@@ -241,6 +292,17 @@
         <div>[Joke of the Session 🐨]</div>
         <div id="mic-joke-text">Loading...</div>
     </div>
+
+    <!-- VIDEO MODAL -->
+    <div id="intro-modal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2 style="margin-top:0; margin-bottom:15px; color:#e0e0e0; font-size: 1.2rem; display:flex; align-items:center; gap:10px;"><i class="fas fa-play-circle" style="color:var(--accent);"></i> Lab Introduction</h2>
+            <div class="video-container">
+                <iframe width="560" height="315" src="https://www.youtube.com/embed/1G40sK1MGR4" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="js/wifi-app.js"></script>
@@ -259,6 +321,41 @@
         };
         render();
     });
+
+    // Modal Logic
+    window.addEventListener('load', () => {
+        const modal = document.getElementById('intro-modal');
+        const openBtn = document.getElementById('btn-intro');
+        const closeBtn = modal.querySelector('.modal-close');
+        const iframe = modal.querySelector('iframe');
+        const iframeSrc = iframe.src; // Store original src
+
+        const openModal = () => {
+            modal.classList.add('active');
+            // Ensure src is set (in case it was cleared to stop video)
+            if(!iframe.src) iframe.src = iframeSrc;
+        };
+
+        const closeModal = () => {
+            modal.classList.remove('active');
+            // Stop video by resetting src
+            iframe.src = iframe.src; 
+        };
+
+        if(openBtn) openBtn.addEventListener('click', openModal);
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        
+        // Close on click outside
+        modal.addEventListener('click', (e) => {
+            if(e.target === modal) closeModal();
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'Escape' && modal.classList.contains('active')) closeModal();
+        });
+    });
+
     window.addEventListener('load', () => {
         const btn = document.getElementById('btn-help');
         if (btn) btn.addEventListener('click', () => {
