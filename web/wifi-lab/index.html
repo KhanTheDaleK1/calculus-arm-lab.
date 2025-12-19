@@ -222,7 +222,10 @@
                             <input type="checkbox" id="rx-pll-enable" checked>
                             Enable PLL / AGC
                         </label>
-                        <button id="btn-rx-clear" class="btn secondary" style="font-size:0.7rem; padding: 2px 8px;">Clear</button>
+                        <div style="display:flex; gap:5px;">
+                            <button id="btn-calibrate" class="btn primary" style="font-size:0.7rem; padding: 2px 8px;">Calibrate 🎚️</button>
+                            <button id="btn-rx-clear" class="btn secondary" style="font-size:0.7rem; padding: 2px 8px;">Clear</button>
+                        </div>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:#ccc;">
                         <span>EVM: <b id="rx-evm" style="color:var(--accent);">--</b></span>
