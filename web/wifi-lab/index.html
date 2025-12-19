@@ -144,10 +144,10 @@
             </div>
         </div>
 
-        <!-- COLUMN 2: Receiver -->
-        <div class="panel card">
+        <!-- COLUMN 2: Receiver (Bigger) -->
+        <div class="panel card" style="flex: 1.5;">
             <h2>Receiver (RX) - Constellation 🌌</h2>
-            <canvas id="constellation-canvas"></canvas>
+            <canvas id="constellation-canvas" style="min-height:300px;"></canvas>
             
             <div style="background:#111; padding:10px; margin-top:10px; border-radius:4px; border:1px solid #333;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -172,39 +172,29 @@
             </div>
         </div>
 
-        <!-- COLUMN 3: Scope -->
-        <div class="panel card">
+        <!-- COLUMN 3: Scope (Bigger) -->
+        <div class="panel card" style="flex: 1.5;">
             <h2>Signal Scope 〰️</h2>
-            <canvas id="scope-canvas" style="flex-grow:1;"></canvas>
-            
-            <div class="panel card" style="margin-top:15px; border:none; padding:0; box-shadow:none; flex:0 0 auto;">
-                <h2>Decoded Message 📝</h2>
-                <div id="rx-text" style="background:#000; color:#fff; font-family:monospace; padding:10px; border-radius:4px; border:1px solid #444; height:60px; overflow-y:auto; word-break:break-all;">
-                    Waiting for signal...
-                </div>
-                <button id="btn-export-evm" class="btn action" style="width:100%; margin-top:10px; font-size:0.8rem; padding:6px;">Export Constellation CSV (TI-84)</button>
-            </div>
+            <canvas id="scope-canvas" style="flex-grow:1; min-height:300px;"></canvas>
         </div>
 
-        <!-- ROW 2: Lab Guide -->
-        <div class="panel card" style="grid-column: span 3;">
+        <!-- BOTTOM ROW: Decoded Message and Lab Guide Side-by-Side -->
+        <div class="panel card" style="grid-column: span 2;">
+            <h2>Decoded Message 📝</h2>
+            <div id="rx-text" style="background:#000; color:#fff; font-family:monospace; padding:10px; border-radius:4px; border:1px solid #444; height:120px; overflow-y:auto; word-break:break-all; font-size:1.2rem;">
+                Waiting for signal...
+            </div>
+            <button id="btn-export-evm" class="btn action" style="width:100%; margin-top:10px; font-size:0.8rem; padding:6px;">Export Constellation CSV (TI-84)</button>
+        </div>
+
+        <div class="panel card" style="grid-column: span 1;">
             <h2>Lab Guide 📘</h2>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; color:#ccc; font-size:0.9rem; line-height:1.6;">
-                <div>
-                    <p><strong>1. Encode:</strong> Your text message is converted into binary bits.</p>
-                    <p><strong>2. Modulate:</strong> Binary bits are mapped to specific symbols (constellation points) based on the selected modulation (BPSK, QPSK, QAM).</p>
-                    <ul>
-                        <li><span style="color:var(--accent)">BPSK:</span> Uses 2 states (1 bit per symbol).</li>
-                        <li><span style="color:var(--accent)">QPSK:</span> Uses 4 states (2 bits per symbol).</li>
-                        <li><span style="color:var(--accent)">16-QAM:</span> Uses 16 states (4 bits per symbol).</li>
-                        <li><span style="color:var(--accent)">64-QAM:</span> Uses 64 states (6 bits per symbol).</li>
-                    </ul>
-                </div>
-                <div>
-                    <p><strong>3. Transmit:</strong> The symbols are converted into an audible sound wave. Use a lower 'Symbol Rate' (Baud) for easier observation.</p>
-                    <p><strong>4. Observe Constellation:</strong> This plot visualizes received symbols as complex numbers (I/Q coordinates). A tight cluster around ideal points indicates a good signal.</p>
-                    <p><strong>5. TI-84 Data Export:</strong> Click "Export Constellation CSV" to download I/Q data for plotting on your calculator.</p>
-                </div>
+            <div style="color:#ccc; font-size:0.8rem; line-height:1.4; overflow-y:auto; max-height:160px;">
+                <p><strong>1. Encode:</strong> Message -> Bits.</p>
+                <p><strong>2. Modulate:</strong> Bits -> Symbols (BPSK, QPSK, QAM).</p>
+                <p><strong>3. Transmit:</strong> Symbols -> Audible Sound.</p>
+                <p><strong>4. Observe:</strong> Check the Constellation patterns.</p>
+                <p><strong>5. Export:</strong> Analyze I/Q data on your TI-84.</p>
             </div>
         </div>
     </div>
