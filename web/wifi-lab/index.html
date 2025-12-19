@@ -12,7 +12,7 @@
             --bg: #141414;
             --surface: #1f1f1f;
             --border: #333;
-            --accent: #4facfe; /* Blue for Wi-Fi */
+            --accent: #d05ce3; /* Purple for Wi-Fi */
         }
         body { 
             overflow-y: auto;
@@ -137,9 +137,9 @@
                 <div style="display:flex; flex-direction:column; gap:12px;">
                     
                     <div>
-                        <label style="font-size:0.8rem; color:#aaa; margin-bottom:4px; display:block;">Message Payload</label>
+                        <label style="font-size:0.8rem; color:#aaa; margin-bottom:4px; display:block;">Message Payload (Max 200)</label>
                         <div style="display:flex; gap:8px;">
-                            <input type="text" id="modem-input" value="HI" maxlength="10" style="flex:1; padding:10px; background:#000; color:#fff; border:1px solid #444; border-radius:4px; font-family:monospace; font-size:1.1rem;">
+                            <input type="text" id="modem-input" value="HI" maxlength="200" oninput="if(this.value.length > 200) this.value = this.value.slice(0, 200);" style="flex:1; padding:10px; background:#000; color:#fff; border:1px solid #444; border-radius:4px; font-family:monospace; font-size:1.1rem;">
                             <button id="btn-modem-send" class="btn primary" style="min-width:80px;">SEND</button>
                         </div>
                     </div>
