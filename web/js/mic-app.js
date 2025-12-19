@@ -12,11 +12,6 @@ let historyStart = null;
 let scopePaused = false;
 let toneDelta = 2;
 
-// * MODEM STATE
-let modemEngine;
-let modemBufferSource = null;
-let constellationPoints = [];
-
 // * SCOPE SETTINGS
 let scopeSettings = {
     timePerDiv: 0.001,
@@ -39,8 +34,6 @@ window.onload = () => {
     initCanvas('spectrum-canvas');
     initCanvas('scope-canvas');
     initCanvas('history-canvas');
-    initCanvas('modem-bit-canvas');
-    initCanvas('constellation-canvas');
 
     // ! Robust Device Detection
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
@@ -95,9 +88,6 @@ window.onload = () => {
 
     bind('btn-speed-start', 'onclick', armStopwatch);
 
-    // * Modem Controls
-    bind('btn-modem-send', 'onclick', transmitModemData);
-    
     // * Spectrum Modal
     bind('spectrum-canvas', 'onclick', openSpectrumModal);
     bind('btn-close-modal', 'onclick', closeSpectrumModal);
@@ -210,7 +200,6 @@ function loop() {
     analyze();
     drawHistory();
     processStopwatch();
-    drawConstellation();
 }
 
 function drawSpectrum() {
@@ -736,194 +725,5 @@ window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
         initCanvas('spectrum-canvas'); initCanvas('scope-canvas'); initCanvas('history-canvas');
-        initCanvas('modem-bit-canvas'); initCanvas('constellation-canvas');
     }, 100);
 });
-
-/**
- * MODEM ENGINE
- * Handles BPSK, QPSK, 16-QAM Modulation
- */
-class ModemEngine {
-    constructor(sampleRate) {
-        this.sampleRate = sampleRate;
-        this.frequency = 1000; // 1kHz Carrier
-    }
-
-    stringToBits(text) {
-        const bits = [];
-        for (let i = 0; i < text.length; i++) {
-            const charCode = text.charCodeAt(i);
-            for (let j = 7; j >= 0; j--) {
-                bits.push((charCode >> j) & 1);
-            }
-        }
-        return bits;
-    }
-
-    generateWaveform(text, type, baud) {
-        const bits = this.stringToBits(text);
-        const symbolDuration = 1 / baud;
-        const samplesPerSymbol = Math.floor(symbolDuration * this.sampleRate);
-        const omega = 2 * Math.PI * this.frequency;
-
-        let symbols = [];
-        if (type === 'BPSK') {
-            symbols = bits.map(b => ({ I: b ? 1 : -1, Q: 0, bits: [b] }));
-        } else if (type === 'QPSK') {
-            for (let i = 0; i < bits.length; i += 2) {
-                const b1 = bits[i];
-                const b2 = bits[i+1] !== undefined ? bits[i+1] : 0;
-                // Gray coding: 00 -> (-1,-1), 01 -> (-1,1), 11 -> (1,1), 10 -> (1,-1)
-                const I = b1 ? 1 : -1;
-                const Q = b2 ? 1 : -1;
-                symbols.push({ I, Q, bits: [b1, b2] });
-            }
-        } else if (type === 'QAM16') {
-            for (let i = 0; i < bits.length; i += 4) {
-                const b = [bits[i], bits[i+1], bits[i+2], bits[i+3]].map(v => v || 0);
-                // Simple 16-QAM mapping
-                const I = (b[0] ? 2 : -2) + (b[1] ? 1 : -1);
-                const Q = (b[2] ? 2 : -2) + (b[3] ? 1 : -1);
-                symbols.push({ I: I / 3, Q: Q / 3, bits: b }); // Normalize to approx 1.0
-            }
-        }
-
-        // Preamble for sync (10101010)
-        const preamble = [1,0,1,0,1,0,1,0].map(b => ({ I: b ? 1 : -1, Q: 0, bits: [b] }));
-        const fullSymbols = [...preamble, ...symbols];
-
-        const totalSamples = fullSymbols.length * samplesPerSymbol;
-        const buffer = new Float32Array(totalSamples);
-
-        for (let s = 0; s < fullSymbols.length; s++) {
-            const { I, Q } = fullSymbols[s];
-            for (let i = 0; i < samplesPerSymbol; i++) {
-                const t = (s * samplesPerSymbol + i) / this.sampleRate;
-                // s(t) = I*cos(wt) - Q*sin(wt)
-                buffer[s * samplesPerSymbol + i] = I * Math.cos(omega * t) - Q * Math.sin(omega * t);
-            }
-        }
-
-        return { buffer, symbols: fullSymbols };
-    }
-}
-
-async function transmitModemData() {
-    const text = document.getElementById('modem-input').value || "HI";
-    const type = document.getElementById('modem-type').value;
-    const baud = parseInt(document.getElementById('modem-baud').value);
-
-    await initAudioGraph();
-    
-    if (!modemEngine) modemEngine = new ModemEngine(audioCtx.sampleRate);
-    const { buffer, symbols } = modemEngine.generateWaveform(text, type, baud);
-
-    // Update UI Bitstream
-    const bitStr = symbols.flatMap(s => s.bits).join('');
-    document.getElementById('modem-bitstream').innerText = bitStr;
-
-    // Draw Logic
-    drawModemBits(symbols);
-
-    // Play Audio
-    if (modemBufferSource) {
-        try { modemBufferSource.stop(); } catch(e){}
-    }
-    
-    const audioBuffer = audioCtx.createBuffer(1, buffer.length, audioCtx.sampleRate);
-    audioBuffer.getChannelData(0).set(buffer);
-    
-    modemBufferSource = audioCtx.createBufferSource();
-    modemBufferSource.buffer = audioBuffer;
-    
-    if (!masterGain) {
-        masterGain = audioCtx.createGain();
-        masterGain.connect(audioCtx.destination);
-    }
-    
-    modemBufferSource.connect(masterGain);
-    if (analyser) modemBufferSource.connect(analyser);
-    
-    modemBufferSource.start();
-
-    // Ensure loop is running for visualizations
-    if (!isRunning) {
-        isRunning = true;
-        document.getElementById('mic-status').innerText = "Transmitting";
-        document.getElementById('mic-status').className = "status-badge success";
-        loop();
-    }
-}
-
-function drawModemBits(symbols) {
-    const c = document.getElementById('modem-bit-canvas');
-    if (!c) return;
-    const ctx = c.getContext('2d');
-    const w = c.width, h = c.height;
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
-    
-    const bits = symbols.flatMap(s => s.bits);
-    const step = w / bits.length;
-    
-    ctx.strokeStyle = THEME.accent;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let i = 0; i < bits.length; i++) {
-        const x = i * step;
-        const y = bits[i] ? h*0.2 : h*0.8;
-        if (i === 0) ctx.moveTo(x, y);
-        else {
-            ctx.lineTo(x, bits[i-1] ? h*0.2 : h*0.8); // Vertical edge
-            ctx.lineTo(x, y);
-        }
-        ctx.lineTo(x + step, y);
-    }
-    ctx.stroke();
-}
-
-function drawConstellation() {
-    const c = document.getElementById('constellation-canvas');
-    if (!c) return;
-    const ctx = c.getContext('2d');
-    const w = c.width, h = c.height;
-
-    // Clear with slight fade for persistence effect
-    ctx.fillStyle = 'rgba(0,0,0,0.1)';
-    ctx.fillRect(0, 0, w, h);
-
-    // Draw Axis
-    ctx.strokeStyle = '#222';
-    ctx.beginPath();
-    ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
-    ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
-    ctx.stroke();
-
-    if (!isRunning || !waveArray) return;
-
-    // Demodulation Logic (Simplified)
-    // In a real receiver, we'd need carrier recovery and clock sync.
-    // Here we'll just sample the current buffer.
-    const omega = 2 * Math.PI * 1000;
-    const rate = audioCtx.sampleRate;
-    const now = audioCtx.currentTime;
-
-    // We take a few samples and average/plot
-    for (let i = 0; i < 10; i++) {
-        const sampleIdx = Math.floor(Math.random() * waveArray.length);
-        const t = now - (sampleIdx / rate);
-        const val = waveArray[sampleIdx];
-        
-        // I = s(t) * cos(wt), Q = s(t) * -sin(wt)
-        const I = val * Math.cos(omega * t);
-        const Q = val * -Math.sin(omega * t);
-        
-        const plotX = (w/2) + (I * w/2 * 2);
-        const plotY = (h/2) - (Q * h/2 * 2);
-
-        ctx.fillStyle = THEME.accent;
-        ctx.beginPath();
-        ctx.arc(plotX, plotY, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-    }
-}
