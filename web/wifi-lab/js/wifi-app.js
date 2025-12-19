@@ -709,15 +709,6 @@ function exportEVM() {
     URL.revokeObjectURL(url);
 }
 
-// ! Window Resize
-let resizeTimeout;
-window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-        initCanvas('modem-bit-canvas');
-        initCanvas('constellation-canvas');
-        initCanvas('scope-canvas');
-    }, 100);
-});
+
 
 
