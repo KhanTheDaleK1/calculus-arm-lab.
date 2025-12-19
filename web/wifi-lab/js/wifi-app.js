@@ -23,43 +23,63 @@ window.onload = () => {
     agc = new AGC();
     receiver = new Receiver();
 
-    // Device Detection
-    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-        navigator.mediaDevices.enumerateDevices().then(devs => {
-            const sel = document.getElementById('device-select');
-            if (sel) {
-                sel.innerHTML = '';
-                const mics = devs.filter(d => d.kind === 'audioinput');
-                if (mics.length === 0) {
-                    const opt = document.createElement('option');
-                    opt.text = "No Mics / Permission Needed";
-                    sel.appendChild(opt);
-                } else {
-                    mics.forEach((d, i) => {
-                        const opt = document.createElement('option');
-                        opt.value = d.deviceId;
-                        opt.text = d.label || `Mic ${i + 1}`;
-                        sel.appendChild(opt);
-                    });
-                }
-            }
-        });
-    }
+    // Populate Mic list on load
+    populateMics();
 
     // Bindings
     document.getElementById('btn-start').onclick = startReceiver;
     document.getElementById('btn-stop').onclick = stopReceiver;
     document.getElementById('btn-modem-send').onclick = transmitModemData;
     document.getElementById('modem-type').onchange = () => {
-        drawConstellation([]); // Redraw grid on change
+        drawConstellation([], true); // Redraw grid on change
     };
     document.getElementById('btn-rx-clear').onclick = () => {
         receiver.clear();
         document.getElementById('rx-text').innerText = "Cleared.";
     };
+    document.getElementById('btn-refresh-mics').onclick = populateMics;
 
-    drawConstellation([]); // Draw initial grid
+
+    drawConstellation([], true); // Draw initial grid
 };
+
+function populateMics() {
+    const startBtn = document.getElementById('btn-start');
+    const sel = document.getElementById('device-select');
+    if (!sel || !startBtn) return;
+    
+    startBtn.disabled = true;
+    sel.innerHTML = '<option>Detecting...</option>';
+
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        // We must call getUserMedia first to get permission, otherwise labels are blank.
+        navigator.mediaDevices.getUserMedia({audio:true})
+        .then(stream => {
+            // Got permission, now enumerate
+            return navigator.mediaDevices.enumerateDevices();
+        })
+        .then(devs => {
+            sel.innerHTML = '';
+            const mics = devs.filter(d => d.kind === 'audioinput');
+            if (mics.length === 0) {
+                sel.innerHTML = '<option>No mics found</option>';
+            } else {
+                mics.forEach((d, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceId;
+                    opt.text = d.label || `Mic ${i + 1}`;
+                    sel.appendChild(opt);
+                });
+                startBtn.disabled = false; // Enable start button
+            }
+            // IMPORTANT: Stop the dummy stream used for getting permissions.
+            stream.getTracks().forEach(track => track.stop());
+        }).catch(err => {
+            console.error("Mic enumeration error:", err);
+            sel.innerHTML = '<option>Mic Permission Denied</option>';
+        });
+    }
+}
 
 
 // --- DSP CLASSES ---
