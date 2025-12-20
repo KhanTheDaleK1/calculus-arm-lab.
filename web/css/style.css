@@ -283,27 +283,13 @@ canvas {
     top: 14px;
     left: 50%;
     transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 8px;
     opacity: 0.9;
 }
-.snow-bow span {
-    display: block;
-}
-.snow-bow .loop {
-    width: 22px;
-    height: 14px;
-    border: 2px solid rgba(255,255,255,0.8);
-    border-radius: 12px 12px 4px 4px;
-    background: rgba(255,255,255,0.1);
-}
-.snow-bow .knot {
-    width: 10px;
-    height: 10px;
-    background: rgba(255,255,255,0.8);
-    border-radius: 50%;
-    box-shadow: 0 0 6px rgba(255,255,255,0.6);
+.snow-bow svg {
+    width: 70px;
+    height: 24px;
+    fill: rgba(255,255,255,0.85);
+    filter: drop-shadow(0 2px 6px rgba(255,255,255,0.25));
 }
 
 @keyframes snow-fall {

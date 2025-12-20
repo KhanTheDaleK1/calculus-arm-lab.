@@ -10,10 +10,12 @@
 </head>
 <body>
     <div id="snow-overlay" class="snow-overlay" aria-hidden="true">
-        <div class="snow-bow">
-            <span class="loop"></span>
-            <span class="knot"></span>
-            <span class="loop"></span>
+        <div class="snow-bow" aria-hidden="true">
+            <svg viewBox="0 0 120 40" role="presentation" focusable="false">
+                <path d="M10 20 C5 8, 18 4, 32 10 C40 14, 40 26, 32 30 C18 36, 5 32, 10 20 Z" />
+                <path d="M110 20 C115 8, 102 4, 88 10 C80 14, 80 26, 88 30 C102 36, 115 32, 110 20 Z" />
+                <circle cx="60" cy="20" r="6" />
+            </svg>
         </div>
         <div class="snow-layer" id="snow-layer"></div>
     </div>
