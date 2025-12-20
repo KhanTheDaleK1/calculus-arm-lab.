@@ -178,6 +178,13 @@ window.onload = () => {
     drawConstellation([], true); 
 };
 
+document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (target && target.id === 'btn-rx-diagnose') {
+        runRxDiagnostics();
+    }
+});
+
 function populateMics() {
     const sel = document.getElementById('device-select');
     if (!sel) return;
