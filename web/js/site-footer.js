@@ -39,6 +39,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Setup triggers for Support
+    const supportTriggers = document.querySelectorAll('.btn-support-trigger');
+    supportTriggers.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal('support-modal');
+        });
+    });
+
     // Close logic (Clicking overlay or close button)
     const overlays = document.querySelectorAll('.modal-overlay');
     overlays.forEach(overlay => {
