@@ -850,7 +850,6 @@ async function transmitModemData() {
     modemBufferSource = audioCtx.createBufferSource();
     modemBufferSource.buffer = buffer;
     modemBufferSource.connect(masterGain);
-    if(analyser) modemBufferSource.connect(analyser);
     
     if (sendBtn) {
         sendBtn.innerText = "SENDING...";
