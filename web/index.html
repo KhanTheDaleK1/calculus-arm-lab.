@@ -110,11 +110,13 @@
     </script>
     <script>
         window.addEventListener('load', () => {
+            const params = new URLSearchParams(window.location.search);
+            const forceSnow = params.get('snow') === '1';
             const now = new Date();
             const month = now.getMonth();
             const day = now.getDate();
             const inSeason = (month === 11 && day >= 15) || (month === 0 && day <= 15);
-            if (!inSeason) return;
+            if (!inSeason && !forceSnow) return;
             const overlay = document.getElementById('snow-overlay');
             const layer = document.getElementById('snow-layer');
             if (!overlay || !layer) return;
