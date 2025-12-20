@@ -23,6 +23,7 @@ let userGain = 1.0;
 let txGain = 0.5;
 let txActive = false;
 let lastFrameErrLog = 0;
+let diagnoseInProgress = false;
 
 // ! SCOPE HISTORY STATE
 let isScopePaused = false;
@@ -188,7 +189,6 @@ document.addEventListener('click', (e) => {
     const target = e.target;
     if (target && target.id === 'btn-rx-diagnose') {
         debugLog("Diagnose button clicked.");
-        runRxDiagnostics();
     }
 });
 
@@ -650,9 +650,15 @@ function loop() {
 
 async function runRxDiagnostics() {
     try {
+        if (diagnoseInProgress) {
+            debugLog("RX diagnose: already running.");
+            return;
+        }
+        diagnoseInProgress = true;
         if (!analyser || !waveArray) {
             debugLog("RX diagnose: receiver not running.");
             alert("Start the receiver first.");
+            diagnoseInProgress = false;
             return;
         }
         debugLog("RX diagnose: starting baseline collection.");
@@ -728,10 +734,12 @@ async function runRxDiagnostics() {
             }, 1200);
         }
         if (btn) btn.innerText = "Diagnose";
+        diagnoseInProgress = false;
     } catch (err) {
         debugLog(`RX diagnose error: ${err.message || err}`);
         const btn = document.getElementById('btn-rx-diagnose');
         if (btn) btn.innerText = "Diagnose";
+        diagnoseInProgress = false;
     }
 }
 
