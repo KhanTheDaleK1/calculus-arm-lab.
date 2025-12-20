@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-12-20a";
+const APP_VERSION = "wifi-lab-2025-12-20b";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -893,7 +893,7 @@ async function startCalibration() {
             return;
         }
 
-        const signalPresent = (rmsEma > (baselineRms + 0.003)) || (rmsEma > baselineRms * 2);
+        const signalPresent = rmsEma > minRms;
         if (!signalPresent) {
             noSignalDuration += dt;
         } else {
@@ -901,6 +901,16 @@ async function startCalibration() {
         }
 
         if ((now - startTime > 2000) && txGain >= maxGain && noSignalDuration > 1.5) {
+            const floorRms = Math.max(baselineRms, rmsEma);
+            if (floorRms >= minRms) {
+                calibrationValid = true;
+                calibrationScale = Math.min(Math.max(targetRms / floorRms, 0.1), 10);
+                txGain = 0.3;
+                if (masterGain) masterGain.gain.value = txGain;
+                debugLog(`Calibration done: noise-floor scale=${calibrationScale.toFixed(2)}x, txGain=${txGain.toFixed(2)}.`);
+                finishCalibration("Calibrated (Noise Floor)", "status-badge warn");
+                return;
+            }
             calibrationValid = false;
             calibrationScale = 2.0;
             defaultCalApplied = true;
