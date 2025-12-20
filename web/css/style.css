@@ -170,6 +170,39 @@ p { margin: 0 0 10px 0; }
 .nav-card h2 { border: none; font-size: 1.2rem; color: var(--accent); margin: 0; padding: 0; }
 .nav-card p { color: var(--text-dim); font-size: 0.9rem; margin-top: 5px; }
 
+/* THIRD-PARTY SECTION (Landing Page) */
+.third-party { margin-top: 30px; }
+.third-party-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+.third-party-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+    color: var(--text-dim);
+}
+.third-party-list a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--accent);
+}
+.third-party-list a:hover { opacity: 0.85; }
+.video-embed {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+}
+.video-embed iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 8px;
+}
+
 /* LAB LISTS */
 .lab-list { display: flex; flex-direction: column; gap: 14px; }
 .lab-card {
