@@ -16,6 +16,7 @@ let waveArray;
 let calibrationScale = 1.0; 
 let calibrationClipped = false;
 let calibrationValid = false;
+let calibrationAttempted = false;
 let userGain = 1.0;
 let txGain = 0.5;
 let txActive = false;
@@ -609,9 +610,12 @@ function loop() {
     if (rmsEl) rmsEl.innerText = rms.toFixed(3);
     if (calScaleEl) calScaleEl.innerText = calibrationScale.toFixed(2) + 'x';
     if (calStatusEl) {
-        if (!calibrationValid) {
+        if (!calibrationAttempted) {
+            calStatusEl.innerText = "Idle";
+            calStatusEl.style.color = '#888';
+        } else if (!calibrationValid) {
             calStatusEl.innerText = "No Signal";
-            calStatusEl.style.color = '#ff5555';
+            calStatusEl.style.color = '#ffb86c';
         } else if (calibrationClipped) {
             calStatusEl.innerText = "Input Hot";
             calStatusEl.style.color = '#ffb86c';
@@ -728,6 +732,7 @@ async function startCalibration() {
     s.innerText = "Calibrating...";
     s.className = "status-badge info";
     await initAudioGraph();
+    calibrationAttempted = true;
     const prevTxGain = masterGain ? masterGain.gain.value : 1.0;
     if (masterGain) masterGain.gain.value = 1.0;
     
@@ -779,6 +784,7 @@ async function startCalibration() {
                 calibrationValid = true;
                 const clipRatio = clipHits / Math.max(sampleCount, 1);
                 calibrationClipped = clipRatio > 0.005;
+                calibrationAttempted = true;
                 const txTarget = Math.min(1, targetRms / avg);
                 txGain = calibrationClipped ? Math.min(txTarget, 0.3) : txTarget;
                 if (masterGain) masterGain.gain.value = txGain;
