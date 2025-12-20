@@ -779,7 +779,8 @@ async function startCalibration() {
     const magnitudes = [];
     let clipHits = 0;
     let sampleCount = 0;
-    const startTime = performance.now();
+    let startTime = performance.now();
+    let retries = 0;
     const listen = () => {
         if (performance.now() - startTime > 1500) {
             source.stop();
@@ -791,11 +792,25 @@ async function startCalibration() {
                 const avg = magnitudes.reduce((a,b)=>a+b,0) / magnitudes.length;
                 const minRms = 0.01;
                 if (avg < minRms) {
+                    if (retries < 2 && txGain < 0.6) {
+                        retries++;
+                        txGain = Math.min(0.6, txGain * 2);
+                        if (masterGain) masterGain.gain.value = txGain;
+                        magnitudes.length = 0;
+                        clipHits = 0;
+                        sampleCount = 0;
+                        startTime = performance.now();
+                        s.innerText = "Calibration: Boosting TX...";
+                        s.className = "status-badge warn";
+                        debugLog(`Calibration retry ${retries}: no signal, txGain=${txGain.toFixed(2)}.`);
+                        source.start();
+                        return;
+                    }
                     calibrationValid = false;
                     calibrationScale = 2.0;
                     s.innerText = "Calibration: Default (No signal)";
                     s.className = "status-badge warn";
-                    txGain = 0.2;
+                    txGain = Math.min(txGain, 0.2);
                     if (masterGain) masterGain.gain.value = txGain;
                     defaultCalApplied = true;
                     debugLog("Calibration default: no signal (avg RMS too low). Set cal=2.00x, txGain=0.20.");
