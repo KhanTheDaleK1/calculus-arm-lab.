@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calc-labs-v1';
+const CACHE_NAME = 'calc-labs-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,6 +7,8 @@ const ASSETS_TO_CACHE = [
   '/assets/mom.png',
   '/microphone-labs/index.html',
   '/microphone-labs/app.js',
+  '/wifi-lab/index.html',
+  '/wifi-lab/js/wifi-app.js',
   '/arm/js/jokes.js'
 ];
 
