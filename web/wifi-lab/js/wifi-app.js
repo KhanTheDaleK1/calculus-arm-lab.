@@ -181,6 +181,7 @@ window.onload = () => {
 document.addEventListener('click', (e) => {
     const target = e.target;
     if (target && target.id === 'btn-rx-diagnose') {
+        debugLog("Diagnose button clicked.");
         runRxDiagnostics();
     }
 });
@@ -619,79 +620,89 @@ function loop() {
 }
 
 async function runRxDiagnostics() {
-    if (!analyser || !waveArray) {
-        alert("Start the receiver first.");
-        return;
-    }
-    debugLog("RX diagnose: starting baseline collection.");
-    const diagEl = document.getElementById('rx-diagnose-output');
-    const status = document.getElementById('status-badge');
-    if (status) {
-        status.innerText = "Diagnosing...";
-        status.className = "status-badge info";
-    }
-    if (diagEl) diagEl.innerText = "Diagnose: collecting baseline...";
-
-    const collect = async (label, ms) => {
-        const start = performance.now();
-        let maxRaw = 0;
-        let clipCount = 0;
-        let sampleCount = 0;
-        let energySum = 0;
-        while (performance.now() - start < ms) {
-            analyser.getFloatTimeDomainData(waveArray);
-            for (let i = 0; i < waveArray.length; i++) {
-                const v = waveArray[i];
-                const a = Math.abs(v);
-                if (a > maxRaw) maxRaw = a;
-                if (a >= 0.999) clipCount++;
-                energySum += v * v;
-                sampleCount++;
-            }
-            await new Promise(r => requestAnimationFrame(r));
+    try {
+        if (!analyser || !waveArray) {
+            debugLog("RX diagnose: receiver not running.");
+            alert("Start the receiver first.");
+            return;
         }
-        const rms = Math.sqrt(energySum / Math.max(sampleCount, 1));
-        const calibratedPeak = maxRaw * (calibrationScale || 1);
-        const scaledPeak = calibratedPeak * (userGain || 1);
-        return {
-            label,
-            rms: rms.toFixed(4),
-            maxRaw: maxRaw.toFixed(4),
-            clipRatio: (clipCount / Math.max(sampleCount, 1)).toFixed(6),
-            calScale: (calibrationScale || 1).toFixed(3),
-            userGain: (userGain || 1).toFixed(3),
-            calibratedPeak: calibratedPeak.toFixed(4),
-            scaledPeak: scaledPeak.toFixed(4)
-        };
-    };
+        debugLog("RX diagnose: starting baseline collection.");
+        const diagEl = document.getElementById('rx-diagnose-output');
+        const status = document.getElementById('status-badge');
+        const btn = document.getElementById('btn-rx-diagnose');
+        if (btn) btn.innerText = "Diagnosing...";
+        if (status) {
+            status.innerText = "Diagnosing...";
+            status.className = "status-badge info";
+        }
+        if (diagEl) diagEl.innerText = "Diagnose: collecting baseline...";
 
-    const baseline = await collect("baseline", 1500);
-    console.log("RX Diagnose baseline:", baseline);
-    debugLog(`RX baseline rms=${baseline.rms} max=${baseline.maxRaw} clip=${baseline.clipRatio} cal=${baseline.calScale} gain=${baseline.userGain}`);
-    if (status) status.innerText = "Diagnose: Send 'HI' now...";
-    if (diagEl) {
-        diagEl.innerText = `Baseline rms=${baseline.rms} max=${baseline.maxRaw} clip=${baseline.clipRatio} cal=${baseline.calScale} gain=${baseline.userGain}`;
-    }
-    await new Promise(r => setTimeout(r, 400));
-    const duringTx = await collect("during-tx", 3000);
-    console.log("RX Diagnose during-tx:", duringTx);
-    debugLog(`RX during-tx rms=${duringTx.rms} max=${duringTx.maxRaw} clip=${duringTx.clipRatio} calPk=${duringTx.calibratedPeak} scaledPk=${duringTx.scaledPeak}`);
-    if (diagEl) {
-        diagEl.innerText += ` | Tx rms=${duringTx.rms} max=${duringTx.maxRaw} clip=${duringTx.clipRatio} calPk=${duringTx.calibratedPeak} scaledPk=${duringTx.scaledPeak}`;
-    }
-
-    if (status) {
-        status.innerText = "Diagnose complete";
-        status.className = "status-badge success";
-        setTimeout(() => {
-            if (isRunning) {
-                status.innerText = "Receiving";
-                status.className = "status-badge success";
-            } else {
-                status.innerText = "Idle";
-                status.className = "status-badge warn";
+        const collect = async (label, ms) => {
+            const start = performance.now();
+            let maxRaw = 0;
+            let clipCount = 0;
+            let sampleCount = 0;
+            let energySum = 0;
+            while (performance.now() - start < ms) {
+                analyser.getFloatTimeDomainData(waveArray);
+                for (let i = 0; i < waveArray.length; i++) {
+                    const v = waveArray[i];
+                    const a = Math.abs(v);
+                    if (a > maxRaw) maxRaw = a;
+                    if (a >= 0.999) clipCount++;
+                    energySum += v * v;
+                    sampleCount++;
+                }
+                await new Promise(r => requestAnimationFrame(r));
             }
-        }, 1200);
+            const rms = Math.sqrt(energySum / Math.max(sampleCount, 1));
+            const calibratedPeak = maxRaw * (calibrationScale || 1);
+            const scaledPeak = calibratedPeak * (userGain || 1);
+            return {
+                label,
+                rms: rms.toFixed(4),
+                maxRaw: maxRaw.toFixed(4),
+                clipRatio: (clipCount / Math.max(sampleCount, 1)).toFixed(6),
+                calScale: (calibrationScale || 1).toFixed(3),
+                userGain: (userGain || 1).toFixed(3),
+                calibratedPeak: calibratedPeak.toFixed(4),
+                scaledPeak: scaledPeak.toFixed(4)
+            };
+        };
+
+        const baseline = await collect("baseline", 1500);
+        console.log("RX Diagnose baseline:", baseline);
+        debugLog(`RX baseline rms=${baseline.rms} max=${baseline.maxRaw} clip=${baseline.clipRatio} cal=${baseline.calScale} gain=${baseline.userGain}`);
+        if (status) status.innerText = "Diagnose: Send 'HI' now...";
+        if (diagEl) {
+            diagEl.innerText = `Baseline rms=${baseline.rms} max=${baseline.maxRaw} clip=${baseline.clipRatio} cal=${baseline.calScale} gain=${baseline.userGain}`;
+        }
+        await new Promise(r => setTimeout(r, 400));
+        const duringTx = await collect("during-tx", 3000);
+        console.log("RX Diagnose during-tx:", duringTx);
+        debugLog(`RX during-tx rms=${duringTx.rms} max=${duringTx.maxRaw} clip=${duringTx.clipRatio} calPk=${duringTx.calibratedPeak} scaledPk=${duringTx.scaledPeak}`);
+        if (diagEl) {
+            diagEl.innerText += ` | Tx rms=${duringTx.rms} max=${duringTx.maxRaw} clip=${duringTx.clipRatio} calPk=${duringTx.calibratedPeak} scaledPk=${duringTx.scaledPeak}`;
+        }
+
+        if (status) {
+            status.innerText = "Diagnose complete";
+            status.className = "status-badge success";
+            setTimeout(() => {
+                if (isRunning) {
+                    status.innerText = "Receiving";
+                    status.className = "status-badge success";
+                } else {
+                    status.innerText = "Idle";
+                    status.className = "status-badge warn";
+                }
+            }, 1200);
+        }
+        if (btn) btn.innerText = "Diagnose";
+    } catch (err) {
+        debugLog(`RX diagnose error: ${err.message || err}`);
+        const btn = document.getElementById('btn-rx-diagnose');
+        if (btn) btn.innerText = "Diagnose";
     }
 }
 
