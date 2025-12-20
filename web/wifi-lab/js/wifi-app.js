@@ -595,11 +595,13 @@ async function runRxDiagnostics() {
         alert("Start the receiver first.");
         return;
     }
+    const diagEl = document.getElementById('rx-diagnose-output');
     const status = document.getElementById('status-badge');
     if (status) {
         status.innerText = "Diagnosing...";
         status.className = "status-badge info";
     }
+    if (diagEl) diagEl.innerText = "Diagnose: collecting baseline...";
 
     const collect = async (label, ms) => {
         const start = performance.now();
@@ -637,9 +639,15 @@ async function runRxDiagnostics() {
     const baseline = await collect("baseline", 1500);
     console.log("RX Diagnose baseline:", baseline);
     if (status) status.innerText = "Diagnose: Send 'HI' now...";
+    if (diagEl) {
+        diagEl.innerText = `Baseline rms=${baseline.rms} max=${baseline.maxRaw} clip=${baseline.clipRatio} cal=${baseline.calScale} gain=${baseline.userGain}`;
+    }
     await new Promise(r => setTimeout(r, 400));
     const duringTx = await collect("during-tx", 3000);
     console.log("RX Diagnose during-tx:", duringTx);
+    if (diagEl) {
+        diagEl.innerText += ` | Tx rms=${duringTx.rms} max=${duringTx.maxRaw} clip=${duringTx.clipRatio} calPk=${duringTx.calibratedPeak} scaledPk=${duringTx.scaledPeak}`;
+    }
 
     if (status) {
         status.innerText = "Diagnose complete";
