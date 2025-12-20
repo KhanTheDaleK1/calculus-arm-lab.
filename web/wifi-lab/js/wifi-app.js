@@ -17,6 +17,7 @@ let calibrationScale = 1.0;
 let calibrationClipped = false;
 let calibrationValid = false;
 let userGain = 1.0;
+let txGain = 0.5;
 let lastFrameErrLog = 0;
 
 // ! SCOPE HISTORY STATE
@@ -505,6 +506,7 @@ async function initAudioGraph() {
     waveArray = new Float32Array(analyser.frequencyBinCount);
     if (!masterGain) {
         masterGain = audioCtx.createGain();
+        masterGain.gain.value = txGain;
         masterGain.connect(audioCtx.destination);
     }
 }
@@ -719,6 +721,8 @@ async function startCalibration() {
     s.innerText = "Calibrating...";
     s.className = "status-badge info";
     await initAudioGraph();
+    const prevTxGain = masterGain ? masterGain.gain.value : 1.0;
+    if (masterGain) masterGain.gain.value = 1.0;
     
     // Create a temporary stream if receiver is not running
     let tempStream = null;
@@ -757,6 +761,7 @@ async function startCalibration() {
                     s.innerText = "Calibration failed (No signal)";
                     s.className = "status-badge error";
                     debugLog("Calibration failed: no signal (avg RMS too low).");
+                    if (masterGain) masterGain.gain.value = prevTxGain;
                     return;
                 }
                 const targetRms = 0.5;
@@ -765,22 +770,26 @@ async function startCalibration() {
                 calibrationValid = true;
                 const clipRatio = clipHits / Math.max(sampleCount, 1);
                 calibrationClipped = clipRatio > 0.005;
+                const txTarget = Math.min(1, targetRms / avg);
+                txGain = calibrationClipped ? Math.min(txTarget, 0.3) : txTarget;
+                if (masterGain) masterGain.gain.value = txGain;
                 if (calibrationClipped) {
                     s.innerText = "Calibrated (Input Hot)";
                     s.className = "status-badge warn";
-                    debugLog(`Calibration done: input hot, scale=${calibrationScale.toFixed(2)}x.`);
+                    debugLog(`Calibration done: input hot, scale=${calibrationScale.toFixed(2)}x, txGain=${txGain.toFixed(2)}.`);
                 } else if (rawScale !== calibrationScale) {
                     s.innerText = "Calibrated (Clamped)";
                     s.className = "status-badge warn";
-                    debugLog(`Calibration done: clamped scale=${calibrationScale.toFixed(2)}x (raw ${rawScale.toFixed(2)}x).`);
+                    debugLog(`Calibration done: clamped scale=${calibrationScale.toFixed(2)}x (raw ${rawScale.toFixed(2)}x), txGain=${txGain.toFixed(2)}.`);
                 } else {
                     s.innerText = "Calibrated";
                     s.className = "status-badge success";
-                    debugLog(`Calibration done: scale=${calibrationScale.toFixed(2)}x.`);
+                    debugLog(`Calibration done: scale=${calibrationScale.toFixed(2)}x, txGain=${txGain.toFixed(2)}.`);
                 }
             } else {
                 s.innerText = "Failed";
                 s.className = "status-badge error";
+                if (masterGain) masterGain.gain.value = prevTxGain;
             }
             return;
         }
@@ -857,6 +866,7 @@ async function transmitModemData() {
     if (modemBufferSource) try { modemBufferSource.stop(); } catch(e){}
     modemBufferSource = audioCtx.createBufferSource();
     modemBufferSource.buffer = buffer;
+    if (masterGain) masterGain.gain.value = txGain;
     modemBufferSource.connect(masterGain);
     
     if (sendBtn) {
