@@ -98,6 +98,9 @@ window.onload = () => {
     };
     
     document.getElementById('btn-calibrate').onclick = startCalibration;
+
+    const diagnoseBtn = document.getElementById('btn-rx-diagnose');
+    if (diagnoseBtn) diagnoseBtn.onclick = runRxDiagnostics;
     
     document.getElementById('btn-connect-ti84').onclick = () => {
         alert("TI-84 Connection: To import data, export the CSV from this lab and use TI-Connect CE to drag the file into your calculator as a List (L1/L2).");
@@ -584,6 +587,72 @@ function loop() {
         const type = document.getElementById('modem-type').value;
         const points = receiver.processBlock(waveArray, type);
         drawConstellation(points);
+    }
+}
+
+async function runRxDiagnostics() {
+    if (!analyser || !waveArray) {
+        alert("Start the receiver first.");
+        return;
+    }
+    const status = document.getElementById('status-badge');
+    if (status) {
+        status.innerText = "Diagnosing...";
+        status.className = "status-badge info";
+    }
+
+    const collect = async (label, ms) => {
+        const start = performance.now();
+        let maxRaw = 0;
+        let clipCount = 0;
+        let sampleCount = 0;
+        let energySum = 0;
+        while (performance.now() - start < ms) {
+            analyser.getFloatTimeDomainData(waveArray);
+            for (let i = 0; i < waveArray.length; i++) {
+                const v = waveArray[i];
+                const a = Math.abs(v);
+                if (a > maxRaw) maxRaw = a;
+                if (a >= 0.999) clipCount++;
+                energySum += v * v;
+                sampleCount++;
+            }
+            await new Promise(r => requestAnimationFrame(r));
+        }
+        const rms = Math.sqrt(energySum / Math.max(sampleCount, 1));
+        const calibratedPeak = maxRaw * (calibrationScale || 1);
+        const scaledPeak = calibratedPeak * (userGain || 1);
+        return {
+            label,
+            rms: rms.toFixed(4),
+            maxRaw: maxRaw.toFixed(4),
+            clipRatio: (clipCount / Math.max(sampleCount, 1)).toFixed(6),
+            calScale: (calibrationScale || 1).toFixed(3),
+            userGain: (userGain || 1).toFixed(3),
+            calibratedPeak: calibratedPeak.toFixed(4),
+            scaledPeak: scaledPeak.toFixed(4)
+        };
+    };
+
+    const baseline = await collect("baseline", 1500);
+    console.log("RX Diagnose baseline:", baseline);
+    if (status) status.innerText = "Diagnose: Send 'HI' now...";
+    await new Promise(r => setTimeout(r, 400));
+    const duringTx = await collect("during-tx", 3000);
+    console.log("RX Diagnose during-tx:", duringTx);
+
+    if (status) {
+        status.innerText = "Diagnose complete";
+        status.className = "status-badge success";
+        setTimeout(() => {
+            if (isRunning) {
+                status.innerText = "Receiving";
+                status.className = "status-badge success";
+            } else {
+                status.innerText = "Idle";
+                status.className = "status-badge warn";
+            }
+        }, 1200);
     }
 }
 
