@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-12-20c";
+const APP_VERSION = "wifi-lab-2025-12-20d";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -426,9 +426,11 @@ class CostasLoopReceiver {
 
                         if (charCode >= 32 && charCode <= 126) {
 
-                            this.message += String.fromCharCode(charCode);
+                            const ch = String.fromCharCode(charCode);
+                            this.message += ch;
 
                             document.getElementById('rx-text').innerText = this.message;
+                            debugLog(`RX message: "${this.message}"`);
 
                         }
 
@@ -1005,6 +1007,7 @@ async function transmitModemData() {
 
     await initAudioGraph();
     syncReceiverToTransmitter(type, baud);
+    debugLog(`TX message: "${text}" (${type}, ${baud} baud).`);
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
     const { buffer, bits } = engine.generateAudioBuffer(text, type, audioCtx);
     
