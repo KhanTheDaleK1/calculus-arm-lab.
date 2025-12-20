@@ -172,12 +172,21 @@ p { margin: 0 0 10px 0; }
 
 /* THIRD-PARTY SECTION (Landing Page) */
 .third-party { margin-top: 30px; }
+.third-party h2 {
+    border: none;
+    font-size: 1.2rem;
+    color: var(--accent);
+    text-transform: none;
+    letter-spacing: 0.3px;
+    margin: 0 0 12px 0;
+}
 .third-party-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 20px;
     align-items: start;
 }
+.third-party-info p { color: var(--text-dim); }
 .third-party-list {
     margin: 10px 0 0;
     padding-left: 18px;
@@ -186,7 +195,7 @@ p { margin: 0 0 10px 0; }
 .third-party-list a {
     color: var(--accent);
     text-decoration: none;
-    border-bottom: 1px dotted var(--accent);
+    border-bottom: 1px dotted #555;
 }
 .third-party-list a:hover { opacity: 0.85; }
 .video-embed {
