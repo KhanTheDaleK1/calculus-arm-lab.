@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
         snowMound = document.createElement('div');
         snowMound.id = MOUND_ID;
         document.body.appendChild(snowMound);
+        snowMound.style.opacity = '1'; // Make mound visible immediately
     }
 
     const createSnowflake = () => {
@@ -88,17 +89,14 @@ document.addEventListener('DOMContentLoaded', () => {
         snowContainer.style.transition = `opacity ${FADE_OUT_DURATION / 1000}s ease-out`;
         snowContainer.style.opacity = '0';
 
-        snowMound.classList.add('show'); // Show the snow mound
+        // snowMound should also start fading out
         snowMound.style.transition = `opacity ${FADE_OUT_DURATION / 1000}s ease-out`;
-        snowMound.style.opacity = '1';
+        snowMound.style.opacity = '0'; // Start fading out snow mound
 
-        // Remove snowContainer and hide snowMound after fade out
+        // Remove snowContainer and snowMound after fade out is complete
         setTimeout(() => {
             snowContainer.remove();
-            snowMound.style.opacity = '0'; // Start fading out snow mound
-            setTimeout(() => {
-                snowMound.remove();
-            }, FADE_OUT_DURATION);
+            snowMound.remove();
         }, FADE_OUT_DURATION);
 
     }, SNOW_DURATION);
