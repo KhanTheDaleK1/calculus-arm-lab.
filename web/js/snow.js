@@ -1,5 +1,26 @@
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Date check for snow effect
+    const today = new Date();
+    const currentMonth = today.getMonth(); // 0-indexed (0 = January)
+    const currentDay = today.getDate();
+
+    const isDecember = currentMonth === 11; // December
+    const isJanuary = currentMonth === 0;   // January
+
+    const december15 = 15;
+    const january15 = 15;
+
+    let showSnow = false;
+
+    if ((isDecember && currentDay >= december15) || (isJanuary && currentDay <= january15)) {
+        showSnow = true;
+    }
+
+    if (!showSnow) {
+        return; // Exit if not within the snow display period
+    }
+
     const SNOW_DURATION = 15 * 1000; // 15 seconds
     const FADE_OUT_DURATION = 2 * 1000; // 2 seconds for snow to fade out after SNOW_DURATION
     const NUMBER_OF_FLAKES = 50; // Adjust as needed
