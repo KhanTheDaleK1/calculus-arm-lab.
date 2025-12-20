@@ -809,7 +809,12 @@ async function startCalibration() {
                 calibrationClipped = clipRatio > 0.005;
                 calibrationAttempted = true;
                 const txTarget = Math.min(1, targetRms / avg);
-                txGain = calibrationClipped ? Math.min(txTarget, 0.3) : txTarget;
+                const scaleClamped = rawScale !== calibrationScale;
+                if (calibrationClipped || (scaleClamped && rawScale > 5)) {
+                    txGain = Math.min(txTarget, 0.3);
+                } else {
+                    txGain = txTarget;
+                }
                 if (masterGain) masterGain.gain.value = txGain;
                 if (calibrationClipped) {
                     s.innerText = "Calibrated (Input Hot)";
