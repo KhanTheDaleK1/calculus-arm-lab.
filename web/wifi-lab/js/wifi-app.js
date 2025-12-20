@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-12-20f";
+const APP_VERSION = "wifi-lab-2025-12-20g";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -14,8 +14,9 @@ const CONFIG = {
 
 const AUTO_ROBUST = true;
 const ROBUST_TYPE = "BPSK";
-const ROBUST_BAUD = 10;
+const ROBUST_BAUD = 5;
 const SYNC_WORD = "SYNC";
+const MSG_END = "~";
 
 const THEME = { accent: '#d05ce3', bg: '#141414', grid: '#333' };
 
@@ -460,6 +461,12 @@ class CostasLoopReceiver {
                                     debugLog("RX sync word detected.");
                                 }
                             } else {
+                                if (ch === MSG_END) {
+                                    debugLog(`RX message complete: "${this.message}"`);
+                                    this.syncMatched = false;
+                                    this.syncBuffer = "";
+                                    return points;
+                                }
                                 this.message += ch;
                                 document.getElementById('rx-text').innerText = this.message;
                                 debugLog(`RX message: "${this.message}"`);
@@ -503,7 +510,8 @@ class ModemEngine {
     generateAudioBuffer(text, type, ctx) {
         let bits = [];
         // Robust Preamble: All 1s (Idle High) so the receiver ignores it while syncing phase/gain
-        for(let p=0; p<40; p++) bits.push(1); 
+        const preambleBits = AUTO_ROBUST ? 200 : 40;
+        for(let p=0; p<preambleBits; p++) bits.push(1); 
 
         for (let i = 0; i < text.length; i++) {
             const charCode = text.charCodeAt(i);
@@ -1048,7 +1056,7 @@ async function transmitModemData() {
         if (baudSel) baudSel.value = String(txBaud);
     }
     syncReceiverToTransmitter(txType, txBaud);
-    const payload = SYNC_WORD + text;
+    const payload = SYNC_WORD + text + MSG_END;
     debugLog(`TX message: "${text}" (${txType}, ${txBaud} baud).`);
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, txBaud);
     const { buffer, bits } = engine.generateAudioBuffer(payload, txType, audioCtx);
