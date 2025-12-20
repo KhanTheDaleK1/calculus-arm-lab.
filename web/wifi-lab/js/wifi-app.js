@@ -17,6 +17,7 @@ let calibrationScale = 1.0;
 let calibrationClipped = false;
 let calibrationValid = false;
 let userGain = 1.0;
+let lastFrameErrLog = 0;
 
 // ! SCOPE HISTORY STATE
 let isScopePaused = false;
@@ -30,6 +31,21 @@ function initCanvas(id) {
         c.width = c.clientWidth || 400; 
         c.height = c.clientHeight || 150; 
     }
+}
+
+function debugLog(message) {
+    const el = document.getElementById('debug-console');
+    if (!el) return;
+    if (!el.dataset.hasLogs) {
+        el.textContent = "";
+        el.dataset.hasLogs = "1";
+    }
+    const ts = new Date().toISOString().slice(11, 19);
+    const line = document.createElement('div');
+    line.textContent = `[${ts}] ${message}`;
+    el.appendChild(line);
+    while (el.children.length > 40) el.removeChild(el.firstChild);
+    el.scrollTop = el.scrollHeight;
 }
 
 // ! RX/TX STATE
@@ -398,6 +414,11 @@ class CostasLoopReceiver {
                         // FRAMING ERROR (Bit Slip). Discard byte.
 
                         console.warn("Framing Error: Expected Stop Bit (1), got 0");
+                        const now = Date.now();
+                        if (now - lastFrameErrLog > 1000) {
+                            debugLog("Framing error: expected stop bit 1, got 0.");
+                            lastFrameErrLog = now;
+                        }
 
                     }
 
@@ -595,6 +616,7 @@ async function runRxDiagnostics() {
         alert("Start the receiver first.");
         return;
     }
+    debugLog("RX diagnose: starting baseline collection.");
     const diagEl = document.getElementById('rx-diagnose-output');
     const status = document.getElementById('status-badge');
     if (status) {
@@ -638,6 +660,7 @@ async function runRxDiagnostics() {
 
     const baseline = await collect("baseline", 1500);
     console.log("RX Diagnose baseline:", baseline);
+    debugLog(`RX baseline rms=${baseline.rms} max=${baseline.maxRaw} clip=${baseline.clipRatio} cal=${baseline.calScale} gain=${baseline.userGain}`);
     if (status) status.innerText = "Diagnose: Send 'HI' now...";
     if (diagEl) {
         diagEl.innerText = `Baseline rms=${baseline.rms} max=${baseline.maxRaw} clip=${baseline.clipRatio} cal=${baseline.calScale} gain=${baseline.userGain}`;
@@ -645,6 +668,7 @@ async function runRxDiagnostics() {
     await new Promise(r => setTimeout(r, 400));
     const duringTx = await collect("during-tx", 3000);
     console.log("RX Diagnose during-tx:", duringTx);
+    debugLog(`RX during-tx rms=${duringTx.rms} max=${duringTx.maxRaw} clip=${duringTx.clipRatio} calPk=${duringTx.calibratedPeak} scaledPk=${duringTx.scaledPeak}`);
     if (diagEl) {
         diagEl.innerText += ` | Tx rms=${duringTx.rms} max=${duringTx.maxRaw} clip=${duringTx.clipRatio} calPk=${duringTx.calibratedPeak} scaledPk=${duringTx.scaledPeak}`;
     }
@@ -706,6 +730,7 @@ async function startCalibration() {
                     calibrationValid = false;
                     s.innerText = "Calibration failed (No signal)";
                     s.className = "status-badge error";
+                    debugLog("Calibration failed: no signal (avg RMS too low).");
                     return;
                 }
                 const targetRms = 0.5;
@@ -717,12 +742,15 @@ async function startCalibration() {
                 if (calibrationClipped) {
                     s.innerText = "Calibrated (Input Hot)";
                     s.className = "status-badge warn";
+                    debugLog(`Calibration done: input hot, scale=${calibrationScale.toFixed(2)}x.`);
                 } else if (rawScale !== calibrationScale) {
                     s.innerText = "Calibrated (Clamped)";
                     s.className = "status-badge warn";
+                    debugLog(`Calibration done: clamped scale=${calibrationScale.toFixed(2)}x (raw ${rawScale.toFixed(2)}x).`);
                 } else {
                     s.innerText = "Calibrated";
                     s.className = "status-badge success";
+                    debugLog(`Calibration done: scale=${calibrationScale.toFixed(2)}x.`);
                 }
             } else {
                 s.innerText = "Failed";
