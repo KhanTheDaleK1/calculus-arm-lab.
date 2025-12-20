@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calc-labs-v12';
+const CACHE_NAME = 'calc-labs-v13';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

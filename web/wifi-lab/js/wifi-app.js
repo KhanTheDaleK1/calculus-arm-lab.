@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-12-20e";
+const APP_VERSION = "wifi-lab-2025-12-20f";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -11,6 +11,11 @@ const CONFIG = {
     sampleRate: 44100,   
     squelch: 0.05        
 };
+
+const AUTO_ROBUST = true;
+const ROBUST_TYPE = "BPSK";
+const ROBUST_BAUD = 10;
+const SYNC_WORD = "SYNC";
 
 const THEME = { accent: '#d05ce3', bg: '#141414', grid: '#333' };
 
@@ -272,6 +277,8 @@ class CostasLoopReceiver {
                 this.agcMin = 0.2;
                 this.agcMax = 5.0;
                 this.lastBlockGain = 1.0;
+                this.syncBuffer = "";
+                this.syncMatched = false;
             }
         
             updateBaud(newBaud) {
@@ -286,6 +293,8 @@ class CostasLoopReceiver {
                 this.state = 'IDLE';
                 this.isSyncing = false;
                 this.lastPoints = [];
+                this.syncBuffer = "";
+                this.syncMatched = false;
                 document.getElementById('rx-text').innerText = "Waiting for signal...";
             }
         
@@ -440,10 +449,21 @@ class CostasLoopReceiver {
                         if (charCode >= 32 && charCode <= 126) {
 
                             const ch = String.fromCharCode(charCode);
-                            this.message += ch;
-
-                            document.getElementById('rx-text').innerText = this.message;
-                            debugLog(`RX message: "${this.message}"`);
+                            if (!this.syncMatched) {
+                                this.syncBuffer += ch;
+                                if (this.syncBuffer.length > SYNC_WORD.length) {
+                                    this.syncBuffer = this.syncBuffer.slice(-SYNC_WORD.length);
+                                }
+                                if (this.syncBuffer === SYNC_WORD) {
+                                    this.syncMatched = true;
+                                    this.message = "";
+                                    debugLog("RX sync word detected.");
+                                }
+                            } else {
+                                this.message += ch;
+                                document.getElementById('rx-text').innerText = this.message;
+                                debugLog(`RX message: "${this.message}"`);
+                            }
 
                         }
 
@@ -1019,10 +1039,19 @@ async function transmitModemData() {
     const sendBtn = document.getElementById('btn-modem-send');
 
     await initAudioGraph();
-    syncReceiverToTransmitter(type, baud);
-    debugLog(`TX message: "${text}" (${type}, ${baud} baud).`);
-    const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
-    const { buffer, bits } = engine.generateAudioBuffer(text, type, audioCtx);
+    const txType = AUTO_ROBUST ? ROBUST_TYPE : type;
+    const txBaud = AUTO_ROBUST ? ROBUST_BAUD : baud;
+    if (AUTO_ROBUST) {
+        const typeSel = document.getElementById('modem-type');
+        const baudSel = document.getElementById('modem-baud');
+        if (typeSel) typeSel.value = txType;
+        if (baudSel) baudSel.value = String(txBaud);
+    }
+    syncReceiverToTransmitter(txType, txBaud);
+    const payload = SYNC_WORD + text;
+    debugLog(`TX message: "${text}" (${txType}, ${txBaud} baud).`);
+    const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, txBaud);
+    const { buffer, bits } = engine.generateAudioBuffer(payload, txType, audioCtx);
     
     // Update bitstream display
     const bitstreamEl = document.getElementById('modem-bitstream');
