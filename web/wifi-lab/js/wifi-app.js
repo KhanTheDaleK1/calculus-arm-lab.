@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-02-10b";
+const APP_VERSION = "wifi-lab-2025-02-10c";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -771,10 +771,17 @@ async function startCalibration() {
     // Play modulated sync sequence for calibration
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, 20);
     const { buffer } = engine.generateAudioBuffer("CALIBRATE", "QPSK", audioCtx);
-    const source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(masterGain);
-    source.start();
+    let source = null;
+    const startCalSource = () => {
+        if (source) {
+            try { source.stop(); } catch (e) {}
+        }
+        source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(masterGain);
+        source.start();
+    };
+    startCalSource();
 
     const magnitudes = [];
     let clipHits = 0;
@@ -783,11 +790,6 @@ async function startCalibration() {
     let retries = 0;
     const listen = () => {
         if (performance.now() - startTime > 1500) {
-            source.stop();
-            if (tempStream) {
-                tempStream.getTracks().forEach(t => t.stop());
-                micSource = null;
-            }
             if (magnitudes.length > 0) {
                 const avg = magnitudes.reduce((a,b)=>a+b,0) / magnitudes.length;
                 const minRms = 0.01;
@@ -803,7 +805,8 @@ async function startCalibration() {
                         s.innerText = "Calibration: Boosting TX...";
                         s.className = "status-badge warn";
                         debugLog(`Calibration retry ${retries}: no signal, txGain=${txGain.toFixed(2)}.`);
-                        source.start();
+                        startCalSource();
+                        requestAnimationFrame(listen);
                         return;
                     }
                     calibrationValid = false;
@@ -814,6 +817,13 @@ async function startCalibration() {
                     if (masterGain) masterGain.gain.value = txGain;
                     defaultCalApplied = true;
                     debugLog("Calibration default: no signal (avg RMS too low). Set cal=2.00x, txGain=0.20.");
+                    if (source) {
+                        try { source.stop(); } catch (e) {}
+                    }
+                    if (tempStream) {
+                        tempStream.getTracks().forEach(t => t.stop());
+                        micSource = null;
+                    }
                     return;
                 }
                 const targetRms = 0.5;
@@ -844,10 +854,17 @@ async function startCalibration() {
                     s.className = "status-badge success";
                     debugLog(`Calibration done: scale=${calibrationScale.toFixed(2)}x, txGain=${txGain.toFixed(2)}.`);
                 }
+                if (source) {
+                    try { source.stop(); } catch (e) {}
+                }
             } else {
                 s.innerText = "Failed";
                 s.className = "status-badge error";
                 if (masterGain) masterGain.gain.value = prevTxGain;
+            }
+            if (tempStream) {
+                tempStream.getTracks().forEach(t => t.stop());
+                micSource = null;
             }
             return;
         }
