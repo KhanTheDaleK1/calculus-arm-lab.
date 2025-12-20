@@ -462,6 +462,12 @@ class ModemEngine {
             bits.push(1); 
         }
         const idealPoints = getIdealPoints(type);
+        let maxMag = 1;
+        for (const p of idealPoints) {
+            const mag = Math.sqrt((p.I * p.I) + (p.Q * p.Q));
+            if (mag > maxMag) maxMag = mag;
+        }
+        const norm = maxMag > 0 ? 1 / maxMag : 1;
         const bitsPerSymbol = Math.log2(idealPoints.length);
         while (bits.length % bitsPerSymbol !== 0) bits.push(1);
         const totalSymbols = bits.length / bitsPerSymbol;
@@ -477,7 +483,9 @@ class ModemEngine {
                 const symbolIndex = parseInt(chunk.join(''), 2);
                 const point = idealPoints[symbolIndex % idealPoints.length];
                 for (let t = 0; t < this.symbolPeriod; t++) {
-                    data[sampleIdx] = (point.I * Math.cos(phase) - point.Q * Math.sin(phase));
+                    const I = point.I * norm;
+                    const Q = point.Q * norm;
+                    data[sampleIdx] = (I * Math.cos(phase) - Q * Math.sin(phase));
                     phase += this.omega;
                     sampleIdx++;
                 }
