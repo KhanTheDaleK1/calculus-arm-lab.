@@ -29,7 +29,7 @@
     z-index: 9997; /* Below snowflakes but above page content */
     pointer-events: none; /* Non-interactive */
     opacity: 0; /* Initially hidden */
-    transition: opacity 2s ease-in-out; /* Fade in effect */
+    transition: opacity 10s ease-in-out; /* Fade in effect */
 }
 
 #snow-mound.show {
