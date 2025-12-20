@@ -4,25 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kim's Robotics Lab</title>
-    <link rel="stylesheet" href="css/style.css?v=2025-12-20b">
+    <link rel="stylesheet" href="css/style.css?v=2025-12-20c">
     <style>
         .snow-overlay {
             position: fixed;
             inset: 0;
             pointer-events: none;
             z-index: 999;
+            opacity: 1;
+            transition: opacity 1s ease;
         }
+        .snow-overlay.hide { opacity: 0; }
         .snow-layer { position: absolute; inset: 0; overflow: hidden; }
-        .snow-debug {
+        .snowflake {
             position: absolute;
-            top: 8px;
-            right: 12px;
-            font-size: 0.65rem;
-            color: rgba(255,255,255,0.85);
-            background: rgba(0,0,0,0.45);
-            padding: 4px 8px;
-            border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.25);
+            top: -10%;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,255,255,0.4));
+            opacity: 0.9;
+            filter: blur(0.2px);
+            animation-name: snow-fall, snow-sway;
+            animation-timing-function: linear, ease-in-out;
+            animation-iteration-count: infinite, infinite;
+        }
+        .snowflake.small { width: 3px; height: 3px; opacity: 0.6; }
+        .snowflake.large { width: 9px; height: 9px; opacity: 0.8; }
+        .snow-bow {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0.9;
+        }
+        .snow-bow svg {
+            width: 70px;
+            height: 24px;
+            fill: rgba(255,255,255,0.85);
+            filter: drop-shadow(0 2px 6px rgba(255,255,255,0.25));
+        }
+        @keyframes snow-fall {
+            0% { transform: translateY(-10vh); }
+            100% { transform: translateY(110vh); }
+        }
+        @keyframes snow-sway {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(20px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .snowflake { animation: none; }
         }
     </style>
     <link rel="manifest" href="/manifest.json">
@@ -30,7 +61,6 @@
 </head>
 <body>
     <div id="snow-overlay" class="snow-overlay" aria-hidden="true">
-        <div class="snow-debug">Snow overlay active</div>
         <div class="snow-bow" aria-hidden="true">
             <svg viewBox="0 0 120 40" role="presentation" focusable="false">
                 <path d="M10 20 C5 8, 18 4, 32 10 C40 14, 40 26, 32 30 C18 36, 5 32, 10 20 Z" />
@@ -143,7 +173,6 @@
             const overlay = document.getElementById('snow-overlay');
             const layer = document.getElementById('snow-layer');
             if (!overlay || !layer) return;
-            if (forceSnow) overlay.classList.add('debug');
 
             const flakeCount = 45;
             for (let i = 0; i < flakeCount; i++) {
@@ -162,7 +191,7 @@
                 layer.appendChild(flake);
             }
 
-            const duration = forceSnow ? 60000 : 15000;
+            const duration = 15000;
             setTimeout(() => {
                 overlay.classList.add('hide');
                 setTimeout(() => overlay.remove(), 1200);
