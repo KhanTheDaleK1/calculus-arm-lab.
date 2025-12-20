@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-02-10c";
+const APP_VERSION = "wifi-lab-2025-02-10e";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -24,6 +24,7 @@ let calibrationClipped = false;
 let calibrationValid = false;
 let calibrationAttempted = false;
 let defaultCalApplied = false;
+let calibrationActive = false;
 let userGain = 1.0;
 let txGain = 0.5;
 let txActive = false;
@@ -604,7 +605,7 @@ function loop() {
         }
     }
     
-    if (txActive && maxRaw >= 0.999 && clipRatio > 0.005) {
+    if (txActive && !calibrationActive && maxRaw >= 0.999 && clipRatio > 0.005) {
         txGain = Math.max(0.05, txGain * 0.7);
         if (masterGain) masterGain.gain.value = txGain;
         debugLog(`TX auto-attenuate: txGain=${txGain.toFixed(2)}.`);
@@ -754,6 +755,7 @@ async function startCalibration() {
     await initAudioGraph();
     calibrationAttempted = true;
     defaultCalApplied = false;
+    calibrationActive = true;
     debugLog("Calibration started.");
     const prevTxGain = masterGain ? masterGain.gain.value : 1.0;
     if (masterGain) masterGain.gain.value = 1.0;
@@ -771,113 +773,121 @@ async function startCalibration() {
     // Play modulated sync sequence for calibration
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, 20);
     const { buffer } = engine.generateAudioBuffer("CALIBRATE", "QPSK", audioCtx);
-    let source = null;
-    const startCalSource = () => {
+    let source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(masterGain);
+    source.start();
+
+    const targetRms = 0.5;
+    const minRms = 0.005;
+    const tolerance = 0.12;
+    const stableNeeded = 18;
+    const maxDurationMs = 8000;
+    const kp = 0.9;
+    const ki = 0.25;
+    const kd = 0.06;
+    const minGain = 0.05;
+    const maxGain = 1.0;
+
+    let prevTime = performance.now();
+    let startTime = prevTime;
+    let prevError = 0;
+    let integral = 0;
+    let stableFrames = 0;
+    let rmsEma = 0;
+    const emaAlpha = 0.2;
+
+    const finishCalibration = (statusText, statusClass) => {
+        calibrationActive = false;
         if (source) {
             try { source.stop(); } catch (e) {}
         }
-        source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(masterGain);
-        source.start();
+        if (tempStream) {
+            tempStream.getTracks().forEach(t => t.stop());
+            micSource = null;
+        }
+        s.innerText = statusText;
+        s.className = statusClass;
     };
-    startCalSource();
 
-    const magnitudes = [];
-    let clipHits = 0;
-    let sampleCount = 0;
-    let startTime = performance.now();
-    let retries = 0;
-    const listen = () => {
-        if (performance.now() - startTime > 1500) {
-            if (magnitudes.length > 0) {
-                const avg = magnitudes.reduce((a,b)=>a+b,0) / magnitudes.length;
-                const minRms = 0.01;
-                if (avg < minRms) {
-                    if (retries < 2 && txGain < 0.6) {
-                        retries++;
-                        txGain = Math.min(0.6, txGain * 2);
-                        if (masterGain) masterGain.gain.value = txGain;
-                        magnitudes.length = 0;
-                        clipHits = 0;
-                        sampleCount = 0;
-                        startTime = performance.now();
-                        s.innerText = "Calibration: Boosting TX...";
-                        s.className = "status-badge warn";
-                        debugLog(`Calibration retry ${retries}: no signal, txGain=${txGain.toFixed(2)}.`);
-                        startCalSource();
-                        requestAnimationFrame(listen);
-                        return;
-                    }
-                    calibrationValid = false;
-                    calibrationScale = 2.0;
-                    s.innerText = "Calibration: Default (No signal)";
-                    s.className = "status-badge warn";
-                    txGain = Math.min(txGain, 0.2);
-                    if (masterGain) masterGain.gain.value = txGain;
-                    defaultCalApplied = true;
-                    debugLog("Calibration default: no signal (avg RMS too low). Set cal=2.00x, txGain=0.20.");
-                    if (source) {
-                        try { source.stop(); } catch (e) {}
-                    }
-                    if (tempStream) {
-                        tempStream.getTracks().forEach(t => t.stop());
-                        micSource = null;
-                    }
-                    return;
-                }
-                const targetRms = 0.5;
-                const rawScale = targetRms / avg;
-                calibrationScale = Math.min(Math.max(rawScale, 0.1), 10);
-                calibrationValid = true;
-                const clipRatio = clipHits / Math.max(sampleCount, 1);
-                calibrationClipped = clipRatio > 0.005;
-                calibrationAttempted = true;
-                const txTarget = Math.min(1, targetRms / avg);
-                const scaleClamped = rawScale !== calibrationScale;
-                if (calibrationClipped || (scaleClamped && rawScale > 5)) {
-                    txGain = Math.min(txTarget, 0.3);
-                } else {
-                    txGain = txTarget;
-                }
-                if (masterGain) masterGain.gain.value = txGain;
-                if (calibrationClipped) {
-                    s.innerText = "Calibrated (Input Hot)";
-                    s.className = "status-badge warn";
-                    debugLog(`Calibration done: input hot, scale=${calibrationScale.toFixed(2)}x, txGain=${txGain.toFixed(2)}.`);
-                } else if (rawScale !== calibrationScale) {
-                    s.innerText = "Calibrated (Clamped)";
-                    s.className = "status-badge warn";
-                    debugLog(`Calibration done: clamped scale=${calibrationScale.toFixed(2)}x (raw ${rawScale.toFixed(2)}x), txGain=${txGain.toFixed(2)}.`);
-                } else {
-                    s.innerText = "Calibrated";
-                    s.className = "status-badge success";
-                    debugLog(`Calibration done: scale=${calibrationScale.toFixed(2)}x, txGain=${txGain.toFixed(2)}.`);
-                }
-                if (source) {
-                    try { source.stop(); } catch (e) {}
-                }
-            } else {
-                s.innerText = "Failed";
-                s.className = "status-badge error";
-                if (masterGain) masterGain.gain.value = prevTxGain;
-            }
-            if (tempStream) {
-                tempStream.getTracks().forEach(t => t.stop());
-                micSource = null;
-            }
+    const tick = () => {
+        if (!calibrationActive) return;
+        const now = performance.now();
+        const dt = Math.max(0.016, (now - prevTime) / 1000);
+        prevTime = now;
+
+        analyser.getFloatTimeDomainData(waveArray);
+        let maxRaw = 0;
+        let clipCount = 0;
+        let energy = 0;
+        for (let i = 0; i < waveArray.length; i++) {
+            const v = waveArray[i];
+            const a = Math.abs(v);
+            if (a > maxRaw) maxRaw = a;
+            if (a >= 0.999) clipCount++;
+            energy += v * v;
+        }
+        const rms = Math.sqrt(energy / waveArray.length);
+        rmsEma = rmsEma === 0 ? rms : (emaAlpha * rms + (1 - emaAlpha) * rmsEma);
+
+        const clipRatio = clipCount / waveArray.length;
+        calibrationClipped = clipRatio > 0.005;
+        const error = targetRms - rmsEma;
+        integral = Math.max(-1, Math.min(1, integral + error * dt));
+        const derivative = (error - prevError) / dt;
+        prevError = error;
+        const output = (kp * error) + (ki * integral) + (kd * derivative);
+
+        if (calibrationClipped) {
+            txGain = Math.max(minGain, txGain * 0.7);
+            integral = 0;
+            stableFrames = 0;
+        } else {
+            txGain = Math.max(minGain, Math.min(maxGain, txGain + output));
+        }
+        if (masterGain) masterGain.gain.value = txGain;
+
+        if (Math.abs(error) <= (targetRms * tolerance) && !calibrationClipped) {
+            stableFrames++;
+        } else {
+            stableFrames = 0;
+        }
+
+        if (stableFrames >= stableNeeded) {
+            calibrationValid = true;
+            calibrationScale = Math.min(Math.max(targetRms / Math.max(rmsEma, minRms), 0.1), 10);
+            debugLog(`Calibration done: agc scale=${calibrationScale.toFixed(2)}x, txGain=${txGain.toFixed(2)}.`);
+            finishCalibration("Calibrated (Auto AGC)", "status-badge success");
             return;
         }
-        analyser.getFloatTimeDomainData(waveArray);
-        for (let i = 0; i < waveArray.length; i++) {
-            if (Math.abs(waveArray[i]) >= 0.999) clipHits++;
+
+        if (now - startTime > maxDurationMs) {
+            calibrationValid = false;
+            calibrationScale = 2.0;
+            defaultCalApplied = true;
+            txGain = Math.min(txGain, 0.2);
+            if (masterGain) masterGain.gain.value = txGain;
+            debugLog("Calibration timeout: default cal=2.00x, txGain=0.20.");
+            finishCalibration("Calibration: Default (Timeout)", "status-badge warn");
+            return;
         }
-        sampleCount += waveArray.length;
-        let e = 0; for(let x of waveArray) e += x*x;
-        magnitudes.push(Math.sqrt(e/waveArray.length));
-        requestAnimationFrame(listen);
+
+        if (rmsEma < minRms && txGain >= maxGain) {
+            calibrationValid = false;
+            calibrationScale = 2.0;
+            defaultCalApplied = true;
+            txGain = 0.2;
+            if (masterGain) masterGain.gain.value = txGain;
+            debugLog("Calibration failed: no signal at max gain. Default cal=2.00x, txGain=0.20.");
+            finishCalibration("Calibration: Default (No signal)", "status-badge warn");
+            return;
+        }
+
+        requestAnimationFrame(tick);
     };
-    listen();
+
+    tick();
 }
 
 function drawConstellation(points, clear = false) {
