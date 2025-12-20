@@ -185,13 +185,6 @@ window.onload = () => {
     drawConstellation([], true); 
 };
 
-document.addEventListener('click', (e) => {
-    const target = e.target;
-    if (target && target.id === 'btn-rx-diagnose') {
-        debugLog("Diagnose button clicked.");
-    }
-});
-
 function populateMics() {
     const sel = document.getElementById('device-select');
     if (!sel) return;
@@ -655,6 +648,7 @@ async function runRxDiagnostics() {
             return;
         }
         diagnoseInProgress = true;
+        debugLog("Diagnose clicked.");
         if (!analyser || !waveArray) {
             debugLog("RX diagnose: receiver not running.");
             alert("Start the receiver first.");
@@ -666,6 +660,7 @@ async function runRxDiagnostics() {
         const status = document.getElementById('status-badge');
         const btn = document.getElementById('btn-rx-diagnose');
         if (btn) btn.innerText = "Diagnosing...";
+        if (btn) btn.disabled = true;
         if (status) {
             status.innerText = "Diagnosing...";
             status.className = "status-badge info";
@@ -734,11 +729,13 @@ async function runRxDiagnostics() {
             }, 1200);
         }
         if (btn) btn.innerText = "Diagnose";
+        if (btn) btn.disabled = false;
         diagnoseInProgress = false;
     } catch (err) {
         debugLog(`RX diagnose error: ${err.message || err}`);
         const btn = document.getElementById('btn-rx-diagnose');
         if (btn) btn.innerText = "Diagnose";
+        if (btn) btn.disabled = false;
         diagnoseInProgress = false;
     }
 }
