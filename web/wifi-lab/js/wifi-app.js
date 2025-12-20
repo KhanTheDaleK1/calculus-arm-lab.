@@ -765,11 +765,12 @@ async function startCalibration() {
                 const minRms = 0.01;
                 if (avg < minRms) {
                     calibrationValid = false;
-                    s.innerText = "Calibration failed (No signal)";
-                    s.className = "status-badge error";
+                    calibrationScale = 2.0;
+                    s.innerText = "Calibration: Default (No signal)";
+                    s.className = "status-badge warn";
                     txGain = 0.2;
                     if (masterGain) masterGain.gain.value = txGain;
-                    debugLog("Calibration failed: no signal (avg RMS too low). Set txGain=0.20.");
+                    debugLog("Calibration default: no signal (avg RMS too low). Set cal=2.00x, txGain=0.20.");
                     return;
                 }
                 const targetRms = 0.5;
