@@ -15,6 +15,7 @@ let isRunning = false;
 let waveArray;
 let calibrationScale = 1.0; 
 let calibrationClipped = false;
+let calibrationValid = false;
 let userGain = 1.0;
 
 // ! SCOPE HISTORY STATE
@@ -601,11 +602,24 @@ async function startCalibration() {
             }
             if (magnitudes.length > 0) {
                 const avg = magnitudes.reduce((a,b)=>a+b,0) / magnitudes.length;
-                calibrationScale = 0.5 / Math.max(avg, 0.001);
+                const minRms = 0.01;
+                if (avg < minRms) {
+                    calibrationValid = false;
+                    s.innerText = "Calibration failed (No signal)";
+                    s.className = "status-badge error";
+                    return;
+                }
+                const targetRms = 0.5;
+                const rawScale = targetRms / avg;
+                calibrationScale = Math.min(Math.max(rawScale, 0.1), 10);
+                calibrationValid = true;
                 const clipRatio = clipHits / Math.max(sampleCount, 1);
                 calibrationClipped = clipRatio > 0.005;
                 if (calibrationClipped) {
                     s.innerText = "Calibrated (Input Hot)";
+                    s.className = "status-badge warn";
+                } else if (rawScale !== calibrationScale) {
+                    s.innerText = "Calibrated (Clamped)";
                     s.className = "status-badge warn";
                 } else {
                     s.innerText = "Calibrated";
