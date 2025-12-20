@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-12-20g";
+const APP_VERSION = "wifi-lab-2025-12-20h";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -17,6 +17,7 @@ const ROBUST_TYPE = "BPSK";
 const ROBUST_BAUD = 5;
 const SYNC_WORD = "SYNC";
 const MSG_END = "~";
+const ROBUST_PREAMBLE_BITS = 60;
 
 const THEME = { accent: '#d05ce3', bg: '#141414', grid: '#333' };
 
@@ -510,7 +511,7 @@ class ModemEngine {
     generateAudioBuffer(text, type, ctx) {
         let bits = [];
         // Robust Preamble: All 1s (Idle High) so the receiver ignores it while syncing phase/gain
-        const preambleBits = AUTO_ROBUST ? 200 : 40;
+        const preambleBits = AUTO_ROBUST ? ROBUST_PREAMBLE_BITS : 40;
         for(let p=0; p<preambleBits; p++) bits.push(1); 
 
         for (let i = 0; i < text.length; i++) {
