@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-12-20h";
+const APP_VERSION = "wifi-lab-2025-12-20k";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -12,12 +12,16 @@ const CONFIG = {
     squelch: 0.05        
 };
 
-const AUTO_ROBUST = true;
-const ROBUST_TYPE = "BPSK";
-const ROBUST_BAUD = 5;
-const SYNC_WORD = "SYNC";
-const MSG_END = "~";
-const ROBUST_PREAMBLE_BITS = 60;
+const AUTO_FRAME = true;
+const FRAME_HEADER_TYPE = "BPSK";
+const FRAME_HEADER_BAUD = 20;
+const FRAME_PREAMBLE_TEXT = "UUUUUU";
+const FRAME_HEADER_START = "H:";
+const FRAME_HEADER_END = ";";
+const FRAME_MAX_LEN = 256;
+const VALID_TYPES = new Set(["BPSK", "QPSK", "QAM16", "QAM64"]);
+const VALID_BAUDS = new Set([1, 5, 10, 20, 50]);
+const PREAMBLE_BITS = 20;
 
 const THEME = { accent: '#d05ce3', bg: '#141414', grid: '#333' };
 
@@ -54,9 +58,9 @@ function initCanvas(id) {
 
 function syncReceiverToTransmitter(type, baud) {
     if (!receiver) return;
-    receiver.updateBaud(baud);
-    receiver.clear();
-    debugLog(`RX sync: type=${type}, baud=${baud}.`);
+    receiver.setFrameDefaults();
+    receiver.pendingPayload = { type, baud };
+    debugLog(`RX sync: pending type=${type}, baud=${baud}.`);
 }
 
 function debugLog(message) {
@@ -279,13 +283,44 @@ class CostasLoopReceiver {
                 this.agcMin = 0.2;
                 this.agcMax = 5.0;
                 this.lastBlockGain = 1.0;
-                this.syncBuffer = "";
-                this.syncMatched = false;
+                this.frameMode = "HEADER";
+                this.headerBuffer = "";
+                this.headerLocked = false;
+                this.payloadLength = 0;
+                this.payloadReceived = 0;
+                this.modulationType = FRAME_HEADER_TYPE;
+                this.pendingPayload = { type: FRAME_HEADER_TYPE, baud: FRAME_HEADER_BAUD };
             }
         
             updateBaud(newBaud) {
                 this.baud = newBaud;
                 this.samplesPerSymbol = this.sampleRate / newBaud;
+            }
+
+            setFrameDefaults() {
+                this.frameMode = "HEADER";
+                this.headerBuffer = "";
+                this.headerLocked = false;
+                this.payloadLength = 0;
+                this.payloadReceived = 0;
+                this.modulationType = FRAME_HEADER_TYPE;
+                this.updateBaud(FRAME_HEADER_BAUD);
+                this.message = "";
+                this.state = 'IDLE';
+                this.bitBuffer = [];
+                this.byteBuffer = [];
+                document.getElementById('rx-text').innerText = "Waiting for signal...";
+            }
+
+            setPayloadMode(type, baud, length) {
+                this.frameMode = "PAYLOAD";
+                this.modulationType = type;
+                this.updateBaud(baud);
+                this.payloadLength = length;
+                this.payloadReceived = 0;
+                this.message = "";
+                this.bitBuffer = [];
+                this.byteBuffer = [];
             }
         
             clear() {
@@ -295,9 +330,7 @@ class CostasLoopReceiver {
                 this.state = 'IDLE';
                 this.isSyncing = false;
                 this.lastPoints = [];
-                this.syncBuffer = "";
-                this.syncMatched = false;
-                document.getElementById('rx-text').innerText = "Waiting for signal...";
+                this.setFrameDefaults();
             }
         
             processBlock(inputBuffer, modulationType) {
@@ -451,26 +484,43 @@ class CostasLoopReceiver {
                         if (charCode >= 32 && charCode <= 126) {
 
                             const ch = String.fromCharCode(charCode);
-                            if (!this.syncMatched) {
-                                this.syncBuffer += ch;
-                                if (this.syncBuffer.length > SYNC_WORD.length) {
-                                    this.syncBuffer = this.syncBuffer.slice(-SYNC_WORD.length);
+                            if (this.frameMode === "HEADER") {
+                                this.headerBuffer += ch;
+                                if (!this.headerLocked) {
+                                    const idx = this.headerBuffer.lastIndexOf(FRAME_HEADER_START);
+                                    if (idx !== -1) {
+                                        this.headerLocked = true;
+                                        this.headerBuffer = this.headerBuffer.slice(idx + FRAME_HEADER_START.length);
+                                    } else if (this.headerBuffer.length > 8) {
+                                        this.headerBuffer = this.headerBuffer.slice(-8);
+                                    }
+                                    return;
                                 }
-                                if (this.syncBuffer === SYNC_WORD) {
-                                    this.syncMatched = true;
-                                    this.message = "";
-                                    debugLog("RX sync word detected.");
+
+                                if (ch === FRAME_HEADER_END) {
+                                    const header = this.headerBuffer.slice(0, -1);
+                                    const parts = header.split(',');
+                                    const [type, baudStr, lenStr] = parts;
+                                    const baud = parseInt(baudStr, 10);
+                                    const length = parseInt(lenStr, 10);
+                                    if (VALID_TYPES.has(type) && VALID_BAUDS.has(baud) && length >= 0 && length <= FRAME_MAX_LEN) {
+                                        debugLog(`RX header: type=${type}, baud=${baud}, len=${length}`);
+                                        this.setPayloadMode(type, baud, length);
+                                    } else {
+                                        debugLog(`RX header invalid: "${header}"`);
+                                        this.setFrameDefaults();
+                                    }
+                                    return;
                                 }
                             } else {
-                                if (ch === MSG_END) {
-                                    debugLog(`RX message complete: "${this.message}"`);
-                                    this.syncMatched = false;
-                                    this.syncBuffer = "";
-                                    return points;
-                                }
                                 this.message += ch;
+                                this.payloadReceived += 1;
                                 document.getElementById('rx-text').innerText = this.message;
                                 debugLog(`RX message: "${this.message}"`);
+                                if (this.payloadReceived >= this.payloadLength) {
+                                    debugLog(`RX message complete: "${this.message}"`);
+                                    this.setFrameDefaults();
+                                }
                             }
 
                         }
@@ -511,7 +561,7 @@ class ModemEngine {
     generateAudioBuffer(text, type, ctx) {
         let bits = [];
         // Robust Preamble: All 1s (Idle High) so the receiver ignores it while syncing phase/gain
-        const preambleBits = AUTO_ROBUST ? ROBUST_PREAMBLE_BITS : 40;
+        const preambleBits = PREAMBLE_BITS;
         for(let p=0; p<preambleBits; p++) bits.push(1); 
 
         for (let i = 0; i < text.length; i++) {
@@ -580,6 +630,7 @@ async function startReceiver() {
         micSource.connect(analyser);
         const baud = parseInt(document.getElementById('modem-baud').value);
         receiver = new CostasLoopReceiver(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
+        receiver.setFrameDefaults();
         isRunning = true;
         document.getElementById('status-badge').innerText = "Receiving";
         document.getElementById('status-badge').className = "status-badge success";
@@ -695,7 +746,7 @@ function loop() {
     }
 
     if (receiver) {
-        const type = document.getElementById('modem-type').value;
+        const type = receiver.modulationType || document.getElementById('modem-type').value;
         const points = receiver.processBlock(waveArray, type);
         drawConstellation(points);
     }
@@ -1043,24 +1094,36 @@ function drawScope(buffer) {
 
 async function transmitModemData() {
     const text = document.getElementById('modem-input').value || "HI";
-    const type = document.getElementById('modem-type').value;
-    const baud = parseInt(document.getElementById('modem-baud').value);
+    let type = document.getElementById('modem-type').value;
+    let baud = parseInt(document.getElementById('modem-baud').value);
     const sendBtn = document.getElementById('btn-modem-send');
 
     await initAudioGraph();
-    const txType = AUTO_ROBUST ? ROBUST_TYPE : type;
-    const txBaud = AUTO_ROBUST ? ROBUST_BAUD : baud;
-    if (AUTO_ROBUST) {
+    if (!VALID_TYPES.has(type)) {
+        type = "QPSK";
         const typeSel = document.getElementById('modem-type');
-        const baudSel = document.getElementById('modem-baud');
-        if (typeSel) typeSel.value = txType;
-        if (baudSel) baudSel.value = String(txBaud);
+        if (typeSel) typeSel.value = type;
     }
-    syncReceiverToTransmitter(txType, txBaud);
-    const payload = SYNC_WORD + text + MSG_END;
-    debugLog(`TX message: "${text}" (${txType}, ${txBaud} baud).`);
-    const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, txBaud);
-    const { buffer, bits } = engine.generateAudioBuffer(payload, txType, audioCtx);
+    if (!VALID_BAUDS.has(baud)) {
+        baud = 20;
+        const baudSel = document.getElementById('modem-baud');
+        if (baudSel) baudSel.value = String(baud);
+    }
+    let payloadText = text;
+    if (payloadText.length > FRAME_MAX_LEN) {
+        payloadText = payloadText.slice(0, FRAME_MAX_LEN);
+        debugLog(`TX message truncated to ${FRAME_MAX_LEN} chars.`);
+    }
+    syncReceiverToTransmitter(type, baud);
+    const headerText = `${FRAME_HEADER_START}${type},${baud},${payloadText.length}${FRAME_HEADER_END}`;
+    const framedText = FRAME_PREAMBLE_TEXT + headerText;
+    debugLog(`TX message: "${payloadText}" (${type}, ${baud} baud).`);
+    const headerEngine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, FRAME_HEADER_BAUD);
+    const payloadEngine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
+    const headerOut = headerEngine.generateAudioBuffer(framedText, FRAME_HEADER_TYPE, audioCtx);
+    const payloadOut = payloadEngine.generateAudioBuffer(payloadText, type, audioCtx);
+    const buffer = concatAudioBuffers(audioCtx, [headerOut.buffer, payloadOut.buffer]);
+    const bits = headerOut.bits.concat(payloadOut.bits);
     
     // Update bitstream display
     const bitstreamEl = document.getElementById('modem-bitstream');
@@ -1084,6 +1147,19 @@ async function transmitModemData() {
     }
     txActive = true;
     modemBufferSource.start();
+}
+
+function concatAudioBuffers(ctx, buffers) {
+    const valid = buffers.filter(b => b && b.length);
+    const totalLength = valid.reduce((sum, b) => sum + b.length, 0);
+    const out = ctx.createBuffer(1, totalLength, ctx.sampleRate);
+    const data = out.getChannelData(0);
+    let offset = 0;
+    for (const b of valid) {
+        data.set(b.getChannelData(0), offset);
+        offset += b.length;
+    }
+    return out;
 }
 
 function drawBinaryStream(bits) {
