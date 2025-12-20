@@ -518,16 +518,23 @@ function loop() {
     // Peak Detection
     let maxRaw = 0;
     let clippedCount = 0;
+    let energySum = 0;
     for(let i=0; i<waveArray.length; i++) {
-        const abs = Math.abs(waveArray[i]);
+        const sample = waveArray[i];
+        const abs = Math.abs(sample);
         if(abs > maxRaw) maxRaw = abs;
         if (abs >= 0.999) clippedCount++;
+        energySum += sample * sample;
     }
 
+    const rms = Math.sqrt(energySum / waveArray.length);
     const calibratedPeak = maxRaw * calibrationScale;
     const scaledPeak = calibratedPeak * userGain;
     const peakPercent = scaledPeak * 100;
     const peakEl = document.getElementById('rx-peak');
+    const rmsEl = document.getElementById('rx-raw-rms');
+    const calScaleEl = document.getElementById('rx-cal-scale');
+    const calStatusEl = document.getElementById('rx-cal-status');
     const clipRatio = clippedCount / waveArray.length;
     
     if (peakEl) {
@@ -547,6 +554,21 @@ function loop() {
             peakEl.style.color = '#ffb86c';
         } else {
             peakEl.style.color = '#50fa7b';
+        }
+    }
+
+    if (rmsEl) rmsEl.innerText = rms.toFixed(3);
+    if (calScaleEl) calScaleEl.innerText = calibrationScale.toFixed(2) + 'x';
+    if (calStatusEl) {
+        if (!calibrationValid) {
+            calStatusEl.innerText = "No Signal";
+            calStatusEl.style.color = '#ff5555';
+        } else if (calibrationClipped) {
+            calStatusEl.innerText = "Input Hot";
+            calStatusEl.style.color = '#ffb86c';
+        } else {
+            calStatusEl.innerText = "OK";
+            calStatusEl.style.color = '#50fa7b';
         }
     }
 
