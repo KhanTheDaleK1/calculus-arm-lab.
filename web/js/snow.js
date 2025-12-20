@@ -1,10 +1,13 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     const SNOW_DURATION = 15 * 1000; // 15 seconds
+    const FADE_OUT_DURATION = 2 * 1000; // 2 seconds for snow to fade out after SNOW_DURATION
     const NUMBER_OF_FLAKES = 50; // Adjust as needed
     const CONTAINER_ID = 'snow-container';
+    const MOUND_ID = 'snow-mound';
 
     let snowContainer = document.getElementById(CONTAINER_ID);
+    let snowMound = document.getElementById(MOUND_ID);
 
     if (!snowContainer) {
         snowContainer = document.createElement('div');
@@ -18,6 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
         snowContainer.style.pointerEvents = 'none';
         snowContainer.style.zIndex = '9998'; // Below individual snowflakes
         document.body.appendChild(snowContainer);
+    }
+
+    if (!snowMound) {
+        snowMound = document.createElement('div');
+        snowMound.id = MOUND_ID;
+        document.body.appendChild(snowMound);
     }
 
     const createSnowflake = () => {
@@ -51,17 +60,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Continuously create snowflakes for the duration
     const snowInterval = setInterval(createSnowflake, 300); // Create a new snowflake every 300ms
 
-    // Stop snow after SNOW_DURATION
+    // Start fading out snowContainer and snowMound after SNOW_DURATION
     setTimeout(() => {
-        clearInterval(snowInterval);
-        // Optional: Remove existing snowflakes gracefully
-        snowContainer.querySelectorAll('.snowflake').forEach(flake => {
-            flake.style.animationDuration = '1s'; // Accelerate removal
-            flake.style.opacity = '0';
-            flake.addEventListener('animationend', () => flake.remove());
-        });
+        clearInterval(snowInterval); // Stop creating new snowflakes
+
+        snowContainer.style.transition = `opacity ${FADE_OUT_DURATION / 1000}s ease-out`;
+        snowContainer.style.opacity = '0';
+
+        snowMound.classList.add('show'); // Show the snow mound
+        snowMound.style.transition = `opacity ${FADE_OUT_DURATION / 1000}s ease-out`;
+        snowMound.style.opacity = '1';
+
+        // Remove snowContainer and hide snowMound after fade out
         setTimeout(() => {
             snowContainer.remove();
-        }, 1000); // Remove container after last flakes are gone
+            snowMound.style.opacity = '0'; // Start fading out snow mound
+            setTimeout(() => {
+                snowMound.remove();
+            }, FADE_OUT_DURATION);
+        }, FADE_OUT_DURATION);
+
     }, SNOW_DURATION);
 });

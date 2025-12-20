@@ -2,7 +2,7 @@
 .snowflake {
     position: absolute;
     background-color: #FFF;
-    border-radius: 50%;
+    border-radius: 30%; /* Less perfectly round, more flake-like */
     opacity: 0.8;
     pointer-events: none; /* Allows interaction with elements behind snowflakes */
     animation: fall linear forwards;
@@ -14,4 +14,24 @@
         transform: translateY(100vh);
         opacity: 0;
     }
+}
+
+/* Snow Mound Styling */
+#snow-mound {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 80px; /* Adjust height as needed */
+    background-color: #FFF;
+    border-top-left-radius: 50% 30px; /* Rounded top edges */
+    border-top-right-radius: 50% 30px;
+    z-index: 9997; /* Below snowflakes but above page content */
+    pointer-events: none; /* Non-interactive */
+    opacity: 0; /* Initially hidden */
+    transition: opacity 2s ease-in-out; /* Fade in effect */
+}
+
+#snow-mound.show {
+    opacity: 1;
 }
