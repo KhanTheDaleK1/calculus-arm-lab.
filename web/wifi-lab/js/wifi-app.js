@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-02-10f";
+const APP_VERSION = "wifi-lab-2025-12-20a";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -774,11 +774,28 @@ async function startCalibration() {
     // Play modulated sync sequence for calibration
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, 20);
     const { buffer } = engine.generateAudioBuffer("CALIBRATE", "QPSK", audioCtx);
-    let source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    source.connect(masterGain);
-    source.start();
+    let source = null;
+
+    const measureBaseline = (ms, cb) => {
+        const start = performance.now();
+        let energy = 0;
+        let count = 0;
+        const sample = () => {
+            if (performance.now() - start > ms) {
+                const rms = Math.sqrt(energy / Math.max(count, 1));
+                cb(rms);
+                return;
+            }
+            analyser.getFloatTimeDomainData(waveArray);
+            for (let i = 0; i < waveArray.length; i++) {
+                const v = waveArray[i];
+                energy += v * v;
+                count++;
+            }
+            requestAnimationFrame(sample);
+        };
+        sample();
+    };
 
     const targetRms = 0.5;
     const minRms = 0.005;
@@ -799,6 +816,7 @@ async function startCalibration() {
     let rmsEma = 0;
     const emaAlpha = 0.2;
     let noSignalDuration = 0;
+    let baselineRms = 0.0;
 
     const finishCalibration = (statusText, statusClass) => {
         calibrationActive = false;
@@ -875,13 +893,14 @@ async function startCalibration() {
             return;
         }
 
-        if (rmsEma < minRms) {
+        const signalPresent = (rmsEma > (baselineRms + 0.003)) || (rmsEma > baselineRms * 2);
+        if (!signalPresent) {
             noSignalDuration += dt;
         } else {
             noSignalDuration = 0;
         }
 
-        if ((now - startTime > 1500) && txGain >= maxGain && noSignalDuration > 1.0) {
+        if ((now - startTime > 2000) && txGain >= maxGain && noSignalDuration > 1.5) {
             calibrationValid = false;
             calibrationScale = 2.0;
             defaultCalApplied = true;
@@ -892,10 +911,29 @@ async function startCalibration() {
             return;
         }
 
+        if (signalPresent && txGain >= maxGain && Math.abs(error) > (targetRms * tolerance) && (now - startTime > 3000)) {
+            calibrationValid = true;
+            calibrationScale = Math.min(Math.max(targetRms / Math.max(rmsEma, minRms), 0.1), 10);
+            debugLog(`Calibration done: low signal scale=${calibrationScale.toFixed(2)}x, txGain=${txGain.toFixed(2)}.`);
+            finishCalibration("Calibrated (Low Signal)", "status-badge warn");
+            return;
+        }
+
         requestAnimationFrame(tick);
     };
 
-    tick();
+    measureBaseline(500, (rms) => {
+        baselineRms = rms;
+        debugLog(`Calibration baseline rms=${baselineRms.toFixed(4)}.`);
+        source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(masterGain);
+        source.start();
+        startTime = performance.now();
+        prevTime = startTime;
+        tick();
+    });
 }
 
 function drawConstellation(points, clear = false) {
