@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-12-20d";
+const APP_VERSION = "wifi-lab-2025-12-20e";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -267,6 +267,11 @@ class CostasLoopReceiver {
                 this.state = 'IDLE'; 
                 this.byteBuffer = [];
                 this.lastPoints = []; // Store recent points for export
+                this.noiseFloor = 0.01;
+                this.agcTarget = 0.2;
+                this.agcMin = 0.2;
+                this.agcMax = 5.0;
+                this.lastBlockGain = 1.0;
             }
         
             updateBaud(newBaud) {
@@ -289,9 +294,17 @@ class CostasLoopReceiver {
                 let energySum = 0;
                 for(let s of inputBuffer) energySum += s*s;
                 const rms = Math.sqrt(energySum / inputBuffer.length);
+                if (rms > 0 && rms < this.noiseFloor * 1.5) {
+                    this.noiseFloor = (0.95 * this.noiseFloor) + (0.05 * rms);
+                } else if (this.noiseFloor === 0) {
+                    this.noiseFloor = rms;
+                }
+                const squelch = Math.max(CONFIG.squelch, this.noiseFloor * 3);
+                const blockGain = Math.min(this.agcMax, Math.max(this.agcMin, this.agcTarget / Math.max(rms, 1e-4)));
+                this.lastBlockGain = blockGain;
                 
                 for (let i = 0; i < inputBuffer.length; i++) {
-                    const sample = inputBuffer[i] * calibrationScale * userGain; // Apply calibration and user gain
+                    const sample = inputBuffer[i] * calibrationScale * userGain * blockGain; // Apply calibration, user gain, and AGC
                     const loI = Math.cos(this.phase);
                     const loQ = -Math.sin(this.phase);
                     let rawI = sample * loI;
@@ -306,7 +319,7 @@ class CostasLoopReceiver {
                     this.errorInt += error * this.beta; 
                     this.phase += this.freq + (error * this.alpha) + this.errorInt;
         
-                    if (rms > CONFIG.squelch) {
+                    if (rms > squelch) {
                         if (!this.isSyncing) {
                             this.isSyncing = true;
                             this.symbolCounter = Math.floor(this.samplesPerSymbol / 2); 
