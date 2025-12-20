@@ -1,6 +1,10 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-02-10";
+const APP_VERSION = "wifi-lab-2025-02-10b";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
+if (window.__wifiLabInitialized) {
+    // Avoid double-binding if script is loaded twice.
+    console.warn("WiFi Lab already initialized.");
+}
 const CONFIG = {
     carrierFreq: 1200,   
     baudRate: 20,        
@@ -61,6 +65,8 @@ let modemBufferSource = null;
 let receiver;
 
 window.onload = () => {
+    if (window.__wifiLabInitialized) return;
+    window.__wifiLabInitialized = true;
     initCanvas('modem-bit-canvas');
     initCanvas('constellation-canvas');
     initCanvas('scope-canvas');
