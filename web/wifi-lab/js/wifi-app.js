@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-12-20b";
+const APP_VERSION = "wifi-lab-2025-12-20c";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -43,6 +43,13 @@ function initCanvas(id) {
         c.width = c.clientWidth || 400; 
         c.height = c.clientHeight || 150; 
     }
+}
+
+function syncReceiverToTransmitter(type, baud) {
+    if (!receiver) return;
+    receiver.updateBaud(baud);
+    receiver.clear();
+    debugLog(`RX sync: type=${type}, baud=${baud}.`);
 }
 
 function debugLog(message) {
@@ -113,11 +120,12 @@ window.onload = () => {
     document.getElementById('modem-type').onchange = () => {
         drawConstellation([], true); 
         refreshTransmitterPreview();
+        if (receiver) syncReceiverToTransmitter(document.getElementById('modem-type').value, parseInt(document.getElementById('modem-baud').value));
     };
 
     document.getElementById('modem-baud').onchange = (e) => {
         const newBaud = parseInt(e.target.value);
-        if (receiver) receiver.updateBaud(newBaud);
+        if (receiver) syncReceiverToTransmitter(document.getElementById('modem-type').value, newBaud);
         refreshTransmitterPreview();
     };
     
@@ -996,6 +1004,7 @@ async function transmitModemData() {
     const sendBtn = document.getElementById('btn-modem-send');
 
     await initAudioGraph();
+    syncReceiverToTransmitter(type, baud);
     const engine = new ModemEngine(audioCtx.sampleRate, CONFIG.carrierFreq, baud);
     const { buffer, bits } = engine.generateAudioBuffer(text, type, audioCtx);
     
