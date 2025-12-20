@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-12-20k";
+const APP_VERSION = "wifi-lab-2025-12-20l";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -1123,7 +1123,7 @@ async function transmitModemData() {
     const headerOut = headerEngine.generateAudioBuffer(framedText, FRAME_HEADER_TYPE, audioCtx);
     const payloadOut = payloadEngine.generateAudioBuffer(payloadText, type, audioCtx);
     const buffer = concatAudioBuffers(audioCtx, [headerOut.buffer, payloadOut.buffer]);
-    const bits = headerOut.bits.concat(payloadOut.bits);
+    const bits = payloadOut.bits;
     
     // Update bitstream display
     const bitstreamEl = document.getElementById('modem-bitstream');
