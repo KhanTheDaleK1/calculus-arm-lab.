@@ -1,4 +1,5 @@
 // ! CONFIG
+const APP_VERSION = "wifi-lab-2025-02-10";
 const CONFIG = {
     carrierFreq: 1200,   
     baudRate: 20,        
@@ -17,6 +18,7 @@ let calibrationScale = 1.0;
 let calibrationClipped = false;
 let calibrationValid = false;
 let calibrationAttempted = false;
+let defaultCalApplied = false;
 let userGain = 1.0;
 let txGain = 0.5;
 let txActive = false;
@@ -60,6 +62,7 @@ window.onload = () => {
     initCanvas('modem-bit-canvas');
     initCanvas('constellation-canvas');
     initCanvas('scope-canvas');
+    debugLog(`WiFi Lab JS ${APP_VERSION}`);
 
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         const msg = "⚠️ SECURITY ERROR: HTTPS required for Microphone access.";
@@ -614,6 +617,11 @@ function loop() {
             calStatusEl.innerText = "Idle";
             calStatusEl.style.color = '#888';
         } else if (!calibrationValid) {
+            if (!defaultCalApplied && calibrationScale === 1.0) {
+                calibrationScale = 2.0;
+                defaultCalApplied = true;
+                debugLog("Calibration fallback applied: cal=2.00x.");
+            }
             calStatusEl.innerText = "No Signal";
             calStatusEl.style.color = '#ffb86c';
         } else if (calibrationClipped) {
@@ -733,6 +741,8 @@ async function startCalibration() {
     s.className = "status-badge info";
     await initAudioGraph();
     calibrationAttempted = true;
+    defaultCalApplied = false;
+    debugLog("Calibration started.");
     const prevTxGain = masterGain ? masterGain.gain.value : 1.0;
     if (masterGain) masterGain.gain.value = 1.0;
     
@@ -775,6 +785,7 @@ async function startCalibration() {
                     s.className = "status-badge warn";
                     txGain = 0.2;
                     if (masterGain) masterGain.gain.value = txGain;
+                    defaultCalApplied = true;
                     debugLog("Calibration default: no signal (avg RMS too low). Set cal=2.00x, txGain=0.20.");
                     return;
                 }
