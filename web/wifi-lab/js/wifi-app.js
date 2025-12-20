@@ -1,5 +1,6 @@
 // ! CONFIG
 const APP_VERSION = "wifi-lab-2025-02-10";
+window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 const CONFIG = {
     carrierFreq: 1200,   
     baudRate: 20,        
@@ -23,7 +24,7 @@ let userGain = 1.0;
 let txGain = 0.5;
 let txActive = false;
 let lastFrameErrLog = 0;
-let diagnoseInProgress = false;
+window.__diagnoseInProgress = window.__diagnoseInProgress || false;
 
 // ! SCOPE HISTORY STATE
 let isScopePaused = false;
@@ -63,7 +64,7 @@ window.onload = () => {
     initCanvas('modem-bit-canvas');
     initCanvas('constellation-canvas');
     initCanvas('scope-canvas');
-    debugLog(`WiFi Lab JS ${APP_VERSION}`);
+    debugLog(`WiFi Lab JS ${APP_VERSION} (instance ${window.__wifiLabInstanceCount})`);
 
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         const msg = "⚠️ SECURITY ERROR: HTTPS required for Microphone access.";
@@ -643,16 +644,16 @@ function loop() {
 
 async function runRxDiagnostics() {
     try {
-        if (diagnoseInProgress) {
+        if (window.__diagnoseInProgress) {
             debugLog("RX diagnose: already running.");
             return;
         }
-        diagnoseInProgress = true;
+        window.__diagnoseInProgress = true;
         debugLog("Diagnose clicked.");
         if (!analyser || !waveArray) {
             debugLog("RX diagnose: receiver not running.");
             alert("Start the receiver first.");
-            diagnoseInProgress = false;
+            window.__diagnoseInProgress = false;
             return;
         }
         debugLog("RX diagnose: starting baseline collection.");
@@ -730,13 +731,13 @@ async function runRxDiagnostics() {
         }
         if (btn) btn.innerText = "Diagnose";
         if (btn) btn.disabled = false;
-        diagnoseInProgress = false;
+        window.__diagnoseInProgress = false;
     } catch (err) {
         debugLog(`RX diagnose error: ${err.message || err}`);
         const btn = document.getElementById('btn-rx-diagnose');
         if (btn) btn.innerText = "Diagnose";
         if (btn) btn.disabled = false;
-        diagnoseInProgress = false;
+        window.__diagnoseInProgress = false;
     }
 }
 
