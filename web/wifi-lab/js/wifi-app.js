@@ -14,6 +14,7 @@ let masterGain;
 let isRunning = false;
 let waveArray;
 let calibrationScale = 1.0; 
+let calibrationClipped = false;
 let userGain = 1.0;
 
 // ! SCOPE HISTORY STATE
@@ -515,20 +516,24 @@ function loop() {
     
     // Peak Detection
     let maxRaw = 0;
+    let clippedCount = 0;
     for(let i=0; i<waveArray.length; i++) {
         const abs = Math.abs(waveArray[i]);
         if(abs > maxRaw) maxRaw = abs;
+        if (abs >= 0.999) clippedCount++;
     }
 
-    const scaledPeak = maxRaw * userGain;
+    const calibratedPeak = maxRaw * calibrationScale;
+    const scaledPeak = calibratedPeak * userGain;
     const peakPercent = scaledPeak * 100;
     const peakEl = document.getElementById('rx-peak');
+    const clipRatio = clippedCount / waveArray.length;
     
     if (peakEl) {
         peakEl.innerText = Math.round(peakPercent) + '%';
         
         // 1. Check for Hardware Clipping (Mic is too hot in System Settings)
-        if (maxRaw > 0.98) {
+        if (maxRaw >= 0.999 && clipRatio > 0.005) {
             peakEl.style.color = '#ff5555';
             peakEl.innerText = "HW CLIP! (Turn down System Mic)";
         } 
@@ -584,6 +589,8 @@ async function startCalibration() {
     source.start();
 
     const magnitudes = [];
+    let clipHits = 0;
+    let sampleCount = 0;
     const startTime = performance.now();
     const listen = () => {
         if (performance.now() - startTime > 1500) {
@@ -595,8 +602,15 @@ async function startCalibration() {
             if (magnitudes.length > 0) {
                 const avg = magnitudes.reduce((a,b)=>a+b,0) / magnitudes.length;
                 calibrationScale = 0.5 / Math.max(avg, 0.001);
-                s.innerText = "Calibrated";
-                s.className = "status-badge success";
+                const clipRatio = clipHits / Math.max(sampleCount, 1);
+                calibrationClipped = clipRatio > 0.005;
+                if (calibrationClipped) {
+                    s.innerText = "Calibrated (Input Hot)";
+                    s.className = "status-badge warn";
+                } else {
+                    s.innerText = "Calibrated";
+                    s.className = "status-badge success";
+                }
             } else {
                 s.innerText = "Failed";
                 s.className = "status-badge error";
@@ -604,6 +618,10 @@ async function startCalibration() {
             return;
         }
         analyser.getFloatTimeDomainData(waveArray);
+        for (let i = 0; i < waveArray.length; i++) {
+            if (Math.abs(waveArray[i]) >= 0.999) clipHits++;
+        }
+        sampleCount += waveArray.length;
         let e = 0; for(let x of waveArray) e += x*x;
         magnitudes.push(Math.sqrt(e/waveArray.length));
         requestAnimationFrame(listen);
