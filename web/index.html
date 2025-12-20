@@ -10,6 +10,7 @@
 </head>
 <body>
     <div id="snow-overlay" class="snow-overlay" aria-hidden="true">
+        <div class="snow-debug">Snow overlay active</div>
         <div class="snow-bow" aria-hidden="true">
             <svg viewBox="0 0 120 40" role="presentation" focusable="false">
                 <path d="M10 20 C5 8, 18 4, 32 10 C40 14, 40 26, 32 30 C18 36, 5 32, 10 20 Z" />
@@ -122,6 +123,7 @@
             const overlay = document.getElementById('snow-overlay');
             const layer = document.getElementById('snow-layer');
             if (!overlay || !layer) return;
+            if (forceSnow) overlay.classList.add('debug');
 
             const flakeCount = 45;
             for (let i = 0; i < flakeCount; i++) {
@@ -140,10 +142,11 @@
                 layer.appendChild(flake);
             }
 
+            const duration = forceSnow ? 60000 : 15000;
             setTimeout(() => {
                 overlay.classList.add('hide');
                 setTimeout(() => overlay.remove(), 1200);
-            }, 15000);
+            }, duration);
         });
     </script>
 
