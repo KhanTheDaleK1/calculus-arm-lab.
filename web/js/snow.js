@@ -48,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
         snowMound = document.createElement('div');
         snowMound.id = MOUND_ID;
         document.body.appendChild(snowMound);
-        snowMound.style.opacity = '1'; // Make mound visible immediately
     }
 
     const createSnowflake = () => {
