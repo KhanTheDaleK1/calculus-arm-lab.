@@ -18,6 +18,7 @@ let calibrationClipped = false;
 let calibrationValid = false;
 let userGain = 1.0;
 let txGain = 0.5;
+let txActive = false;
 let lastFrameErrLog = 0;
 
 // ! SCOPE HISTORY STATE
@@ -598,6 +599,12 @@ function loop() {
             peakEl.style.color = '#50fa7b';
         }
     }
+    
+    if (txActive && maxRaw >= 0.999 && clipRatio > 0.005) {
+        txGain = Math.max(0.05, txGain * 0.7);
+        if (masterGain) masterGain.gain.value = txGain;
+        debugLog(`TX auto-attenuate: txGain=${txGain.toFixed(2)}.`);
+    }
 
     if (rmsEl) rmsEl.innerText = rms.toFixed(3);
     if (calScaleEl) calScaleEl.innerText = calibrationScale.toFixed(2) + 'x';
@@ -760,8 +767,9 @@ async function startCalibration() {
                     calibrationValid = false;
                     s.innerText = "Calibration failed (No signal)";
                     s.className = "status-badge error";
-                    debugLog("Calibration failed: no signal (avg RMS too low).");
-                    if (masterGain) masterGain.gain.value = prevTxGain;
+                    txGain = 0.2;
+                    if (masterGain) masterGain.gain.value = txGain;
+                    debugLog("Calibration failed: no signal (avg RMS too low). Set txGain=0.20.");
                     return;
                 }
                 const targetRms = 0.5;
@@ -875,8 +883,10 @@ async function transmitModemData() {
         modemBufferSource.onended = () => {
             sendBtn.innerText = "SEND";
             sendBtn.disabled = false;
+            txActive = false;
         };
     }
+    txActive = true;
     modemBufferSource.start();
 }
 
