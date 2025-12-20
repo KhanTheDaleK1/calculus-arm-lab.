@@ -35,7 +35,7 @@ jobs:
       - name: Compile Firmware
         run: |
           mkdir -p web/firmware
-          arduino-cli compile --fqbn arduino:avr:uno --output-dir web/firmware arduino/CalculusArmFirmware
+          arduino-cli compile --fqbn arduino:avr:uno --output-dir web/firmware arduino/firmware/calculus_arm/CalculusArmFirmware
           mv web/firmware/CalculusArmFirmware.ino.hex web/firmware/latest.hex
           rm -f web/firmware/*.elf
 

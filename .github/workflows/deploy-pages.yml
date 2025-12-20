@@ -21,6 +21,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache Node.js modules
+        uses: actions/cache@v4
+        with:
+          path: 2_calculus-labs/web/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('2_calculus-labs/web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Node.js dependencies
+        working-directory: 2_calculus-labs/web
+        run: npm install
+
       - name: Copy static site
         run: |
           mkdir -p dist

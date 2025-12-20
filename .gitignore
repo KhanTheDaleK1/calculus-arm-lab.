@@ -1,0 +1,68 @@
+# General
+.DS_Store
+.env
+.venv
+/node_modules
+/build
+/dist
+/tmp
+*.log
+*.swp
+*~
+
+# Python
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+.hypothesis/
+*.sqlite3
+*.db
+
+# Node.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+package-lock.json
+# PouchDB
+.pouchdb/
+
+# MacOS
+.DS_Store
+
+# Arduino
+*.hex
+*.elf
+*.bin
+*.lst
+*.map
+*.eep
+*.srec
+*.sym
+*.o
+*.d
+*.su
+*.ino.hex
+*.ino.elf
+*.ino.bin
+*.ino.lst
+*.ino.map
+*.ino.eep
+*.ino.srec
+*.ino.sym
+*.ino.o
+*.ino.d
+*.ino.su
+# Temporary files for Arduino IDE
+.build
+.vscode/arduino.json
+.vscode/c_cpp_properties.json
+.vscode/tasks.json
