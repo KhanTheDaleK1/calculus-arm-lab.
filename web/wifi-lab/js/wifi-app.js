@@ -1,5 +1,5 @@
 // ! CONFIG
-const APP_VERSION = "wifi-lab-2025-02-10e";
+const APP_VERSION = "wifi-lab-2025-02-10f";
 window.__wifiLabInstanceCount = (window.__wifiLabInstanceCount || 0) + 1;
 if (window.__wifiLabInitialized) {
     // Avoid double-binding if script is loaded twice.
@@ -758,7 +758,8 @@ async function startCalibration() {
     calibrationActive = true;
     debugLog("Calibration started.");
     const prevTxGain = masterGain ? masterGain.gain.value : 1.0;
-    if (masterGain) masterGain.gain.value = 1.0;
+    txGain = 1.0;
+    if (masterGain) masterGain.gain.value = txGain;
     
     // Create a temporary stream if receiver is not running
     let tempStream = null;
@@ -797,6 +798,7 @@ async function startCalibration() {
     let stableFrames = 0;
     let rmsEma = 0;
     const emaAlpha = 0.2;
+    let noSignalDuration = 0;
 
     const finishCalibration = (statusText, statusClass) => {
         calibrationActive = false;
@@ -873,7 +875,13 @@ async function startCalibration() {
             return;
         }
 
-        if (rmsEma < minRms && txGain >= maxGain) {
+        if (rmsEma < minRms) {
+            noSignalDuration += dt;
+        } else {
+            noSignalDuration = 0;
+        }
+
+        if ((now - startTime > 1500) && txGain >= maxGain && noSignalDuration > 1.0) {
             calibrationValid = false;
             calibrationScale = 2.0;
             defaultCalApplied = true;
