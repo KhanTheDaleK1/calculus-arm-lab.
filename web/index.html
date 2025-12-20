@@ -9,6 +9,14 @@
     <meta name="theme-color" content="#d05ce3">
 </head>
 <body>
+    <div id="snow-overlay" class="snow-overlay" aria-hidden="true">
+        <div class="snow-bow">
+            <span class="loop"></span>
+            <span class="knot"></span>
+            <span class="loop"></span>
+        </div>
+        <div class="snow-layer" id="snow-layer"></div>
+    </div>
     <div class="app-container">
         <header>
             <div class="header-left">
@@ -98,6 +106,40 @@
                 }
             };
             render();
+        });
+    </script>
+    <script>
+        window.addEventListener('load', () => {
+            const now = new Date();
+            const month = now.getMonth();
+            const day = now.getDate();
+            const inSeason = (month === 11 && day >= 15) || (month === 0 && day <= 15);
+            if (!inSeason) return;
+            const overlay = document.getElementById('snow-overlay');
+            const layer = document.getElementById('snow-layer');
+            if (!overlay || !layer) return;
+
+            const flakeCount = 45;
+            for (let i = 0; i < flakeCount; i++) {
+                const flake = document.createElement('div');
+                flake.classList.add('snowflake');
+                const sizeRoll = Math.random();
+                if (sizeRoll < 0.35) flake.classList.add('small');
+                else if (sizeRoll > 0.85) flake.classList.add('large');
+                const left = Math.random() * 100;
+                const fall = 10 + Math.random() * 10;
+                const sway = 3 + Math.random() * 4;
+                const delay = -Math.random() * fall;
+                flake.style.left = `${left}%`;
+                flake.style.animationDuration = `${fall}s, ${sway}s`;
+                flake.style.animationDelay = `${delay}s, ${delay / 2}s`;
+                layer.appendChild(flake);
+            }
+
+            setTimeout(() => {
+                overlay.classList.add('hide');
+                setTimeout(() => overlay.remove(), 1200);
+            }, 15000);
         });
     </script>
 
