@@ -1,0 +1,17 @@
+
+.snowflake {
+    position: absolute;
+    background-color: #FFF;
+    border-radius: 50%;
+    opacity: 0.8;
+    pointer-events: none; /* Allows interaction with elements behind snowflakes */
+    animation: fall linear forwards;
+    z-index: 9999; /* Ensure snowflakes are on top */
+}
+
+@keyframes fall {
+    to {
+        transform: translateY(100vh);
+        opacity: 0;
+    }
+}
