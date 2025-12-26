@@ -1,6 +1,6 @@
 /*
   Black Car - Basic Motor Test & Obstacle Avoidance + Line Tracking
-  Target: Elegoo Smart Robot Car V3.0 (Arduino Uno R3)
+  Target: Elegoo Smart Robot Car V3.0 (Arduino Uno R3 / Uno R4 WiFi)
 */
 
 // * Motor Pins
@@ -26,6 +26,17 @@ int speed = 200;
 int turnSpeed = 230; 
 bool autoMode = false;
 
+// * Wi-Fi (Uno R4 WiFi only)
+#if defined(ARDUINO_UNO_R4_WIFI)
+#include <WiFiS3.h>
+const char WIFI_SSID[] = "3E+K";
+const char WIFI_PASS[] = "Tuba2thpaste";
+bool wifiConnected = false;
+unsigned long lastWifiAttempt = 0;
+const unsigned long WIFI_RETRY_MS = 5000;
+void serviceWiFi();
+#endif
+
 // * Lab State
 int currentLab = 0; // 0=None, 1=Drag, 2=Brake, 3=Osc
 unsigned long labStartTime = 0;
@@ -40,9 +51,21 @@ void stopMotors();
 float getFilteredDistance();
 float getRawDistance();
 void runLabLogic();
+void waitForSerial();
+
+void waitForSerial() {
+#if defined(ARDUINO_UNO_R4_WIFI) || defined(ARDUINO_UNO_R4_MINIMA)
+  // Allow native USB boards to enumerate so READY isn't missed.
+  unsigned long start = millis();
+  while (!Serial && (millis() - start < 2000)) {
+    delay(10);
+  }
+#endif
+}
 
 void setup() {
   Serial.begin(9600);
+  waitForSerial();
   
   // Motor Config
   pinMode(ENA, OUTPUT);
@@ -62,9 +85,17 @@ void setup() {
 
   stopMotors();
   Serial.println("READY"); 
+
+#if defined(ARDUINO_UNO_R4_WIFI)
+  serviceWiFi(); // Kick off Wi-Fi connection attempt
+#endif
 }
 
 void loop() {
+#if defined(ARDUINO_UNO_R4_WIFI)
+  serviceWiFi();
+#endif
+
   // * 1. Process Incoming Commands
   if (Serial.available() > 0) {
     command = Serial.read();
@@ -145,6 +176,35 @@ void loop() {
   
   delay(10);
 }
+
+#if defined(ARDUINO_UNO_R4_WIFI)
+void serviceWiFi() {
+  if (WiFi.status() == WL_NO_MODULE) {
+    if (!wifiConnected) {
+      Serial.println("WIFI:NoModule");
+      wifiConnected = true; // Prevent spamming the log
+    }
+    return;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    if (!wifiConnected) {
+      wifiConnected = true;
+      Serial.print("WIFI:Connected IP=");
+      Serial.println(WiFi.localIP());
+    }
+    return;
+  }
+
+  wifiConnected = false;
+  if (millis() - lastWifiAttempt < WIFI_RETRY_MS) return;
+
+  lastWifiAttempt = millis();
+  Serial.print("WIFI:Connecting ");
+  Serial.println(WIFI_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+}
+#endif
 
 // * --- LAB LOGIC ---
 void runLabLogic() {

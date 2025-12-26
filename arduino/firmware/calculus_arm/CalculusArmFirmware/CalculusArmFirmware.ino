@@ -26,9 +26,20 @@ int targetElbow = 90;
 unsigned long lastTelemetryTime = 0;
 const int TELEMETRY_INTERVAL = 100; // Send data every 100ms (10Hz)
 
+void waitForSerial() {
+#if defined(ARDUINO_UNO_R4_WIFI) || defined(ARDUINO_UNO_R4_MINIMA)
+  // Allow native USB boards to enumerate so READY isn't missed.
+  unsigned long start = millis();
+  while (!Serial && (millis() - start < 2000)) {
+    delay(10);
+  }
+#endif
+}
+
 void setup() {
   // 1. Initialize Serial at high speed for smooth plotting
   Serial.begin(115200); 
+  waitForSerial();
   
   // 2. Attach Servos
   // Use wider pulse widths so SG90 servos can sweep closer to the full 0–180 range.

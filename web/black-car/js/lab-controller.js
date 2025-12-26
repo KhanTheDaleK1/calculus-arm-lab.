@@ -3,6 +3,8 @@ class LabController {
         this.port = null;
         this.writer = null;
         this.isConnected = false;
+        this.mode = 'USB'; // USB or BLE
+        this.characteristic = null;
         this.currentLab = -1;
         this.dataBuffer = [];
         this.serialBuffer = "";
@@ -19,7 +21,7 @@ class LabController {
         };
     }
 
-    async connect() {
+    async connectUSB() {
         if ("serial" in navigator) {
             try {
                 this.port = await navigator.serial.requestPort();
@@ -27,7 +29,8 @@ class LabController {
                 this.setupWriter();
                 this.readLoop();
                 this.isConnected = true;
-                this.updateStatus("Connected");
+                this.mode = 'USB';
+                this.updateStatus("Connected (USB)");
                 document.getElementById('btn-run').disabled = false;
             } catch (err) {
                 console.error("Connection Error:", err);
@@ -35,6 +38,43 @@ class LabController {
             }
         } else {
             alert("Web Serial API not supported.");
+        }
+    }
+
+    async connectBLE() {
+        if (!("bluetooth" in navigator)) {
+            alert("Web Bluetooth API not supported.");
+            return;
+        }
+
+        try {
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [{ services: [0xFFE0] }],
+                optionalServices: [0xFFE0]
+            });
+
+            device.addEventListener('gattserverdisconnected', () => {
+                this.isConnected = false;
+                this.updateStatus("Disconnected (BLE)");
+            });
+
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService(0xFFE0);
+            this.characteristic = await service.getCharacteristic(0xFFE1);
+
+            await this.characteristic.startNotifications();
+            this.characteristic.addEventListener('characteristicvaluechanged', (event) => {
+                const decoder = new TextDecoder();
+                this.handleData(decoder.decode(event.target.value));
+            });
+
+            this.isConnected = true;
+            this.mode = 'BLE';
+            this.updateStatus("Connected (BLE)");
+            document.getElementById('btn-run').disabled = false;
+        } catch (err) {
+            console.error("BLE Connection Error:", err);
+            alert("BLE Connection Failed: " + err.message);
         }
     }
 
@@ -125,7 +165,13 @@ class LabController {
     }
 
     async send(cmd) {
-        if (this.writer) await this.writer.write(cmd);
+        if (!this.isConnected) return;
+        if (this.mode === 'USB' && this.writer) {
+            await this.writer.write(cmd);
+        } else if (this.mode === 'BLE' && this.characteristic) {
+            const encoder = new TextEncoder();
+            await this.characteristic.writeValue(encoder.encode(cmd));
+        }
     }
 
     updateStatus(msg) {
@@ -319,7 +365,8 @@ class LabController {
 const lab = new LabController();
 
 // * UI Bindings
-document.getElementById('btn-connect').addEventListener('click', () => lab.connect());
+document.getElementById('btn-connect-usb').addEventListener('click', () => lab.connectUSB());
+document.getElementById('btn-connect-ble').addEventListener('click', () => lab.connectBLE());
 document.getElementById('btn-run').addEventListener('click', () => lab.startRun());
 document.getElementById('btn-export').addEventListener('click', () => {
     const txt = document.getElementById('data-output').value;
