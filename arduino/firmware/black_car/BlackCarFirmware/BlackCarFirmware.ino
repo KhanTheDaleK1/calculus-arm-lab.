@@ -27,7 +27,7 @@ int turnSpeed = 230;
 bool autoMode = false;
 
 // * Wi-Fi (Uno R4 WiFi only)
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
 #include <WiFiS3.h>
 const char WIFI_SSID[] = "3E+K";
 const char WIFI_PASS[] = "Tuba2thpaste";
@@ -65,7 +65,7 @@ void waitForSerial();
 void handleCommand(char cmd);
 
 void waitForSerial() {
-#if defined(ARDUINO_UNO_R4_WIFI) || defined(ARDUINO_UNO_R4_MINIMA)
+#if defined(ARDUINO_UNOR4_WIFI) || defined(ARDUINO_UNOR4_MINIMA)
   // Allow native USB boards to enumerate so READY isn't missed.
   unsigned long start = millis();
   while (!Serial && (millis() - start < 2000)) {
@@ -97,13 +97,13 @@ void setup() {
   stopMotors();
   Serial.println("READY"); 
 
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
   serviceWiFi(); // Kick off Wi-Fi connection attempt
 #endif
 }
 
 void loop() {
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
   serviceWiFi();
   serviceWiFiServer();
 #endif
@@ -125,7 +125,7 @@ void loop() {
   int lVal = digitalRead(LINE_L);
   int mVal = digitalRead(LINE_M);
   int rVal = digitalRead(LINE_R);
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
   updateTelemetryValues(distance, lVal, mVal, rVal);
 #endif
   
@@ -175,7 +175,7 @@ void loop() {
   delay(10);
 }
 
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
 void serviceWiFi() {
   if (WiFi.status() == WL_NO_MODULE) {
     if (!wifiConnected) {
@@ -313,7 +313,7 @@ void runLabLogic() {
     if (millis() - lastLogTime > 100) {
       float d = getRawDistance(); // Now returns float
       Serial.print(t_sec); Serial.print(","); Serial.println(d);
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
       recordLabSample(t_sec, d);
 #endif
       lastLogTime = millis();
@@ -335,7 +335,7 @@ void runLabLogic() {
       lastDist = d;
       if (abs(v) < 500) {
         Serial.print(t_sec); Serial.print(","); Serial.println(v);
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
         recordLabSample(t_sec, v);
 #endif
       }
@@ -361,7 +361,7 @@ void runLabLogic() {
     if (millis() - lastLogTime > 100) {
       // Log "Offset" (Simulated by the sine value being driven)
       Serial.print(t_sec); Serial.print(","); Serial.println(val);
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
       recordLabSample(t_sec, val);
 #endif
       lastLogTime = millis();
@@ -376,7 +376,7 @@ void runLabLogic() {
     if (millis() - lastLogTime > 100) { // 10Hz
        float h = getFilteredDistance(); 
        Serial.print(t_sec); Serial.print(","); Serial.println(h, 2); // 2 decimal places
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
        recordLabSample(t_sec, h);
 #endif
        lastLogTime = millis();
@@ -390,7 +390,7 @@ void runLabLogic() {
     if (millis() - lastLogTime > 100) { // 10Hz
        float y = getFilteredDistance(); 
        Serial.print(t_sec); Serial.print(","); Serial.println(y, 2); // 2 decimal places
-#if defined(ARDUINO_UNO_R4_WIFI)
+#if defined(ARDUINO_UNOR4_WIFI)
        recordLabSample(t_sec, y);
 #endif
        lastLogTime = millis();
@@ -498,4 +498,14 @@ void handleCommand(char cmd) {
   else if (cmd == '3') { currentLab = 3; labStartTime = millis(); autoMode = false; }
   else if (cmd == '4') { currentLab = 4; labStartTime = millis(); autoMode = false; stopMotors(); }
   else if (cmd == '5') { currentLab = 5; labStartTime = millis(); autoMode = false; stopMotors(); }
+#if defined(ARDUINO_UNOR4_WIFI)
+  else if (cmd == 'I') {
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.print("WIFI:IP=");
+      Serial.println(WiFi.localIP());
+    } else {
+      Serial.println("WIFI:NotConnected");
+    }
+  }
+#endif
 }

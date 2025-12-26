@@ -27,7 +27,7 @@ unsigned long lastTelemetryTime = 0;
 const int TELEMETRY_INTERVAL = 100; // Send data every 100ms (10Hz)
 
 void waitForSerial() {
-#if defined(ARDUINO_UNO_R4_WIFI) || defined(ARDUINO_UNO_R4_MINIMA)
+#if defined(ARDUINO_UNOR4_WIFI) || defined(ARDUINO_UNOR4_MINIMA)
   // Allow native USB boards to enumerate so READY isn't missed.
   unsigned long start = millis();
   while (!Serial && (millis() - start < 2000)) {
