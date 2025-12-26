@@ -3,8 +3,10 @@ class LabController {
         this.port = null;
         this.writer = null;
         this.isConnected = false;
-        this.mode = 'USB'; // USB or BLE
-        this.characteristic = null;
+        this.mode = 'USB'; // USB or WIFI
+        this.wifiBaseUrl = null;
+        this.wifiPollTimer = null;
+        this.lastLabSeq = -1;
         this.currentLab = -1;
         this.dataBuffer = [];
         this.serialBuffer = "";
@@ -30,6 +32,8 @@ class LabController {
                 this.readLoop();
                 this.isConnected = true;
                 this.mode = 'USB';
+                if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
+                this.wifiBaseUrl = null;
                 this.updateStatus("Connected (USB)");
                 document.getElementById('btn-run').disabled = false;
             } catch (err) {
@@ -41,40 +45,24 @@ class LabController {
         }
     }
 
-    async connectBLE() {
-        if (!("bluetooth" in navigator)) {
-            alert("Web Bluetooth API not supported.");
-            return;
-        }
+    async connectWiFi() {
+        const saved = localStorage.getItem('carWifiHost') || '';
+        const host = prompt("Enter car IP or hostname (e.g. 192.168.1.50)", saved);
+        if (!host) return;
 
+        this.wifiBaseUrl = `http://${host}`;
         try {
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: [0xFFE0] }],
-                optionalServices: [0xFFE0]
-            });
-
-            device.addEventListener('gattserverdisconnected', () => {
-                this.isConnected = false;
-                this.updateStatus("Disconnected (BLE)");
-            });
-
-            const server = await device.gatt.connect();
-            const service = await server.getPrimaryService(0xFFE0);
-            this.characteristic = await service.getCharacteristic(0xFFE1);
-
-            await this.characteristic.startNotifications();
-            this.characteristic.addEventListener('characteristicvaluechanged', (event) => {
-                const decoder = new TextDecoder();
-                this.handleData(decoder.decode(event.target.value));
-            });
-
+            const res = await fetch(`${this.wifiBaseUrl}/status`, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            localStorage.setItem('carWifiHost', host);
             this.isConnected = true;
-            this.mode = 'BLE';
-            this.updateStatus("Connected (BLE)");
+            this.mode = 'WIFI';
+            this.updateStatus("Connected (Wi-Fi)");
             document.getElementById('btn-run').disabled = false;
+            this.startWiFiPolling();
         } catch (err) {
-            console.error("BLE Connection Error:", err);
-            alert("BLE Connection Failed: " + err.message);
+            console.error("Wi-Fi Connection Error:", err);
+            alert("Wi-Fi Connection Failed: " + err.message);
         }
     }
 
@@ -168,9 +156,67 @@ class LabController {
         if (!this.isConnected) return;
         if (this.mode === 'USB' && this.writer) {
             await this.writer.write(cmd);
-        } else if (this.mode === 'BLE' && this.characteristic) {
-            const encoder = new TextEncoder();
-            await this.characteristic.writeValue(encoder.encode(cmd));
+        } else if (this.mode === 'WIFI' && this.wifiBaseUrl) {
+            try {
+                await fetch(`${this.wifiBaseUrl}/cmd?c=${encodeURIComponent(cmd)}`, { cache: 'no-store' });
+            } catch (err) {
+                console.error("Wi-Fi Send Error:", err);
+                this.isConnected = false;
+                this.updateStatus("Disconnected (Wi-Fi)");
+                if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
+            }
+        }
+    }
+
+    startWiFiPolling() {
+        if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
+        this.wifiPollTimer = setInterval(() => this.pollWiFiStatus(), 100);
+    }
+
+    async pollWiFiStatus() {
+        if (!this.wifiBaseUrl || !this.isConnected || this.mode !== 'WIFI') return;
+        try {
+            const res = await fetch(`${this.wifiBaseUrl}/status`, { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            this.handleWiFiStatus(data);
+        } catch (err) {
+            console.error("Wi-Fi Poll Error:", err);
+            this.isConnected = false;
+            this.updateStatus("Disconnected (Wi-Fi)");
+            if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
+        }
+    }
+
+    handleWiFiStatus(data) {
+        if (!data) return;
+
+        if (this.currentLab === 0) {
+            if (typeof data.distance === 'number') {
+                const el = document.getElementById('val-distance');
+                if (el) el.innerText = data.distance;
+            }
+            if (typeof data.line === 'string' && data.line.length >= 3) {
+                const l = data.line[0] === '1' ? '1' : '0';
+                const m = data.line[1] === '1' ? '1' : '0';
+                const r = data.line[2] === '1' ? '1' : '0';
+                const el = document.getElementById('val-line');
+                if (el) el.innerText = `${l} ${m} ${r}`;
+            }
+            return;
+        }
+
+        if (typeof data.labSeq === 'number' && data.labSeq !== this.lastLabSeq) {
+            this.lastLabSeq = data.labSeq;
+            const t = parseFloat(data.labT);
+            const yRaw = parseFloat(data.labY);
+            if (!isNaN(t) && !isNaN(yRaw)) {
+                const y = (this.currentLab === 4) ? this.filterRadarSample(yRaw, t) : yRaw;
+                if (y === null) return;
+                this.dataBuffer.push({t, y});
+                this.updateGraph();
+                this.updateText();
+            }
         }
     }
 
@@ -186,6 +232,7 @@ class LabController {
     setLab(id) {
         this.currentLab = id;
         this.dataBuffer = [];
+        this.lastLabSeq = -1;
         this.filterState = { window: [], max: 11, lastValid: null, lastTime: null };
         this.smoothingWindowSize = (id === 4) ? 9 : 5;
         
@@ -366,7 +413,7 @@ const lab = new LabController();
 
 // * UI Bindings
 document.getElementById('btn-connect-usb').addEventListener('click', () => lab.connectUSB());
-document.getElementById('btn-connect-ble').addEventListener('click', () => lab.connectBLE());
+document.getElementById('btn-connect-wifi').addEventListener('click', () => lab.connectWiFi());
 document.getElementById('btn-run').addEventListener('click', () => lab.startRun());
 document.getElementById('btn-export').addEventListener('click', () => {
     const txt = document.getElementById('data-output').value;

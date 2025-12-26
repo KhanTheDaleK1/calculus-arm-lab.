@@ -4,7 +4,9 @@ class CarController {
         this.writer = null;
         this.reader = null;
         this.isConnected = false;
-        this.mode = 'USB'; // 'USB' or 'BLE'
+        this.mode = 'USB'; // USB or WIFI
+        this.wifiBaseUrl = null;
+        this.wifiPollTimer = null;
     }
 
     // * Connect USB
@@ -17,6 +19,8 @@ class CarController {
                 this.readLoop();
                 this.isConnected = true;
                 this.mode = 'USB';
+                if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
+                this.wifiBaseUrl = null;
                 this.updateStatus("Connected (USB)");
                 return true;
             } catch (err) {
@@ -30,47 +34,24 @@ class CarController {
         }
     }
 
-    // * Connect BLE
-    async connectBLE() {
-        // Standard HM-10 / HC-05 / HC-08 UUIDs
-        // Service: 0000ffe0-0000-1000-8000-00805f9b34fb (0xFFE0)
-        // Characteristic: 0000ffe1-0000-1000-8000-00805f9b34fb (0xFFE1)
-        
+    async connectWiFi() {
+        const saved = localStorage.getItem('carWifiHost') || '';
+        const host = prompt("Enter car IP or hostname (e.g. 192.168.1.50)", saved);
+        if (!host) return false;
+
+        this.wifiBaseUrl = `http://${host}`;
         try {
-            console.log("Requesting Bluetooth Device...");
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: [0xFFE0] }], // Standard Serial Service
-                optionalServices: [0xFFE0]
-            });
-            
-            device.addEventListener('gattserverdisconnected', () => {
-                this.isConnected = false;
-                this.updateStatus("Disconnected (BLE)");
-            });
-
-            console.log("Connecting to GATT Server...");
-            const server = await device.gatt.connect();
-
-            console.log("Getting Service...");
-            const service = await server.getPrimaryService(0xFFE0);
-
-            console.log("Getting Characteristic...");
-            this.characteristic = await service.getCharacteristic(0xFFE1);
-            
-            // Notification for incoming data
-            await this.characteristic.startNotifications();
-            this.characteristic.addEventListener('characteristicvaluechanged', (event) => {
-                const decoder = new TextDecoder();
-                this.handleData(decoder.decode(event.target.value));
-            });
-
+            const res = await fetch(`${this.wifiBaseUrl}/status`, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            localStorage.setItem('carWifiHost', host);
             this.isConnected = true;
-            this.mode = 'BLE';
-            this.updateStatus("Connected (BLE)");
+            this.mode = 'WIFI';
+            this.updateStatus("Connected (Wi-Fi)");
+            this.startWiFiPolling();
             return true;
         } catch (err) {
-            console.error("BLE Connection Error:", err);
-            this.updateStatus("BLE Error: " + err.message);
+            console.error("Wi-Fi Connection Error:", err);
+            this.updateStatus("Wi-Fi Error: " + err.message);
             return false;
         }
     }
@@ -144,9 +125,45 @@ class CarController {
             if (this.writer) {
                 await this.writer.write(command);
             }
-        } else if (this.mode === 'BLE') {
-            const encoder = new TextEncoder();
-            await this.characteristic.writeValue(encoder.encode(command));
+        } else if (this.mode === 'WIFI' && this.wifiBaseUrl) {
+            try {
+                await fetch(`${this.wifiBaseUrl}/cmd?c=${encodeURIComponent(command)}`, { cache: 'no-store' });
+            } catch (err) {
+                console.error("Wi-Fi Send Error:", err);
+                this.isConnected = false;
+                this.updateStatus("Disconnected (Wi-Fi)");
+                if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
+            }
+        }
+    }
+
+    startWiFiPolling() {
+        if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
+        this.wifiPollTimer = setInterval(() => this.pollWiFiStatus(), 100);
+    }
+
+    async pollWiFiStatus() {
+        if (!this.wifiBaseUrl || !this.isConnected || this.mode !== 'WIFI') return;
+        try {
+            const res = await fetch(`${this.wifiBaseUrl}/status`, { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (typeof data.distance === 'number') {
+                const el = document.getElementById('val-distance');
+                if (el) el.innerText = data.distance;
+            }
+            if (typeof data.line === 'string' && data.line.length >= 3) {
+                const l = data.line[0] === '1' ? '1' : '0';
+                const m = data.line[1] === '1' ? '1' : '0';
+                const r = data.line[2] === '1' ? '1' : '0';
+                const el = document.getElementById('val-line');
+                if (el) el.innerText = `${l} ${m} ${r}`;
+            }
+        } catch (err) {
+            console.error("Wi-Fi Poll Error:", err);
+            this.isConnected = false;
+            this.updateStatus("Disconnected (Wi-Fi)");
+            if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
         }
     }
 
@@ -163,7 +180,7 @@ const car = new CarController();
 
 // * UI Bindings
 document.getElementById('btn-connect-usb').addEventListener('click', () => car.connectUSB());
-document.getElementById('btn-connect-ble').addEventListener('click', () => car.connectBLE());
+document.getElementById('btn-connect-wifi').addEventListener('click', () => car.connectWiFi());
 
 // * Control Buttons
 const bindBtn = (id, cmd) => {
