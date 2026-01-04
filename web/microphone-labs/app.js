@@ -177,6 +177,7 @@ function analyze() {
     if (rms < CONFIG.silenceThresh) {
         document.getElementById('freq-fundamental').innerText = "-- Hz";
         document.getElementById('freq-confidence').innerText = "Low Signal";
+        document.getElementById('freq-note').innerText = "--";
         return;
     }
     
@@ -185,9 +186,11 @@ function analyze() {
     if (pitch === -1) {
         document.getElementById('freq-fundamental').innerText = "-- Hz";
         document.getElementById('freq-confidence').innerText = "Noisy";
+        document.getElementById('freq-note').innerText = "--";
     } else {
         document.getElementById('freq-fundamental').innerText = Math.round(pitch) + " Hz";
         document.getElementById('freq-confidence').innerText = "Locked";
+        document.getElementById('freq-note').innerText = getNote(pitch);
     }
 }
 
@@ -297,4 +300,21 @@ function copySpectrum() {
         csv += `${(i*bin).toFixed(1)},${dataArray[i]}\n`;
     }
     navigator.clipboard.writeText(csv).then(() => alert("Copied Spectrum Data!"));
+}
+
+function getNote(frequency) {
+    const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    if (!frequency || frequency <= 0) return "--";
+
+    // MIDI Note Calculation: n = 12 * log2(f / 440) + 69
+    const noteNum = 12 * (Math.log(frequency / 440) / Math.log(2));
+    const midi = Math.round(noteNum) + 69;
+    
+    const noteName = noteStrings[midi % 12];
+    const octave = Math.floor(midi / 12) - 1;
+    
+    // Calculate cents deviation
+    const cents = Math.floor((noteNum - Math.round(noteNum)) * 100);
+    
+    return `${noteName}${octave} (${cents > 0 ? '+' : ''}${cents}c)`;
 }
