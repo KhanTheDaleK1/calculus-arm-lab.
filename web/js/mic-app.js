@@ -4,9 +4,12 @@ const THEME = { accent: '#d05ce3', bg: '#141414', grid: '#333' };
 
 // * STATE
 let audioCtx, analyser, micSource;
+let analyserR; // Right Channel for XY Mode
 let toneOsc1, toneGain1, toneOsc2, toneGain2, masterGain;
 let isRunning = false;
+let xyMode = false;
 let dataArray, waveArray; 
+let waveArrayR; // Right Channel Data
 let freqHistory = [];
 let historyStart = null;
 let scopePaused = false;
@@ -76,6 +79,7 @@ window.onload = () => {
     bind('scope-v-offset', 'oninput', (e) => scopeSettings.vOffset = parseFloat(e.target.value));
     bind('scope-h-offset', 'oninput', (e) => scopeSettings.hOffset = parseFloat(e.target.value));
     bind('btn-scope-pause', 'onclick', toggleScopePause);
+    bind('btn-scope-xy', 'onclick', toggleXYMode);
 
     // * Pro Tone Controls
     bind('btn-tone-toggle', 'onclick', toggleTone);
@@ -114,16 +118,23 @@ async function initAudioGraph() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
     
-    // * Main Analyser (Mono Mix)
+    // * Main Analyser (Left/Mono)
     if (!analyser) {
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = CONFIG.fftSize;
+    }
+
+    // * Right Analyser (For XY Mode)
+    if (!analyserR) {
+        analyserR = audioCtx.createAnalyser();
+        analyserR.fftSize = CONFIG.fftSize;
     }
     
     // * Arrays
     const len = analyser.frequencyBinCount;
     if(!dataArray) dataArray = new Uint8Array(len);
     if(!waveArray) waveArray = new Float32Array(len);
+    if(!waveArrayR) waveArrayR = new Float32Array(len);
 }
 
 async function startEngine() {
@@ -135,6 +146,7 @@ async function startEngine() {
         const constraints = { 
             audio: { 
                 deviceId: devId ? {exact: devId} : undefined,
+                channelCount: 2, // Request Stereo
                 echoCancellation: false,
                 noiseSuppression: false,
                 autoGainControl: false
@@ -144,8 +156,18 @@ async function startEngine() {
         
         if (micSource) try { micSource.disconnect(); } catch(e){}
         micSource = audioCtx.createMediaStreamSource(stream);
-        micSource.connect(analyser); // Mono Mix
+
+        // * Splitter for Stereo Processing
+        const splitter = audioCtx.createChannelSplitter(2);
+        micSource.connect(splitter);
         
+        // Connect Left (0) to Main Analyser
+        splitter.connect(analyser, 0);
+        
+        // Connect Right (1) to Secondary Analyser
+        splitter.connect(analyserR, 1);
+        
+        // Loopback for Tone Gen (Keep it on Left for now)
         if (masterGain) {
             try { 
                 masterGain.connect(analyser); 
@@ -193,6 +215,9 @@ function loop() {
     
     if (!scopePaused) {
         analyser.getFloatTimeDomainData(waveArray);
+        if (analyserR && waveArrayR) {
+            analyserR.getFloatTimeDomainData(waveArrayR);
+        }
     }
     
     drawSpectrum();
@@ -336,13 +361,17 @@ function drawScope() {
     const w = c.width, h = c.height;
     const rate = audioCtx ? audioCtx.sampleRate : 48000;
 
-    // * 1. CLEAR & GRID
+    // * 1. CLEAR
     ctx.fillStyle = '#0b0b0b'; ctx.fillRect(0,0,w,h);
     
-    // Grid (10 horizontal divisions, 8 vertical)
+    // * 2. GRID & AXES
+    ctx.lineWidth = 1; 
+    ctx.strokeStyle = '#222';
+    
+    // Draw Grid
     const xStep = w / 10;
     const yStep = h / 8;
-    ctx.strokeStyle = '#222'; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.beginPath();
     for(let i=1; i<10; i++) { ctx.moveTo(i*xStep, 0); ctx.lineTo(i*xStep, h); }
     for(let i=1; i<8; i++) { ctx.moveTo(0, i*yStep); ctx.lineTo(w, i*yStep); }
     ctx.stroke();
@@ -353,58 +382,98 @@ function drawScope() {
     ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
     ctx.stroke();
 
-    // * 2. LOGIC
-    // Total time on screen = 10 divs * timePerDiv
-    const totalTime = 10 * scopeSettings.timePerDiv;
-    const samplesNeeded = Math.floor(totalTime * rate);
-    
-    // Triggering (Rising Edge at 0)
-    let triggerIdx = 0;
-    // Simple edge finder
-    for(let i=1; i<waveArray.length - samplesNeeded; i++) {
-        if(waveArray[i-1] < 0 && waveArray[i] >= 0) {
-            triggerIdx = i;
-            break;
-        }
-    }
-    
-    // Apply Horizontal Offset (pixels -> samples)
-    // Map w/2 (center) to triggerIdx. 
-    // hOffset is in "divs". Positive = shift wave right (view left)
-    const offsetSamples = Math.floor(scopeSettings.hOffset * scopeSettings.timePerDiv * rate);
-    let startSample = triggerIdx - offsetSamples; 
-    
-    // * 3. WAVEFORM
+    // * 3. WAVEFORM RENDERING
     ctx.lineWidth = 2;
     ctx.strokeStyle = THEME.accent;
     ctx.beginPath();
 
-    const pixelsPerSample = w / samplesNeeded;
-    
-    for(let i=0; i<samplesNeeded; i++) {
-        const bufIdx = startSample + i;
-        if(bufIdx < 0 || bufIdx >= waveArray.length) continue;
+    if (xyMode && waveArrayR) {
+        // --- XY MODE (Lissajous) ---
+        // X: Ch 0 (Left), Y: Ch 1 (Right)
         
-        const rawY = waveArray[bufIdx];
-        // Apply Vertical Offset & Gain
+        // Use all available samples or a subset?
+        // Let's use 2048 samples to get a dense plot
+        const samplesToDraw = waveArray.length; 
         
-        const val = (rawY + scopeSettings.vOffset);
-        // Normalize: val / voltsPerDiv = number of divisions deflection
-        const divsDeflection = val / scopeSettings.voltsPerDiv;
-        const pxDeflection = divsDeflection * yStep;
-        
-        const plotX = i * pixelsPerSample;
-        const plotY = (h/2) - pxDeflection; // Invert Y for canvas
+        for(let i=0; i<samplesToDraw; i++) {
+            // Get Normalized Voltage (-1..1 roughly)
+            const rawX = waveArray[i];
+            const rawY = waveArrayR[i];
+            
+            // Apply Gains (using voltsPerDiv)
+            // Screen logic: 1.0V = 1 Div. 
+            // V/Div = 1.0 -> 1V is 1/8th of height (since 8 divs high)? 
+            // Or usually +/- 4 Divs.
+            
+            // Map X (Ch0): Center + (Val / VDiv) * (Width / 10 divs)
+            // Map Y (Ch1): Center - (Val / VDiv) * (Height / 8 divs)
+            
+            // Apply Offsets
+            // H-Offset slider controls X-Pos in XY mode
+            // V-Offset slider controls Y-Pos in XY mode
+            
+            const xPos = (w/2) + ((rawX + scopeSettings.hOffset) / scopeSettings.voltsPerDiv) * (w/10) * 4; // *4 factor to scale nicely
+            const yPos = (h/2) - ((rawY + scopeSettings.vOffset) / scopeSettings.voltsPerDiv) * (h/8) * 4;
 
-        if (i===0) ctx.moveTo(plotX, plotY);
-        else ctx.lineTo(plotX, plotY);
+            if (i===0) ctx.moveTo(xPos, yPos);
+            else ctx.lineTo(xPos, yPos);
+        }
+        
+    } else {
+        // --- XT MODE (Time Domain) ---
+        // Total time on screen = 10 divs * timePerDiv
+        const totalTime = 10 * scopeSettings.timePerDiv;
+        const samplesNeeded = Math.floor(totalTime * rate);
+        
+        // Triggering (Rising Edge at 0)
+        let triggerIdx = 0;
+        // Simple edge finder
+        for(let i=1; i<waveArray.length - samplesNeeded; i++) {
+            if(waveArray[i-1] < 0 && waveArray[i] >= 0) {
+                triggerIdx = i;
+                break;
+            }
+        }
+        
+        // Apply Horizontal Offset (pixels -> samples)
+        const offsetSamples = Math.floor(scopeSettings.hOffset * scopeSettings.timePerDiv * rate);
+        let startSample = triggerIdx - offsetSamples; 
+        
+        const pixelsPerSample = w / samplesNeeded;
+        
+        for(let i=0; i<samplesNeeded; i++) {
+            const bufIdx = startSample + i;
+            if(bufIdx < 0 || bufIdx >= waveArray.length) continue;
+            
+            const rawY = waveArray[bufIdx];
+            // Apply Vertical Offset & Gain
+            const val = (rawY + scopeSettings.vOffset);
+            
+            // Map to Screen Y
+            // Deflection in Divs = val / VDiv
+            // Pixels = Deflection * PixelsPerDiv
+            const divsDeflection = val / scopeSettings.voltsPerDiv;
+            const pxDeflection = divsDeflection * yStep;
+            
+            const plotX = i * pixelsPerSample;
+            const plotY = (h/2) - pxDeflection; // Invert Y for canvas
+
+            if (i===0) ctx.moveTo(plotX, plotY);
+            else ctx.lineTo(plotX, plotY);
+        }
     }
+    
     ctx.stroke();
     
     // * 4. READOUTS
     ctx.fillStyle = '#fff'; ctx.font = "11px monospace";
-    ctx.fillText(`T: ${scopeSettings.timePerDiv*1000 < 1 ? (scopeSettings.timePerDiv*1000000).toFixed(0)+'µs' : (scopeSettings.timePerDiv*1000).toFixed(1)+'ms'}/div`, 5, 12);
-    ctx.fillText(`V: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
+    if (xyMode) {
+        ctx.fillText("XY Mode", 5, 12);
+        ctx.fillText(`Gain: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
+    } else {
+        ctx.fillText(`T: ${scopeSettings.timePerDiv*1000 < 1 ? (scopeSettings.timePerDiv*1000000).toFixed(0)+'µs' : (scopeSettings.timePerDiv*1000).toFixed(1)+'ms'}/div`, 5, 12);
+        ctx.fillText(`V: ${scopeSettings.voltsPerDiv}V/div`, 5, 24);
+    }
 }
 
 function analyze() {
@@ -667,6 +736,15 @@ function toggleScopePause() {
     scopePaused = !scopePaused;
     const btn = document.getElementById('btn-scope-pause');
     if (btn) btn.textContent = scopePaused ? "Resume" : "Pause";
+}
+
+function toggleXYMode() {
+    xyMode = !xyMode;
+    const btn = document.getElementById('btn-scope-xy');
+    if (btn) {
+        btn.textContent = xyMode ? "XT Mode" : "XY Mode";
+        btn.classList.toggle('active', xyMode);
+    }
 }
 
 function copySpectrum() { alert("Spectrum copied!"); }
